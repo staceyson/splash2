@@ -41,11 +41,12 @@
 #include <stdlib.h>
 MAIN_ENV
 
-#define MAXRAND                         32767.0
-#define DEFAULT_N                         128
-#define DEFAULT_P                           1
-#define DEFAULT_B                          16
+#define MAXRAND					32767.0
+#define DEFAULT_N				128
+#define DEFAULT_P				1
+#define DEFAULT_B				16
 #define min(a,b) ((a) < (b) ? (a) : (b))
+#define PAGE_SIZE				4096
 
 struct GlobalMemory {
   double *t_in_fac;
@@ -53,11 +54,11 @@ struct GlobalMemory {
   double *t_in_mod;
   double *t_in_bar;
   double *completion;
-  unsigned int starttime;
-  unsigned int rf;
-  unsigned int rs;
-  unsigned int done;
-  int id;
+  unsigned long starttime;
+  unsigned long rf;
+  unsigned long rs;
+  unsigned long done;
+  long id;
   BARDEC(start)
   LOCKDEC(idlock)
 } *Global;
@@ -69,52 +70,45 @@ struct LocalCopies {
   double t_in_bar;
 };
 
-int n = DEFAULT_N;          /* The size of the matrix */
-int P = DEFAULT_P;          /* Number of processors */
-int block_size = DEFAULT_B; /* Block dimension */
-int nblocks;                /* Number of blocks in each dimension */
-int num_rows;               /* Number of processors per row of processor grid */
-int num_cols;               /* Number of processors per col of processor grid */
-double *a;                  /* a = lu; l and u both placed back in a */
+long n = DEFAULT_N;          /* The size of the matrix */
+long P = DEFAULT_P;          /* Number of processors */
+long block_size = DEFAULT_B; /* Block dimension */
+long nblocks;                /* Number of blocks in each dimension */
+long num_rows;               /* Number of processors per row of processor grid */
+long num_cols;               /* Number of processors per col of processor grid */
+double *a;                   /* a = lu; l and u both placed back in a */
 double *rhs;
-int *proc_bytes;            /* Bytes to malloc per processor to hold blocks
-                               of A*/
-int test_result = 0;        /* Test result of factorization? */
-int doprint = 0;            /* Print out matrix values? */
-int dostats = 0;            /* Print out individual processor statistics? */
+long *proc_bytes;            /* Bytes to malloc per processor to hold blocks of A*/
+long test_result = 0;        /* Test result of factorization? */
+long doprint = 0;            /* Print out matrix values? */
+long dostats = 0;            /* Print out individual processor statistics? */
 
-void SlaveStart();
-void OneSolve(int, int, double *, int, int);
-void lu0(double *,int, int);
-void bdiv(double *, double *, int, int, int, int);
-void bmodd(double *, double*, int, int, int, int);
-void bmod(double *, double *, double *, int, int, int, int);
-void daxpy(double *, double *, int, double);
-int BlockOwner(int, int);
-void lu(int, int, int, struct LocalCopies *, int);
-void InitA(double *);
-double TouchA(int, int);
-void PrintA();
-void CheckResult(int, double *, double *);
-void printerr(char *);
+void SlaveStart(void);
+void OneSolve(long n, long block_size, long MyNum, long dostats);
+void lu0(double *a, long n, long stride);
+void bdiv(double *a, double *diag, long stride_a, long stride_diag, long dimi, long dimk);
+void bmodd(double *a, double *c, long dimi, long dimj, long stride_a, long stride_c);
+void bmod(double *a, double *b, double *c, long dimi, long dimj, long dimk, long stride);
+void daxpy(double *a, double *b, long n, double alpha);
+long BlockOwner(long I, long J);
+long BlockOwnerColumn(long I, long J);
+long BlockOwnerRow(long I, long J);
+void lu(long n, long bs, long MyNum, struct LocalCopies *lc, long dostats);
+void InitA(double *rhs);
+double TouchA(long bs, long MyNum);
+void PrintA(void);
+void CheckResult(long n, double *a, double *rhs);
+void printerr(char *s);
 
-
-main(argc, argv)
-
-int argc;
-char *argv[];
-
+int main(int argc, char *argv[])
 {
-  int i, j;
-  int ch;
+  long i, ch;
   extern char *optarg;
-  int MyNum=0;
   double mint, maxt, avgt;
   double min_fac, min_solve, min_mod, min_bar;
   double max_fac, max_solve, max_mod, max_bar;
   double avg_fac, avg_solve, avg_mod, avg_bar;
-  int proc_num;
-  unsigned int start;
+  unsigned long start;
 
   CLOCK(start);
 
@@ -148,13 +142,13 @@ char *argv[];
 
   printf("\n");
   printf("Blocked Dense LU Factorization\n");
-  printf("     %d by %d Matrix\n",n,n);
-  printf("     %d Processors\n",P);
-  printf("     %d by %d Element Blocks\n",block_size,block_size);
+  printf("     %ld by %ld Matrix\n",n,n);
+  printf("     %ld Processors\n",P);
+  printf("     %ld by %ld Element Blocks\n",block_size,block_size);
   printf("\n");
   printf("\n");
 
-  num_rows = (int) sqrt((double) P);
+  num_rows = (long) sqrt((double) P);
   for (;;) {
     num_cols = P/num_rows;
     if (num_rows*num_cols == P)
@@ -167,7 +161,15 @@ char *argv[];
   }
 
   a = (double *) G_MALLOC(n*n*sizeof(double));
+  if (a == NULL) {
+	  printerr("Could not malloc memory for a.\n");
+	  exit(-1);
+  }
   rhs = (double *) G_MALLOC(n*sizeof(double));
+  if (rhs == NULL) {
+	  printerr("Could not malloc memory for rhs.\n");
+	  exit(-1);
+  }
 
   Global = (struct GlobalMemory *) G_MALLOC(sizeof(struct GlobalMemory));
   Global->t_in_fac = (double *) G_MALLOC(P*sizeof(double));
@@ -200,13 +202,9 @@ char *argv[];
    matrix data across physically distributed memories in a 
    round-robin fashion as desired. */
 
-  BARINIT(Global->start);
+  BARINIT(Global->start, P);
   LOCKINIT(Global->idlock);
   Global->id = 0;
-
-  for (i=1; i<P; i++) {
-    CREATE(SlaveStart)
-  }
 
   InitA(rhs);
   if (doprint) {
@@ -214,10 +212,8 @@ char *argv[];
     PrintA();
   }
 
-
-  SlaveStart(MyNum);
-
-  WAIT_FOR_END(P-1)
+  CREATE(SlaveStart, P);
+  WAIT_FOR_END(P);
 
   if (doprint) {
     printf("\nMatrix after decomposition:\n");
@@ -286,7 +282,7 @@ char *argv[];
           Global->t_in_bar[0]);
   if (dostats) {
     for (i=1; i<P; i++) {
-      printf("  %3d    %10.0f    %10.0f    %10.0f    %10.0f    %10.0f\n",
+      printf("  %3ld    %10.0f    %10.0f    %10.0f    %10.0f    %10.0f\n",
               i,Global->completion[i],Global->t_in_fac[i],
               Global->t_in_solve[i],Global->t_in_mod[i],
               Global->t_in_bar[i]);
@@ -301,16 +297,11 @@ char *argv[];
   printf("\n");
   Global->starttime = start;
   printf("                            TIMING INFORMATION\n");
-  printf("Start time                        : %16d\n",
-          Global->starttime);
-  printf("Initialization finish time        : %16d\n",
-          Global->rs);
-  printf("Overall finish time               : %16d\n",
-          Global->rf);
-  printf("Total time with initialization    : %16d\n",
-          Global->rf-Global->starttime);
-  printf("Total time without initialization : %16d\n",
-          Global->rf-Global->rs);
+  printf("Start time                        : %16lu\n", Global->starttime);
+  printf("Initialization finish time        : %16lu\n", Global->rs);
+  printf("Overall finish time               : %16lu\n", Global->rf);
+  printf("Total time with initialization    : %16lu\n", Global->rf-Global->starttime);
+  printf("Total time without initialization : %16lu\n", Global->rf-Global->rs);
   printf("\n");
 
   if (test_result) {
@@ -322,13 +313,8 @@ char *argv[];
 }
 
 void SlaveStart()
-
 {
-  int i;
-  int j;
-  int cluster;
-  int max_block;
-  int MyNum;
+  long MyNum;
 
   LOCK(Global->idlock)
     MyNum = Global->id;
@@ -338,28 +324,19 @@ void SlaveStart()
 /* POSSIBLE ENHANCEMENT:  Here is where one might pin processes to
    processors to avoid migration */
 
-  OneSolve(n, block_size, a, MyNum, dostats);
+  BARINCLUDE(Global->start);
+  OneSolve(n, block_size, MyNum, dostats);
 }
 
 
-void OneSolve(n, block_size, a, MyNum, dostats)
-
-double *a;
-int n;
-int block_size;
-int MyNum;
-int dostats;
-
+void OneSolve(long n, long block_size, long MyNum, long dostats)
 {
-  unsigned int i;
-  unsigned int myrs;
-  unsigned int myrf;
-  unsigned int mydone;
+  unsigned long myrs, myrf, mydone;
   struct LocalCopies *lc;
 
   lc = (struct LocalCopies *) malloc(sizeof(struct LocalCopies));
   if (lc == NULL) {
-    fprintf(stderr,"Proc %d could not malloc memory for lc\n",MyNum);
+    fprintf(stderr,"Proc %ld could not malloc memory for lc\n",MyNum);
     exit(-1);
   }
   lc->t_in_fac = 0.0;
@@ -406,16 +383,9 @@ int dostats;
 }
 
 
-void lu0(a, n, stride)
-
-double *a;
-int n;
-int stride;
-
+void lu0(double *a, long n, long stride)
 {
-  int j; 
-  int k;
-  int length;
+  long j, k, length;
   double alpha;
 
   for (k=0; k<n; k++) {
@@ -430,18 +400,9 @@ int stride;
 }
 
 
-void bdiv(a, diag, stride_a, stride_diag, dimi, dimk)
-
-double *a;
-double *diag;
-int stride_a;
-int stride_diag;
-int dimi;
-int dimk;
-
+void bdiv(double *a, double *diag, long stride_a, long stride_diag, long dimi, long dimk)
 {
-  int j;
-  int k;
+  long j, k;
   double alpha;
 
   for (k=0; k<dimk; k++) {
@@ -453,20 +414,9 @@ int dimk;
 }
 
 
-void bmodd(a, c, dimi, dimj, stride_a, stride_c)
-
-double *a;
-double *c;
-int dimi;
-int dimj;
-int stride_a;
-int stride_c;
-
+void bmodd(double *a, double *c, long dimi, long dimj, long stride_a, long stride_c)
 {
-  int i;
-  int j;
-  int k;
-  int length;
+  long j, k, length;
   double alpha;
 
   for (k=0; k<dimi; k++)
@@ -479,20 +429,9 @@ int stride_c;
 }
 
 
-void bmod(a, b, c, dimi, dimj, dimk, stride)
-
-double *a;
-double *b;
-double *c;
-int dimi;
-int dimj;
-int dimk;
-int stride;
-
+void bmod(double *a, double *b, double *c, long dimi, long dimj, long dimk, long stride)
 {
-  int i;
-  int j;
-  int k;
+  long j, k;
   double alpha;
 
   for (k=0; k<dimk; k++) {
@@ -504,15 +443,9 @@ int stride;
 }
 
 
-void daxpy(a, b, n, alpha)
-
-double *a;
-double *b;
-double alpha;
-int n;
-
+void daxpy(double *a, double *b, long n, double alpha)
 {
-  int i;
+  long i;
 
   for (i=0; i<n; i++) {
     a[i] += alpha*b[i];
@@ -520,33 +453,28 @@ int n;
 }
 
 
-int BlockOwner(I, J)
-
-int I;
-int J;
-
+long BlockOwner(long I, long J)
 {
-  return((I%num_cols) + (J%num_rows)*num_cols);
+//	return((I%num_cols) + (J%num_rows)*num_cols);
+	return((I + J) % P);
 }
 
-
-void lu(n, bs, MyNum, lc, dostats)
-
-int n;
-int bs;
-int MyNum;
-struct LocalCopies *lc;
-int dostats;
-
+long BlockOwnerColumn(long I, long J)
 {
-  int i, il, j, jl, k, kl;
-  int I, J, K;
+	return(I % P);
+}
+
+long BlockOwnerRow(long I, long J)
+{
+	return(((J % P) + (P / 2)) % P);
+}
+
+void lu(long n, long bs, long MyNum, struct LocalCopies *lc, long dostats)
+{
+  long i, il, j, jl, k, kl, I, J, K;
   double *A, *B, *C, *D;
-  int dimI, dimJ, dimK;
-  int strI;
-  unsigned int t1, t2, t3, t4, t11, t22;
-  int diagowner;
-  int colowner;
+  long strI;
+  unsigned long t1, t2, t3, t4, t11, t22;
 
   strI = n;
   for (k=0, K=0; k<n; k+=bs, K++) {
@@ -560,8 +488,7 @@ int dostats;
     }
 
     /* factor diagonal block */
-    diagowner = BlockOwner(K, K);
-    if (diagowner == MyNum) {
+    if (BlockOwner(K, K) == MyNum) {
       A = &(a[k+k*n]); 
       lu0(A, kl-k, strI);
     }
@@ -579,7 +506,8 @@ int dostats;
     /* divide column k by diagonal block */
     D = &(a[k+k*n]);
     for (i=kl, I=K+1; i<n; i+=bs, I++) {
-      if (BlockOwner(I, K) == MyNum) {  /* parcel out blocks */
+      if (BlockOwner/*Column*/(I, K) == MyNum) {  /* parcel out blocks */
+	      /*if (K == 0) printf("C%lx\n", BlockOwnerColumn(I, K));*/
         il = i + bs;
         if (il > n) {
           il = n;
@@ -590,7 +518,8 @@ int dostats;
     }
     /* modify row k by diagonal block */
     for (j=kl, J=K+1; j<n; j+=bs, J++) {
-      if (BlockOwner(K, J) == MyNum) {  /* parcel out blocks */
+      if (BlockOwner/*Row*/(K, J) == MyNum) {  /* parcel out blocks */
+	      /*if (K == 0) printf("R%lx\n", BlockOwnerRow(K, J));*/
         jl = j+bs;
         if (jl > n) {
           jl = n;
@@ -616,7 +545,6 @@ int dostats;
       if (il > n) {
         il = n;
       }
-      colowner = BlockOwner(I,K);
       A = &(a[i+k*n]);
       for (j=kl, J=K+1; j<n; j+=bs, J++) {
         jl = j + bs;
@@ -624,6 +552,7 @@ int dostats;
           jl = n;
         }
         if (BlockOwner(I, J) == MyNum) {  /* parcel out blocks */
+//		if (K == 0) printf("%lx\n", BlockOwner(I, J));
           B = &(a[k+j*n]);
           C = &(a[i+j*n]);
           bmod(A, B, C, il-i, jl-j, kl-k, n);
@@ -641,12 +570,9 @@ int dostats;
 }
 
 
-void InitA(rhs)
-
-double *rhs;
-
+void InitA(double *rhs)
 {
-  int i, j;
+  long i, j;
 
   srand48((long) 1);
   for (j=0; j<n; j++) {
@@ -669,13 +595,9 @@ double *rhs;
 }
 
 
-double TouchA(bs, MyNum)
-
-int bs;
-int MyNum;
-
+double TouchA(long bs, long MyNum)
 {
-  int i, j, I, J;
+  long i, j, I, J;
   double tot = 0.0;
 
   for (J=0; J*bs<n; J++) {
@@ -695,7 +617,7 @@ int MyNum;
 
 void PrintA()
 {
-  int i, j;
+  long i, j;
 
   for (i=0; i<n; i++) {
     for (j=0; j<n; j++) {
@@ -706,14 +628,9 @@ void PrintA()
 }
 
 
-void CheckResult(n, a, rhs)
-
-int n;
-double *a;
-double  *rhs;
-
+void CheckResult(long n, double *a, double *rhs)
 {
-  int i, j, bogus = 0;
+  long i, j, bogus = 0;
   double *y, diff, max_diff;
 
   y = (double *) malloc(n*sizeof(double));
@@ -754,10 +671,8 @@ double  *rhs;
 }
 
 
-void printerr(s)
-
-char *s;
-
+void printerr(char *s)
 {
   fprintf(stderr,"ERROR: %s\n",s);
 }
+

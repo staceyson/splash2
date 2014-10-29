@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <math.h>
+#include <string.h>
 #include "rt.h"
 
 
@@ -105,8 +106,7 @@ static	PPROCS	TriProcs =
  *
  */
 
-ELEMENT **MakeElementArray(totalElements)
-INT	*totalElements;
+ELEMENT **MakeElementArray(INT *totalElements)
 	{
 	INT	 i;
 	OBJECT	*po;				/* Ptr to object.	     */
@@ -150,8 +150,7 @@ INT	*totalElements;
  *	Nothing.
  */
 
-VOID	PrintGeo(po)
-OBJECT	*po;
+VOID	PrintGeo(OBJECT *po)
 	{
 	while (po)
 		{
@@ -186,10 +185,7 @@ OBJECT	*po;
  *	Nothing.
  */
 
-VOID	NormalizeGeo(po, model, modelInvT)
-OBJECT	*po;
-MATRIX	model;
-MATRIX	modelInvT;
+VOID	NormalizeGeo(OBJECT *po, MATRIX model, MATRIX modelInvT)
 	{
 	REAL	norm_minx;			/* Normalize min values.     */
 	REAL	norm_miny;
@@ -278,8 +274,7 @@ MATRIX	modelInvT;
  *	Nothing.
  */
 
-VOID	ReadGeoFile(GeoFileName)
-CHAR	*GeoFileName;
+VOID	ReadGeoFile(CHAR *GeoFileName)
 	{
 	INT		i;
 	INT		dummy;
@@ -293,7 +288,6 @@ CHAR	*GeoFileName;
 	MATRIX		model;			/* Model matrix.	     */
 	MATRIX		modelInv;		/* Model matrix inverse.     */
 	MATRIX		modelInvT;		/* Model matrix inv transpose*/
-	OBJECT		*po;			/* Ptr to object.	     */
 	OBJECT		*prev;			/* Ptr to previous object.   */
 	OBJECT		*curr;			/* Ptr to current object.    */
 	ELEMENT 	*pe;			/* Ptr to the element list.  */

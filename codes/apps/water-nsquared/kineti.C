@@ -22,25 +22,19 @@ EXTERN_ENV
 #include "split.h"
 #include "global.h"
 
-KINETI(NMOL,SUM,HMAS,OMAS,ProcID)
-  int NMOL;
-  double HMAS,OMAS;
-  double SUM[];
-  unsigned ProcID;
-  
-  /* this routine computes kinetic energy in each of the three
-     spatial dimensions, and puts the computed values in the
-     SUM array */ 
+  /* this routine computes kinetic energy in each of the three spatial
+     dimensions, and puts the computed values in the SUM array */
+void KINETI(double *SUM, double HMAS, double OMAS, long ProcID)
 {
-    int dir, mol;
+    long dir, mol;
     double S;
-    
+
     /* loop over the three directions */
     for (dir = XDIR; dir <= ZDIR; dir++) {
         S=0.0;
         /* loop over the molecules */
         for (mol = StartMol[ProcID]; mol < StartMol[ProcID+1]; mol++) {
-            double *tempptr = VAR[mol].F[VEL][dir]; 
+            double *tempptr = VAR[mol].F[VEL][dir];
             S += ( tempptr[H1] * tempptr[H1] +
                   tempptr[H2] * tempptr[H2] ) * HMAS
                       + (tempptr[O] * tempptr[O]) * OMAS;

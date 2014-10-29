@@ -20,13 +20,9 @@ EXTERN_ENV
 #define HashNum 1024
 #define Bucket(desti, destj, src) ((desti+destj+src)%HashNum)
 
-int uMiss = 0;
+long uMiss = 0;
 extern struct GlobalMemory *Global;
 struct Update **updateHash;
-
-struct hLock {
-	LOCKDEC(theLock)
-	} *hashLock;
 
 struct taskQ {
 	LOCKDEC(taskLock)
@@ -38,9 +34,9 @@ struct taskQ {
 
 extern BMatrix LB;
 
-InitTaskQueues(P)
+void InitTaskQueues(long P)
 {
-  int i, j;
+  long i;
 
   tasks = (struct taskQ *) MyMalloc(P*sizeof(struct taskQ), DISTRIBUTED);
   for (i=0; i<P; i++) {
@@ -56,9 +52,9 @@ InitTaskQueues(P)
 
 /* Find block number of block at position (i,j) */
 
-FindBlock(i, j)
+long FindBlock(long i, long j)
 {
-  int lo, hi, probe;
+  long lo, hi, probe;
 
   lo = LB.col[j]; hi = LB.col[j+1];
   for (;;) {
@@ -82,12 +78,9 @@ FindBlock(i, j)
 
 /* p is processor no if block_num = -1, ignored otherwise */
 
-Send(src_block, dest_block, desti, destj, update, p, MyNum, lc)
-struct Update *update;
-int MyNum;
-struct LocalCopies *lc;
+void Send(long src_block, long dest_block, long desti, long destj, struct Update *update, long p, long MyNum, struct LocalCopies *lc)
 {
-  int procnum, is_probe;
+  long procnum, is_probe;
   struct Task *t;
 
   procnum = p;
@@ -127,18 +120,13 @@ struct LocalCopies *lc;
 }
 
 
-TaskWaiting(MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+long TaskWaiting(long MyNum)
 {
   return(tasks[MyNum].taskQ != NULL);
 }
 
 
-GetBlock(desti, destj, src, update, MyNum, lc)
-int *desti, *destj, *src, MyNum;
-struct Update **update;
-struct LocalCopies *lc;
+void GetBlock(long *desti, long *destj, long *src, struct Update **update, long MyNum, struct LocalCopies *lc)
 {
   struct Task *t;
 

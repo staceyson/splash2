@@ -14,18 +14,19 @@
 /*                                                                       */
 /*************************************************************************/
 
+EXTERN_ENV
 #include "mdvar.h"
 #include "parameters.h"
 #include "mddata.h"
 #include "split.h"
+#include "global.h"
 
-BNDRY(ProcID)     /* this routine puts the molecules back inside the box if
-                     they are  out */
-  unsigned ProcID;
+/* this routine puts the molecules back inside the box if they are out */
+void BNDRY(long ProcID)
 {
-    int mol, dir; 
+    long mol, dir;
     double *extra_p;
-    
+
     /* for each molecule */
     for (mol = StartMol[ProcID]; mol < StartMol[ProcID+1]; mol++) {
         /* for each direction */
@@ -42,8 +43,7 @@ BNDRY(ProcID)     /* this routine puts the molecules back inside the box if
                 extra_p[H1] += BOXL;
                 extra_p[O]  += BOXL;
                 extra_p[H2] += BOXL;
-            } 
+            }
         } /* for dir */
     } /* for mol */
 } /* end of subroutine BNDRY */
-

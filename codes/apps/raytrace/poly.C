@@ -30,22 +30,6 @@
 #include "rt.h"
 
 
-/*
- *	Define polygon data structure.
- */
-
-typedef struct poly
-	{
-	INT	nverts; 		/* Number of vertices in polygon.    */
-	VEC3	norm;			/* Face normal. 		     */
-	REAL	d;			/* Plane eqn D. 		     */
-	VEC3	*vptr;			/* Global vertex list pointer.	     */
-	INT	*vindex;		/* Index of vertices.		     */
-	INT	axis_proj;		/* Best axis for projection.	     */
-	}
-	POLY;
-
-
 
 /*
  * NAME
@@ -77,8 +61,7 @@ CHAR	*PolyName()
  *	Nothing.
  */
 
-VOID	PolyPrint(po)
-OBJECT	*po;
+VOID	PolyPrint(OBJECT *po)
 	{
 	INT	i, j;
 	INT	*vindex;		/* Ptr to vertex index. 	     */
@@ -124,9 +107,7 @@ OBJECT	*po;
  *	Nothing.
  */
 
-VOID	PolyElementBoundBox(pe, pp)
-ELEMENT *pe;
-POLY	*pp;
+VOID	PolyElementBoundBox(ELEMENT *pe, POLY *pp)
 	{
 	INT	i;			/* Index.			     */
 	INT	*vindex;		/* Vertex index pointer.	     */
@@ -182,8 +163,7 @@ POLY	*pp;
  *	Nothing.
  */
 
-VOID	PolyBoundBox(po)
-OBJECT	*po;
+VOID	PolyBoundBox(OBJECT *po)
 	{
 	INT	i;
 	POLY	*pp;			/* Ptr to polygon data. 	     */
@@ -244,10 +224,7 @@ OBJECT	*po;
  *	Nothing.
  */
 
-VOID	PolyNormal(hit, Pi, Ni)
-IRECORD *hit;
-POINT	Pi;
-POINT	Ni;
+VOID	PolyNormal(IRECORD *hit, POINT Pi, POINT Ni)
 	{
 	ELEMENT *pe;
 	POLY	*pp;
@@ -274,9 +251,7 @@ POINT	Ni;
  *	Nothing.
  */
 
-VOID	PolyDataNormalize(po, normMat)
-OBJECT	*po;
-MATRIX	normMat;
+VOID	PolyDataNormalize(OBJECT *po, MATRIX normMat)
 	{
 	INT	i;
 	POINT	coord;
@@ -363,19 +338,14 @@ MATRIX	normMat;
  *	The number of intersection points.
  */
 
-INT	PolyPeIntersect(pr, pe, hit)
-RAY	*pr;
-ELEMENT *pe;
-IRECORD *hit;
+INT	PolyPeIntersect(RAY *pr, ELEMENT *pe, IRECORD *hit)
 	{
 	INT	i;
 	INT	*vindex;		/* Vertex index pointer.	     */
 	INT	toright;		/* Counter.			     */
 	INT	sh, nsh;		/* Sign holders.		     */
-	REAL	tmp;
 	REAL	Rd_dot_Pn;		/* Polygon normal dot ray direction. */
 	REAL	Ro_dot_Pn;		/* Polygon normal dot ray origin.    */
-	REAL	q1, q2;
 	REAL	tval;			/* Intersection t distance value.    */
 	REAL	x[MAX_VERTS + 1];	/* Projection list.		     */
 	REAL	y[MAX_VERTS + 1];	/* Projection list.		     */
@@ -384,7 +354,6 @@ IRECORD *hit;
 	REAL	xint;			/* Intersection value.		     */
 	VEC3	I;			/* Intersection point.		     */
 	VEC3	*vlist, *vpos;		/* Vertex list pointer. 	     */
-	VEC3	*v1, *v2, *v3;		/* Vertex list pointers.	     */
 	POLY	*pp;			/* Ptr to polygon data. 	     */
 
 	pp = (POLY *)pe->data;
@@ -532,10 +501,7 @@ IRECORD *hit;
  *	The number of intersections found.
  */
 
-INT	PolyIntersect(pr, po, hit)
-RAY	*pr;
-OBJECT	*po;
-IRECORD *hit;
+INT	PolyIntersect(RAY *pr, OBJECT *po, IRECORD *hit)
 	{
 	INT	i;
 	INT	nhits;			/* # hits in polyhedra. 	     */
@@ -588,14 +554,10 @@ IRECORD *hit;
  *	Nothing.
  */
 
-VOID	PolyTransform(po, xtrans, xinvT)
-OBJECT	*po;
-MATRIX	xtrans;
-MATRIX	xinvT;
+VOID	PolyTransform(OBJECT *po, MATRIX xtrans, MATRIX xinvT)
 	{
-	INT	i, j;			/* Indices.			     */
+	INT	i;			/* Indices.			     */
 	INT	numelems;		/* # of elements.		     */
-	INT	*vindex;		/* Vertex index pointer.	     */
 	VEC3	*vptr, *vp;		/* Vertex list pointers.	     */
 	VEC4	norm, coord;		/* Transform 4 vectors. 	     */
 	POLY	*pp;			/* Ptr to polygon data. 	     */
@@ -694,9 +656,7 @@ MATRIX	xinvT;
  *	Nothing.
  */
 
-VOID	PolyRead(po, pf)
-OBJECT	*po;
-FILE	*pf;
+VOID	PolyRead(OBJECT *po, FILE *pf)
 	{
 	INT	i, j;			/* Indices.			     */
 	INT	instat; 		/* Read status. 		     */
@@ -704,7 +664,6 @@ FILE	*pf;
 	INT	totalverts;		/* Total # of vertices in poly mesh. */
 	CHAR	normstr[5];		/* Face/vertex normal flag string.   */
 	BOOL	pnormals;		/* Face normals present?	     */
-	BOOL	vnormals;		/* Vertex normals present?	     */
 	VEC3	pnorm;			/* Polygon normal accumulator.	     */
 	VEC3	*vlist, *vptr, *vp;	/* Ptr to vertex list.		     */
 	VEC3	*vptmp, *vptmp2;	/* Ptr to vertex list.		     */

@@ -15,7 +15,6 @@
 /*************************************************************************/
 
 EXTERN_ENV
-
 #include "math.h"
 #include "stdio.h"
 #include "mdvar.h"
@@ -25,39 +24,36 @@ EXTERN_ENV
 #include "parameters.h"
 #include "mddata.h"
 #include "split.h"
+#include "global.h"
 
-INITIA()
+void INITIA()
 {
     /*   this routine initializes the positions of the molecules along
          a regular cubical lattice, and randomizes the initial velocities of
-         the atoms.  The random numbers used in the initialization of velocities 
+         the atoms.  The random numbers used in the initialization of velocities
          are read from the file random.in, which must be in the current working
          directory in which the program is run  */
-    
-    static double XMIN = 0;
-    static double YMIN = 0;
-    static double ZMIN = 0;
+
     FILE *random_numbers;       /* points to input file containing
                                    pseudo-random numbers for initializing
                                    velocities */
-    double XMAS[4], XS, ZERO, WCOS, WSIN, XT[4], YT[4], Z;
+    double XMAS[4], XT[4], YT[4], Z;
     double SUX, SUY, SUZ, SUMX, SUMY, SUMZ, FAC;
-    int mol=0;
-    int atom=0;
-    int deriv;
-    double xrand();
-    
+    long mol=0;
+    long atom=0;
+    long deriv;
+
     random_numbers = fopen("random.in","r");
     if (random_numbers == NULL) {
         fprintf(stderr,"Error in opening file random.in\n");
         fflush(stderr);
         exit(-1);
     }
-    
+
     XMAS[1]=sqrt(OMAS*HMAS);
     XMAS[0]=HMAS;
     XMAS[2]=HMAS;
-    
+
     /* .....assign positions */
     {
         double NS = pow((double) NMOL, 1.0/3.0) - 0.00001;
@@ -65,8 +61,8 @@ INITIA()
         double ZERO = XS * 0.50;
         double WCOS = ROH * cos(ANGLE * 0.5);
         double WSIN = ROH * sin(ANGLE * 0.5);
-        int i,j,k;
-        
+        long i,j,k;
+
         printf("\nNS = %.16f\n",NS);
         printf("BOXL = %10f\n",BOXL);
         printf("CUTOFF = %10f\n",CUTOFF);
@@ -75,20 +71,20 @@ INITIA()
         printf("WCOS = %f\n",WCOS);
         printf("WSIN = %f\n",WSIN);
         fflush(stdout);
-        
+
 #ifdef RANDOM
         /* if we want to initialize to a random distribution of displacements
            for the molecules, rather than a distribution along a regular lattice
            spaced according to intermolecular distances in water */
-        srandom(1023);
+        srand(1023);
         for (i = 0; i < NMOL; i++) {
-            VAR[mol].F[DISP][XDIR][O] = xrand(0, BOXL); 
-            VAR[mol].F[DISP][XDIR][H1] = VAR[mol].F[DISP][XDIR][O] + WCOS; 
+            VAR[mol].F[DISP][XDIR][O] = xrand(0, BOXL);
+            VAR[mol].F[DISP][XDIR][H1] = VAR[mol].F[DISP][XDIR][O] + WCOS;
             VAR[mol].F[DISP][XDIR][H2] = VAR[mol].F[DISP][XDIR][H1];
-            VAR[mol].F[DISP][YDIR][O] = xrand(0, BOXL); 
-            VAR[mol].F[DISP][YDIR][H1] = VAR[mol].F[DISP][YDIR][O] + WSIN; 
-            VAR[mol].F[DISP][YDIR][H2] = VAR[mol].F[DISP][YDIR][O] - WSIN; 
-            VAR[mol].F[DISP][ZDIR][O] = xrand(0, BOXL); 
+            VAR[mol].F[DISP][YDIR][O] = xrand(0, BOXL);
+            VAR[mol].F[DISP][YDIR][H1] = VAR[mol].F[DISP][YDIR][O] + WSIN;
+            VAR[mol].F[DISP][YDIR][H2] = VAR[mol].F[DISP][YDIR][O] - WSIN;
+            VAR[mol].F[DISP][ZDIR][O] = xrand(0, BOXL);
             VAR[mol].F[DISP][ZDIR][H1] = VAR[mol].F[DISP][ZDIR][O];
             VAR[mol].F[DISP][ZDIR][H2] = VAR[mol].F[DISP][ZDIR][O];
         }
@@ -97,7 +93,7 @@ INITIA()
            lattice.  This is the default and the prefered initialization
            since random does not necessarily make sense from the viewpoint
            of preserving bond distances */
-        
+
         fprintf(six, "***** NEW RUN STARTING FROM REGULAR LATTICE *****\n");
         fflush(six);
         XT[2] = ZERO;
@@ -123,17 +119,17 @@ INITIA()
             }
             XT[2]=XT[2]+XS;
         }
-        
+
         if (NMOL != mol) {
-            printf("Lattice init error: total mol %d != NMOL %d\n", mol, NMOL);
+            printf("Lattice init error: total mol %ld != NMOL %ld\n", mol, NMOL);
             exit(-1);
         }
 #endif
     }
-    
+
     /* ASSIGN RANDOM MOMENTA */
     fscanf(random_numbers,"%lf",&SUX);
-    
+
     SUMX=0.0;
     SUMY=0.0;
     SUMZ=0.0;
@@ -153,12 +149,12 @@ INITIA()
             }
         } /* atoms */
     } /* molecules */
-    
+
     /* find average momenta per atom */
     SUMX=SUMX/(NATOMS*NMOL);
     SUMY=SUMY/(NATOMS*NMOL);
     SUMZ=SUMZ/(NATOMS*NMOL);
-    
+
     /*  find normalization factor so that <k.e.>=KT/2  */
     SUX=0.0;
     SUY=0.0;
@@ -167,11 +163,11 @@ INITIA()
         SUX = SUX + (pow( (VAR[mol].F[VEL][XDIR][H1] - SUMX),2.0)
                      +pow( (VAR[mol].F[VEL][XDIR][H2] - SUMX),2.0))/HMAS
                          +pow( (VAR[mol].F[VEL][XDIR][O]  - SUMX),2.0)/OMAS;
-        
+
         SUY = SUY + (pow( (VAR[mol].F[VEL][YDIR][H1] - SUMY),2.0)
                      +pow( (VAR[mol].F[VEL][YDIR][H2] - SUMY),2.0))/HMAS
                          +pow( (VAR[mol].F[VEL][YDIR][O]  - SUMY),2.0)/OMAS;
-        
+
         SUZ = SUZ + (pow( (VAR[mol].F[VEL][ZDIR][H1] - SUMZ),2.0)
                      +pow( (VAR[mol].F[VEL][ZDIR][H2] - SUMZ),2.0))/HMAS
                          +pow( (VAR[mol].F[VEL][ZDIR][O]  - SUMZ),2.0)/OMAS;
@@ -180,7 +176,7 @@ INITIA()
     SUX=sqrt(FAC/SUX);
     SUY=sqrt(FAC/SUY);
     SUZ=sqrt(FAC/SUZ);
-    
+
     /* normalize individual velocities so that there are no bulk
        momenta  */
     XMAS[1]=OMAS;
@@ -194,21 +190,19 @@ INITIA()
                                            SUMZ) * SUZ/XMAS[atom];
         } /* for atom */
     } /* for mol */
-    
+
     fclose(random_numbers);
-    
+
 } /* end of subroutine INITIA */
 
 /*
  * XRAND: generate floating-point random number.
  */
 
-double xrand(xl, xh)
-  double xl, xh;				/* lower, upper bounds on number */
+double xrand(double xl, double xh)
 {
-    long random ();
     double x;
-    
-    x=(xl + (xh - xl) * ((double) random()) / 2147483647.0);
+
+    x=(xl + (xh - xl) * ((double) rand()) / 2147483647.0);
     return (x);
 }

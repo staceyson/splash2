@@ -19,27 +19,23 @@ EXTERN_ENV
 #include <math.h>
 #include "matrix.h"
 
-extern int *node;  /* ALL GLOBAL */
-extern int postpass_partition_size;
-extern int distribute;
+extern long *node;  /* ALL GLOBAL */
+extern long postpass_partition_size;
+extern long distribute;
 BMatrix LB;
 extern SMatrix L;
-int P_dimi, P_dimj;
+long P_dimi, P_dimj;
 
 /* perform symbolic factorization of original matrix into block form */
 
-CreateBlockedMatrix2(M, block_ub, T, firstchild, child,
-	PERM, INVP, domain, partition)
-SMatrix M;
-int *T, *firstchild, *child, *PERM, *INVP, *domain, *partition;
+void CreateBlockedMatrix2(SMatrix M, long block_ub, long *T, long *firstchild, long *child, long *PERM, long *INVP, long *domain, long *partition)
 {
-  int i, j, k, p, which, super, n_nz;
-  int *structure, *nz;
+  long i, j, k, p, which, super, n_nz;
+  long *structure, *nz;
   Block *blocks;
-  extern int P;
-  extern int *domains, *proc_domains;
-  extern double max_block_size;
-  int num_partitions, piece_size, piece, current;
+  extern long P;
+  extern long *domains, *proc_domains;
+  long num_partitions, piece_size, piece, current;
 
   LB.n = M.n;
   LB.domain = domain;
@@ -54,14 +50,14 @@ int *T, *firstchild, *child, *PERM, *INVP, *domain, *partition;
     LB.proc_domain_storage[i] = NULL;
 
   /* one dummy column for each domain */
-  LB.partition_size = (int *) MyMalloc((LB.n+LB.n_domains+1)*sizeof(int),
+  LB.partition_size = (long *) MyMalloc((LB.n+LB.n_domains+1)*sizeof(long),
 				    DISTRIBUTED);
-  LB.col = (int *) MyMalloc((LB.n+LB.n_domains+1)*sizeof(int), DISTRIBUTED);
+  LB.col = (long *) MyMalloc((LB.n+LB.n_domains+1)*sizeof(long), DISTRIBUTED);
 
   LB.entry = (Entry *) G_MALLOC(LB.entries_allocated*sizeof(Entry),0);
   MigrateMem(LB.entry, LB.entries_allocated*sizeof(Entry), DISTRIBUTED);
-  LB.row = (int *) G_MALLOC(LB.entries_allocated*sizeof(int), 0);
-  MigrateMem(LB.row, LB.entries_allocated*sizeof(int), DISTRIBUTED);
+  LB.row = (long *) G_MALLOC(LB.entries_allocated*sizeof(long), 0);
+  MigrateMem(LB.row, LB.entries_allocated*sizeof(long), DISTRIBUTED);
 
   FindMachineDimensions(P);
 
@@ -111,25 +107,25 @@ int *T, *firstchild, *child, *PERM, *INVP, *domain, *partition;
     LB.n_partitions = 1;
 
   /* determine numbering based on partitions only */
-  LB.renumbering = (int *) MyMalloc((LB.n+LB.n_domains)*sizeof(int),
+  LB.renumbering = (long *) MyMalloc((LB.n+LB.n_domains)*sizeof(long),
 				     DISTRIBUTED);
   ComputePartitionNumbering(LB.renumbering);
   for (j=0; j<LB.n_domains; j++)
     LB.renumbering[LB.n+j] = j%LB.n_partitions;
 
   /* determine mapping of rows/columns of blocks to rows/columns of procs */
-  LB.mapI = (int *) MyMalloc(LB.n_partitions*sizeof(int), DISTRIBUTED);
-  LB.mapJ = (int *) MyMalloc(LB.n_partitions*sizeof(int), DISTRIBUTED);
+  LB.mapI = (long *) MyMalloc(LB.n_partitions*sizeof(long), DISTRIBUTED);
+  LB.mapJ = (long *) MyMalloc(LB.n_partitions*sizeof(long), DISTRIBUTED);
   for (i=0; i<LB.n_partitions; i++)
     LB.mapI[i] = LB.mapJ[i] = i;
   printf("No redistribution\n");
 
   printf("Supers: "); DumpSizes(LB, domain, node);
   printf("Blocks: "); DumpSizes(LB, domain, LB.partition_size);
-  printf("%d partitions\n", LB.n_partitions);
+  printf("%ld partitions\n", LB.n_partitions);
 
-  structure = (int *) malloc(M.n*sizeof(int));
-  nz = (int *) malloc(M.n*sizeof(int));
+  structure = (long *) malloc(M.n*sizeof(long));
+  nz = (long *) malloc(M.n*sizeof(long));
   for (i=0; i<M.n; i++)
     structure[i] = 0;
 
@@ -170,7 +166,7 @@ int *T, *firstchild, *child, *PERM, *INVP, *domain, *partition;
   for (j=0; j<LB.n_domains; j++)
     LB.n_blocks += (LB.col[LB.n+j+1]-LB.col[LB.n+j]);
 
-  printf("%d partitions, %d blocks\n", LB.n_partitions, LB.n_blocks);
+  printf("%ld partitions, %ld blocks\n", LB.n_partitions, LB.n_blocks);
 
   /* now allocate storage for blocks and fill in simple info */
   blocks = (Block *) MyMalloc(LB.n_blocks*sizeof(Block), DISTRIBUTED);
@@ -183,7 +179,7 @@ int *T, *firstchild, *child, *PERM, *INVP, *domain, *partition;
         BLOCK(i)->j = j;
 	if (LB.renumbering[BLOCK(i)->i] < 0 ||
 	    LB.renumbering[BLOCK(i)->j] < 0) {
-	  printf("Block %d has bad structure\n");
+	  printf("Block %ld has bad structure\n", which);
 	  exit(-1);
 	}
 	BLOCK(i)->done = 0;
@@ -209,9 +205,9 @@ int *T, *firstchild, *child, *PERM, *INVP, *domain, *partition;
 
 }
 
-FindNumPartitions(set_size, piece_size)
+long FindNumPartitions(long set_size, long piece_size)
 {
-  int num_partitions;
+  long num_partitions;
 
   if (set_size <= 4*piece_size/3)
     num_partitions = 1;
@@ -226,10 +222,9 @@ FindNumPartitions(set_size, piece_size)
 }
 
 
-ComputeBlockParents(T)
-int *T;
+void ComputeBlockParents(long *T)
 {
-  int b, i, parent_col;
+  long b, i, parent_col;
 
   /* compute block parents */
 
@@ -242,8 +237,7 @@ int *T;
 	else if (BLOCK(i)->i <= BLOCK(i)->j)
 	  BLOCK(i)->parent = -1; /* above diag */
 	else {
-	  BLOCK(i)->parent = FindBlock(BLOCK(i)->i,
-						parent_col);
+	  BLOCK(i)->parent = FindBlock(BLOCK(i)->i, parent_col);
 	  if (BLOCK(i)->parent == -1)
 	    printf("Parent not found\n");
 	}
@@ -254,24 +248,21 @@ int *T;
   for (b=0; b<LB.n_domains; b++)
     for (i=LB.col[LB.n+b]; i<LB.col[LB.n+b+1]; i++) {
       parent_col = T[LB.domains[b]];
-      BLOCK(i)->parent = FindBlock(BLOCK(i)->i,
-					    parent_col);
+      BLOCK(i)->parent = FindBlock(BLOCK(i)->i, parent_col);
     }
 }
 
 
 /* find non-zero structure of individual blocks */
 
-FillInStructure(M, firstchild, child, PERM, INVP)
-SMatrix M;
-int *firstchild, *child, *PERM, *INVP;
+void FillInStructure(SMatrix M, long *firstchild, long *child, long *PERM, long *INVP)
 {
-  int i, j, col, super;
-  int *structure, *nz, n_nz;
+  long i, j, col, super;
+  long *structure, *nz, n_nz;
 
   /* all procedures get structure=0, and return structure=0 */
-  structure = (int *) malloc(M.n*sizeof(int));
-  nz = (int *) malloc(M.n*sizeof(int));
+  structure = (long *) malloc(M.n*sizeof(long));
+  nz = (long *) malloc(M.n*sizeof(long));
   for (i=0; i<M.n; i++)
     structure[i] = 0;
 
@@ -300,11 +291,9 @@ int *firstchild, *child, *PERM, *INVP;
 
 /* put original non-zero values into blocks */
 
-FillInNZ(M, PERM, INVP)
-SMatrix M;
-int *PERM, *INVP;
+void FillInNZ(SMatrix M, long *PERM, long *INVP)
 {
-  int i, j;
+  long j;
   double *scatter;
 
   scatter = (double *) malloc(M.n*sizeof(double));
@@ -319,10 +308,9 @@ int *PERM, *INVP;
 }
 
 
-FindDomStructure(super, nz, n_nz)
-int *nz;
+void FindDomStructure(long super, long *nz, long n_nz)
 {
-  int col, i;
+  long col, i;
 
   for (col=super; col<super+node[super]; col++) {
     LB.col[col+1] = LB.col[col] + n_nz - (col-super);
@@ -336,9 +324,9 @@ int *nz;
   }
 }
 
-FindDummyDomainStructure(which_domain)
+void FindDummyDomainStructure(long which_domain)
 {
-  int col, row, current_block, current_block_last;
+  long col, row, current_block, current_block_last;
 
   col = LB.domains[which_domain];
 
@@ -368,20 +356,17 @@ FindDummyDomainStructure(which_domain)
 }
 
 
-CheckColLength(col, n_nz)
+void CheckColLength(long col, long n_nz)
 {
-  extern int *nz;
+  extern long *nz;
 
   if (n_nz != nz[col])
-    printf("Col %d: %d vs %d\n", col, n_nz, nz[col]);
+    printf("Col %ld: %ld vs %ld\n", col, n_nz, nz[col]);
 }
 
-
-FindBlStructure(M, super, PERM, INVP, firstchild, child, structure, nz)
-SMatrix M;
-int *PERM, *INVP, *firstchild, *child, *structure, *nz;
+void FindBlStructure(SMatrix M, long super, long *PERM, long *INVP, long *firstchild, long *child, long *structure, long *nz)
 {
-  int truecol, i, c, col, the_child, bl, n_nz;
+  long truecol, i, c, col, the_child, bl, n_nz;
 
   n_nz = 0;
   for (col=super; col<super+node[super]; col++) {
@@ -429,12 +414,9 @@ int *PERM, *INVP, *firstchild, *child, *structure, *nz;
 }
 
 
-FindSuperStructure(M, super, PERM, INVP, firstchild, child,
-		   structure, nz, n_nz)
-SMatrix M;
-int *PERM, *INVP, *firstchild, *child, *structure, *nz, *n_nz;
+void FindSuperStructure(SMatrix M, long super, long *PERM, long *INVP, long *firstchild, long *child, long *structure, long *nz, long *n_nz)
 {
-  int i, truecol, current, bl, c, the_child, row;
+  long i, truecol, current, bl, c, the_child, row;
 
   *n_nz = 0;
 
@@ -490,10 +472,9 @@ int *PERM, *INVP, *firstchild, *child, *structure, *nz, *n_nz;
 }
 
 
-FindDetailedStructure(col, structure, nz, n_nz)
-int *structure, *nz;
+void FindDetailedStructure(long col, long *structure, long *nz, long n_nz)
 {
-  int i, j, row, n, owner;
+  long i, j, row, n, owner;
 
   for (i=0; i<n_nz; i++)
     structure[nz[i]] = 1;
@@ -512,8 +493,8 @@ int *structure, *nz;
     else {
       owner = EmbeddedOwner(i);
       if (owner < 0)
-	printf("%d,%d: %d\n", BLOCKROW(i), BLOCKCOL(i), owner);
-      BLOCK(i)->structure = (int *) MyMalloc(n*sizeof(int), owner);
+	printf("%ld,%ld: %ld\n", BLOCKROW(i), BLOCKCOL(i), owner);
+      BLOCK(i)->structure = (long *) MyMalloc(n*sizeof(long), owner);
       n = 0;
       for (j=0; j<LB.partition_size[row]; j++)
         if (structure[row+j])
@@ -527,16 +508,15 @@ int *structure, *nz;
 }
 
 
-AllocateNZ()
+void AllocateNZ()
 {
-  int i, j, b, size;
+  long i, j, b, size;
 
   for (j=0; j<LB.n; j+=LB.partition_size[j])
     if (!LB.domain[j]) {
       for (b=LB.col[j]; b<LB.col[j+1]; b++) {
 	size = LB.partition_size[j]*BLOCK(b)->length;
-	BLOCK(b)->nz = (double *) MyMalloc(size*sizeof(double),
-					    BLOCK(b)->owner);
+	BLOCK(b)->nz = (double *) MyMalloc(size*sizeof(double), BLOCK(b)->owner);
 	for (i=0; i<size; i++)
 	  BLOCK(b)->nz[i] = 0.0;
       }
@@ -545,13 +525,9 @@ AllocateNZ()
 
 
 
-FillIn(M, col, PERM, INVP, scatter)
-SMatrix M;
-int *PERM, *INVP;
-double *scatter;
+void FillIn(SMatrix M, long col, long *PERM, long *INVP, double *scatter)
 {
-  int i, b, j1, row, truecol;
-  double Value();
+  long i, b, j1, row, truecol;
 
   truecol = PERM[col];
   if (LB.domain[col]) {
@@ -561,7 +537,7 @@ double *scatter;
 	if (M.nz)
 	  scatter[row] = M.nz[i];
 	else
-	  scatter[row] = Value(M.row[i], truecol, M.n);
+	  scatter[row] = Value(M.row[i], truecol);
       }
 	
     }
@@ -580,7 +556,7 @@ double *scatter;
 	  if (M.nz)
 	    scatter[row] = M.nz[i];
 	  else
-	    scatter[row] = Value(M.row[i], truecol, M.n);
+	    scatter[row] = Value(M.row[i], truecol);
 	}
       }
       for (b=LB.col[col]; b<LB.col[col+1]; b++) {
@@ -598,10 +574,9 @@ double *scatter;
 }
 
 
-InsSort(nz, n)
-int *nz;
+void InsSort(long *nz, long n)
 {
-  int i, j, tmp;
+  long i, j, tmp;
 
   for (i=1; i<n; i++) {
     j = i;
@@ -612,13 +587,12 @@ int *nz;
 }
 
 
-
 /* determine relative indices for all blocks */
 
-BlDepth(col)
+long BlDepth(long col)
 {
-  int current, depth;
-  extern int *T;
+  long current, depth;
+  extern long *T;
 
   depth = 0;
   current = col;
@@ -631,10 +605,9 @@ BlDepth(col)
 }
 
 /* must be stable, blocks in same column must remain in sorted order */
-SortByKey(n, blocks, keys)
-int *blocks, *keys;
+void SortByKey(long n, long *blocks, long *keys)
 {
-  int i, j, blocki, keyi;
+  long i, j, blocki, keyi;
 
   for (i=0; i<n; i++) {
     blocki = blocks[i];
@@ -653,18 +626,16 @@ int *blocks, *keys;
 
 /* must be stable, blocks in same column must remain in sorted order */
 
-DumpSizes(LB, domain, sizes)
-BMatrix LB;
-int *domain, *sizes;
+void DumpSizes(BMatrix LB, long *domain, long *sizes)
 {
-  int i, *buckets, maxm;
+  long i, *buckets, maxm;
 
   maxm = 0;
   for (i=0; i<LB.n; i+=sizes[i])
     if (!domain[i] && sizes[i] > maxm)
       maxm = sizes[i];
 
-  buckets = (int *) malloc((maxm+1)*sizeof(int));
+  buckets = (long *) malloc((maxm+1)*sizeof(long));
   for (i=0; i<=maxm; i++)
     buckets[i] = 0;
 
@@ -676,7 +647,7 @@ int *domain, *sizes;
     if (buckets[i] == 0)
       ;
     else
-      printf("%d: %d  ", i, buckets[i]);
+      printf("%ld: %ld  ", i, buckets[i]);
   }
   printf("\n");
 
@@ -684,10 +655,9 @@ int *domain, *sizes;
 }
 
 
-ComputePartitionNumbering(numbering)
-int *numbering;
+void ComputePartitionNumbering(long *numbering)
 {
-  int j, which;
+  long j, which;
 
   for (j=0; j<LB.n; j++)
     numbering[j] = -1;
@@ -700,24 +670,24 @@ int *numbering;
 
 
 /* factor P */
-FindMachineDimensions(P)
+void FindMachineDimensions(long P)
 {
-  int try, div;
+  long try = 0, div = 0;
 
-  for (try=(int) sqrt((double) P); try>0; try--) {
+  for (try=(long) sqrt((double) P); try>0; try--) {
     div = P/try;
     if (div*try == P)
       break;
   }
 
   P_dimi = div; P_dimj = try;
-  printf("Processor array is %d by %d\n", P_dimi, P_dimj);
+  printf("Processor array is %ld by %ld\n", P_dimi, P_dimj);
 }
 
 
-EmbeddedOwner(block)
+long EmbeddedOwner(long block)
 {
-  int row, col;
+  long row, col;
 
   row = LB.mapI[LB.renumbering[BLOCKROW(block)]] % P_dimi;
   col = LB.mapJ[LB.renumbering[BLOCKCOL(block)]] % P_dimj;

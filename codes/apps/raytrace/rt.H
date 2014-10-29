@@ -39,6 +39,8 @@ MAIN_ENV
 EXTERN_ENV
 #endif
 
+#define M_PI_2	1.57079632679489661923
+
 /*
  *	Define general constants.
  */
@@ -58,33 +60,37 @@ EXTERN_ENV
 
 #define MAX_X		1280		/* Max # pixels along x-axis.	     */
 #define MAX_Y		1024		/* Max # pixels along y-axis.	     */
-#define MAX_PROCS	128		/* Max # of processors. 	     */
+#define MAX_PROCS	4096		/* Max # of processors. 	     */
 #define MAX_VERTS	100		/* Max # of vertices in a polygon.   */
 #define MAX_LIGHTS	20		/* Max # of lights in a scene.	     */
 #define MAX_AA_ROW	9		/* Max antialias super sample is 9x9 */
 #define MAX_AA_COL	9
 
-#define INT_PAD_SIZE	256		/* padding size for 32-bit 
-	   quantities to avoid false-sharing. Pads are inserted in two 
+#define INT_PAD_SIZE	256		/* padding size for 32-bit
+	   quantities to avoid false-sharing. Pads are inserted in two
 	   situations: (i) when variables are really private to a processor
 	   but are declared in a shared array owing to the lack of a private
 	   space in the sproc lightweight threads model, and (ii) when
 	   there are simple situations of "control" variables that are written
 	   by only one processor but read by several, and declared in a
-	   shared array indexed by process id, e.g. wpstat and workpool 
+	   shared array indexed by process id, e.g. wpstat and workpool
 	   declared in this file */
 
 #define MAX_SUBDIV_LEVEL 3		/* Max HUG subdivision level.	     */
 #define MAX_RAYINFO	(MAX_SUBDIV_LEVEL + 1)
 
-#define NAME_LEN	30
+#define NAME_LEN	32
 #define ISECT_MAX	2
 
 
 #define RAYEPS		1e-07		/* Roundoff error tolerance.	     */
 #define HUGE_REAL	1e+32		/* A number we consider infinity.    */
+#if 0
 #define PI		3.141592654
 #define PI_over_2	1.570796327
+#else
+#define PI_over_2	M_PI_2
+#endif
 #define PIINV		0.318309886
 #define TWOPIINV	0.159154943
 #define LOG_CONV	3.321928094	/* Log base 2 of 10 (for base conv). */
@@ -182,9 +188,11 @@ EXTERN_ENV
  *	Define general macros.
  */
 
-#define Min(A, B)		( (A) < (B) ? (A) :  (B) )
+//#define Min(A, B)		( (A) < (B) ? (A) :  (B) )
+#define Min(A, B)		( (A) - (B) < 0.0 ? (A) :  (B) )
 
-#define Max(A, B)		( (A) > (B) ? (A) :  (B) )
+//#define Max(A, B)		( (A) > (B) ? (A) :  (B) )
+#define Max(A, B)		( (A) - (B) > 0.0 ? (A) :  (B) )
 
 #define ABS(A)			( (A) > 0.0 ? (A) : -(A) )
 
@@ -350,12 +358,13 @@ typedef struct	pixel
 typedef struct voxel
 	{
 	INT		id;		/* id = index1D 		     */
+	INT		numelements;	/* Number of elements in voxel.      */
+	struct voxel	*next;		/* Hashtable bucket list.	     */
 	CHAR		*cell;		/* Ptr to grid or ptr to ElemPtr list*/
 	CHAR		celltype;	/* 0 => local voxel, 1 => local grid */
 					/* 2 => GSM voxel, 3 => GSM grid     */
 					/* 4 => remote voxel, 5 =>remote grid*/
-	INT		numelements;	/* Number of elements in voxel.      */
-	struct voxel	*next;		/* Hashtable bucket list.	     */
+	CHAR		dummy[sizeof(INT) - 1];
 	}
 	VOXEL;
 
@@ -429,9 +438,9 @@ typedef struct	display
 typedef struct element
 	{
 	INT		index;
-	BBOX		bv;		/* Element bounding volume.	     */
 	struct object	*parent;	/* Ptr back to parent object.	     */
 	CHAR		*data;		/* Pointer to data info.	     */
+	BBOX		bv;		/* Element bounding volume.	     */
 	}
 	ELEMENT;
 
@@ -570,11 +579,12 @@ typedef struct	ray
 	VEC3		P;			/* Position (origin).	     */
 	VEC3		D;			/* Direction.		     */
 	INT		level;			/* Level of ray in ray tree. */
-	R32		weight; 		/* Ray weight.		     */
-	INT		indx_inc3D[3];		/* Incl sign of ray direction*/
 	RAYINFO 	*ri;			/* Grid dependent ray info.  */
 	INT		ri_indx;
+	INT		indx_inc3D[3];		/* Incl sign of ray direction*/
 	RAYINFO 	rinfo[MAX_RAYINFO + 1];
+	R32		weight; 		/* Ray weight.		     */
+	R32		dummy;
 	}
 	RAY;
 
@@ -635,11 +645,11 @@ typedef struct	gmem
 	OBJECT	*modelroot;		/* Root of model list.		     */
 	GRID	*world_level_grid;	/* Zero level grid pointer.	     */
 	NODE	huge *freelist; 	/* Ptr to global free memory heap.   */
-	INT	wpstat[MAX_PROCS][INT_PAD_SIZE]; /* Shared work pool 
+	INT	wpstat[MAX_PROCS][INT_PAD_SIZE]; /* Shared work pool
 					   status hints.  Padded to avoid
 					   false-sharing */
-	WPJOB	*workpool[MAX_PROCS][INT_PAD_SIZE]; /* Ptr to heads of 
-					   shared work pools.  Padded to 
+	WPJOB	*workpool[MAX_PROCS][INT_PAD_SIZE]; /* Ptr to heads of
+					   shared work pools.  Padded to
 					   avoid false-sharing */
 
 	BARDEC(start)			/* Barrier for startup sync.	     */
@@ -651,6 +661,52 @@ typedef struct	gmem
     UINT partime[MAX_PROCS];
 	}
 	GMEM;
+
+
+
+/*
+ *      Define polygon data structure.
+ */
+
+typedef struct poly
+        {
+        INT     nverts;                 /* Number of vertices in polygon. */
+        VEC3    norm;                   /* Face normal. */
+        REAL    d;                      /* Plane eqn D. */
+        VEC3    *vptr;                  /* Global vertex list pointer. */
+        INT     *vindex;                /* Index of vertices. */
+        INT     axis_proj;              /* Best axis for projection. */
+        }
+        POLY;
+
+
+
+/*
+ *      Define sphere data structure.
+ */
+
+typedef struct  sphere
+        {
+        POINT   center;                 /* Center of sphere. */
+        REAL    rad;                    /* Radius of sphere. */
+        REAL    rad2;                   /* Radius squared of sphere. */
+        }
+        SPHERE;
+
+
+
+typedef struct  tri
+        {
+        VEC3    norm;                   /* Face normal. */
+        REAL    d;                      /* Plane equation D. */
+        VEC3    *vptr;                  /* Global vertex list pointer. */
+        VEC3    *nptr;                  /* Global normal list pointer. */
+        INT     vindex[3];              /* Index of vertices. */
+        INT     indx;                   /* Normal component max flag. */
+        BOOL    norminterp;             /* Do normal interpolation? */
+        BOOL    vorder;                 /* Vertex order orientation. */
+        }
+        TRI;
 
 
 
@@ -715,172 +771,179 @@ UINT	nonempty_masks[sizeof(UINT)*8];
  *	Function prototypes.
  */
 
-extern	void InquireBoundBoxValues(struct bbox *pbb,double *minx,double *miny,double *minz,double *maxx,double *maxy,double *maxz);
-extern	void NormalizeBoundBox(struct bbox *pbb,double (*mat)[4]);
+/* bbox.c */
+void InquireBoundBoxValues(BBOX *pbb, REAL *minx, REAL *miny, REAL *minz, REAL *maxx, REAL *maxy, REAL *maxz);
+void NormalizeBoundBox(BBOX *pbb, MATRIX mat);
 
-extern	void prn_gridlist(void );
-extern	void prn_ds_stats(void );
-extern	void init_masks(void );
-extern	struct grid *init_world_grid(struct voxel *v,ELEMENT **pepa,long num_pe);
-extern	struct voxel *init_world_voxel(ELEMENT **pepa, INT numelements);
-extern	void mark_empty(long index1D,struct grid *g);
-extern	void mark_nonempty(long index1D,struct grid *g);
-extern	void insert_in_hashtable(struct voxel *v,struct grid *g);
-extern	struct element * *prims_in_box2(struct element * *pepa,long n_in,struct bbox b,long *n);
-extern	struct btnode *init_bintree(struct grid *ng);
-extern	void subdiv_bintree(struct btnode *btn,struct grid *g);
-extern	void create_bintree(struct btnode *root,struct grid *g);
-extern	ELEMENT **bintree_lookup(struct btnode *root,long i,long j,long k,struct grid *g,long *n);
-extern	struct grid *create_grid(struct voxel *v,struct grid *g,long num_prims);
+/* cr.c */
+void prn_gridlist(void);
+void prn_ds_stats(void);
+void init_masks(void);
+GRID *init_world_grid(VOXEL *v, ELEMENT **pepa, INT num_pe);
+VOXEL *init_world_voxel(ELEMENT **pepa, INT numelements);
+void mark_empty(INT index1D, GRID *g);
+void mark_nonempty(INT index1D, GRID *g);
+void insert_in_hashtable(VOXEL *v, GRID *g);
+ELEMENT **prims_in_box2(ELEMENT **pepa, INT n_in, BBOX b, INT *n);
+BTNODE *init_bintree(GRID *ng);
+void subdiv_bintree(BTNODE *btn, GRID *g);
+void create_bintree(BTNODE *root, GRID *g);
+ELEMENT **bintree_lookup(BTNODE *root, INT i, INT j, INT k, GRID *g, INT *n);
+void deleteBinTree(BTNODE *binTree);
+GRID *create_grid(VOXEL *v, GRID *g, INT num_prims);
 
-extern	void PrintEnv(void );
-extern	void InitEnv(void );
-extern	void InitLights(void );
-extern	void InitDisplay(void );
-extern	unsigned long VerifyColorRange(double *c);
-extern	void TransformLights(double (*m)[4]);
-extern	void ViewRotate(double (*M)[4],double x,double y,double z);
-extern	void CreateViewMatrix(void );
-extern	void TransformViewRay(double *tray);
-extern	void NormalizeEnv(double (*normMat)[4]);
-extern	char LookupCommand(char *s);
-extern	void ReadEnvFile(char *EnvFileName);
+/* env.c */
+void PrintEnv(void);
+void InitEnv(void);
+void InitLights(void);
+void InitDisplay(void);
+BOOL VerifyColorRange(COLOR c);
+void TransformLights(MATRIX m);
+void ViewRotate(MATRIX M, REAL x, REAL y, REAL z);
+void CreateViewMatrix(void);
+void TransformViewRay(POINT tray);
+void NormalizeEnv(MATRIX normMat);
+CHAR LookupCommand(CHAR *s);
+void ReadEnvFile(CHAR *EnvFileName);
 
-extern	void RunLengthEncode(struct _iobuf *pf,struct pixel *fb,long xsize);
-extern	void OpenFrameBuffer(void);
-extern	void AddPixelColor(double *c,long x,long y);
-extern	void CloseFrameBuffer(char *PicFileName);
+/* fbuf.c */
+void RunLengthEncode(FILE *pf, PIXEL *fb, INT xsize);
+void OpenFrameBuffer(void);
+void AddPixelColor(COLOR c, INT x, INT y);
+void CloseFrameBuffer(CHAR *PicFileName);
 
-extern	ELEMENT **MakeElementArray(long *totalElements);
-extern	void PrintGeo(struct object *head);
-extern	void NormalizeGeo(struct object *po, double (*model)[4],double (*modelInvT)[4]);
-extern	void ReadGeoFile(char *mname);
+/* geo.c */
+ELEMENT **MakeElementArray(INT *totalElements);
+void PrintGeo(OBJECT *po);
+void NormalizeGeo(OBJECT *po, MATRIX model, MATRIX modelInvT);
+void ReadGeoFile(CHAR *GeoFileName);
 
-extern	void prn_voxel(struct voxel *v);
-extern	void prn_grid(struct grid *g);
-extern	void prn_ray(struct ray *r);
-extern	void prn_PrimElem(struct element *p);
-extern	void prn_bintree_node(struct btnode *b);
-extern	void prn_bintree_leaves(struct btnode *root);
-extern	void prn_pepa_prim_list(struct element * *pepa,long nprims);
+/* huprn.c */
+void prn_voxel(VOXEL *v);
+void prn_grid(GRID *g);
+void prn_ray(RAY *r);
+void prn_PrimElem(ELEMENT *p);
+void prn_bintree_node(BTNODE *b);
+void prn_bintree_leaves(BTNODE *root);
+void prn_pepa_prim_list(ELEMENT **pepa, INT nprims);
 
-extern	void Huniform_defaults(void );
-extern	void BuildHierarchy_Uniform(void );
-extern	void IntersectHuniformPrimlist(long *intersectPrim,struct irecord *hit,VOXEL *v,struct ray *r,long pid);
-extern	double HuniformShadowIntersect(struct ray *r,double lightlength,struct element *pe,long pid);
-extern	unsigned long TraverseHierarchyUniform(struct ray *r,struct irecord *hit,long pid);
+/* husetup.c */
+void Huniform_defaults(void);
+void BuildHierarchy_Uniform(void);
+void IntersectHuniformPrimlist(INT *intersectPrim, IRECORD *hit, VOXEL *v, RAY *r, INT pid);
+REAL HuniformShadowIntersect(RAY *r, REAL lightlength, ELEMENT *pe, INT pid);
+BOOL TraverseHierarchyUniform(RAY *r, IRECORD *hit, INT pid);
 
-extern	void prn_tv_stats(void );
-extern	long send_ray(struct ray *r,struct voxel *v);
-extern	struct voxel *lookup_hashtable(long indx,struct grid *g);
-extern	long lookup_emptycells(long indx,struct grid *g);
-extern	void pop_up_a_grid(struct ray *r);
-extern	void push_down_grid(struct ray *r,struct voxel *v);
-extern	long step_grid(struct ray *r);
-extern	long next_voxel(struct ray *r);
-extern	struct voxel *next_nonempty_voxel(struct ray *r);
-extern	struct voxel *next_nonempty_leaf(struct ray *r,long step,long *status);
-extern	struct voxel *init_ray(struct ray *r,struct grid *g);
+/* hutv.c */
+void prn_tv_stats(void);
+INT send_ray(RAY *r, VOXEL *v);
+VOXEL *lookup_hashtable(INT indx, GRID *g);
+INT lookup_emptycells(INT indx, GRID *g);
+void pop_up_a_grid(RAY *r);
+void push_down_grid(RAY *r, VOXEL *v);
+INT step_grid(RAY *r);
+INT next_voxel(RAY *r);
+VOXEL *next_nonempty_voxel(RAY *r);
+VOXEL *next_nonempty_leaf(RAY *r, INT step, INT *status);
+VOXEL *init_ray(RAY *r, GRID *g);
 
-extern	unsigned long Intersect(struct ray *pr,struct irecord *hit);
-extern	double ShadowIntersect(struct ray *pr,double lightdist,struct element *pe);
+/* isect.c */
+BOOL Intersect(RAY *pr, IRECORD *hit);
+REAL ShadowIntersect(RAY *pr, REAL lightdist, ELEMENT *pe);
 
-extern	void Usage(void );
-extern	void PrintStatistics(void );
-extern	void StartRayTrace(void );
-extern	int main(int argc,char * *argv);
+/* main.c */
+void Usage(void);
+void PrintStatistics(void);
+void StartRayTrace(void);
 
-extern	void VecNorm(double *V);
-extern	void VecMatMult(double *Vt,double (*M)[4],double *V);
-extern	void PrintMatrix(double (*M)[4],char *s);
-extern	void MatrixIdentity(double (*M)[4]);
-extern	void MatrixCopy(double (*A)[4],double (*B)[4]);
-extern	void MatrixTranspose(double (*MT)[4],double (*M)[4]);
-extern	void MatrixMult(double (*C)[4],double (*A)[4],double (*B)[4]);
-extern	void MatrixInverse(double (*Minv)[4],double (*Mat)[4]);
-extern	void Translate(double (*M)[4],double dx,double dy,double dz);
-extern	void Scale(double (*M)[4],double sx,double sy,double sz);
-extern	void Rotate(long axis,double (*M)[4],double angle);
+/* matrix.c */
+void VecNorm(POINT V);
+void VecMatMult(POINT Vt, MATRIX M, POINT V);
+void PrintMatrix(MATRIX M, CHAR *s);
+void MatrixIdentity(MATRIX M);
+void MatrixCopy(MATRIX A, MATRIX B);
+void MatrixTranspose(MATRIX MT, MATRIX M);
+void MatrixMult(MATRIX C, MATRIX A, MATRIX B);
+void MatrixInverse(MATRIX Minv, MATRIX Mat);
+void Translate(MATRIX M, REAL dx, REAL dy, REAL dz);
+void Scale(MATRIX M, REAL sx, REAL sy, REAL sz);
+void Rotate(INT axis, MATRIX M, REAL angle);
 
-extern	VOID	*LocalMalloc(UINT, CHAR *);
-extern	VOID	LocalFree(VOID *);
-extern	VOID	GlobalHeapWalk(VOID);
-extern	BOOL	GlobalHeapInit(UINT);
-extern	VOID	*GlobalMalloc(UINT, CHAR *);
-extern	VOID	*GlobalCalloc(UINT, UINT);
-extern	VOID	*GlobalRealloc(VOID *, UINT);
-extern	VOID	GlobalFree(VOID *);
-extern	UINT	GlobalMemAvail(VOID);
-extern	UINT	GlobalMemMax(VOID);
-extern	VOID	*ObjectMalloc(INT, INT);
-extern	VOID	ObjectFree(INT, INT, VOID *);
+/* memory.c */
+void *LocalMalloc(UINT n, CHAR *msg);
+void LocalFree(void *p);
+void GlobalHeapWalk(void);
+BOOL GlobalHeapInit(UINT size);
+void *GlobalMalloc(UINT size, CHAR *msg);
+void *GlobalCalloc(UINT n, UINT size);
+void *GlobalRealloc(void *p, UINT size);
+void GlobalFree(void *p);
+UINT GlobalMemAvl(void);
+UINT GlobalMemMax(void);
+void *ObjectMalloc(INT ObjectType, INT count);
+void ObjectFree(INT ObjectType, INT count, void *p);
+RAYINFO *ma_rayinfo(RAY *r);
+void free_rayinfo(RAY *r);
+void reset_rayinfo(RAY *r);
+void ma_print(void);
 
-extern	struct rayinfo *ma_rayinfo(struct ray *r);
-extern	void free_rayinfo(struct ray *r);
-extern	void reset_rayinfo(struct ray *r);
-extern	void ma_print(void );
+/* poly.c */
+CHAR *PolyName(void);
+void PolyPrint(OBJECT *po);
+void PolyElementBoundBox(ELEMENT *pe, POLY *pp);
+void PolyBoundBox(OBJECT *po);
+void PolyNormal(IRECORD *hit, POINT Pi, POINT Ni);
+void PolyDataNormalize(OBJECT *po, MATRIX normMat);
+INT PolyPeIntersect(RAY *pr, ELEMENT *pe, IRECORD *hit);
+INT PolyIntersect(RAY *pr, OBJECT *po, IRECORD *hit);
+void PolyTransform(OBJECT *po, MATRIX xtrans, MATRIX xinvT);
+void PolyRead(OBJECT *po, FILE *pf);
 
-/*
- *	Define polygon function prototypes.
- */
+/* raystack.c */
+void CopyRayMsg(RAY *rdst, RAY *rsrc);
+void InitRayTreeStack(INT TreeDepth, INT pid);
+unsigned long powint(long i, long j);
+void PushRayTreeStack(RAY *rmsg, INT pid);
+INT PopRayTreeStack(RAY *rmsg, INT pid);
 
-extern	char *PolyName(void );
-extern	void PolyPrint(struct object *po);
-extern	void PolyElementBoundBox(struct element *pe,struct poly *pp);
-extern	void PolyBoundBox(struct object *po);
-extern	void PolyNormal(struct irecord *hit,double *Pi,double *Ni);
-extern	void PolyDataNormalize(struct object *po,double (*normMat)[4]);
-extern	long PolyPeIntersect(struct ray *pr,struct element *pe,struct irecord *hit);
-extern	long PolyIntersect(struct ray *pr,struct object *po,struct irecord *hit);
-extern	void PolyTransform(struct object *po,double (*xtrans)[4],double (*xinvT)[4]);
-extern	void PolyRead(struct object *po,struct _iobuf *pf);
+/* shade.c */
+void SpecularDirection(POINT R, POINT N, POINT I);
+BOOL TransmissionDirection(POINT T, POINT N, POINT I, REAL kn);
+void Shade(VEC3 iP, VEC3 N, RAY *ray, IRECORD *hit, INT pid);
 
-extern	void CopyRayMsg(struct ray *rdst,struct ray *rsrc);
-extern	void InitRayTreeStack(long TreeDepth, int pid);
-extern	void PushRayTreeStack(struct ray *rmsg, int pid);
-extern	long PopRayTreeStack(struct ray *rmsg, int pid);
+/* sph.c */
+CHAR *SphName(void);
+void SphPrint(OBJECT *po);
+void SphElementBoundBox(ELEMENT *pe, SPHERE *ps);
+void SphBoundBox(OBJECT *po);
+void SphNormal(IRECORD *hit, POINT Pi, POINT Ni);
+void SphDataNormalize(OBJECT *po, MATRIX normMat);
+INT SphPeIntersect(RAY *pr, ELEMENT *pe, IRECORD *hit);
+INT SphIntersect(RAY *pr, OBJECT *po, IRECORD *hit);
+void SphTransform(OBJECT *po, MATRIX xtrans, MATRIX xinvT);
+void SphRead(OBJECT *po, FILE *pf);
 
-extern	void SpecularDirection(double *R,double *N,double *I);
-extern	unsigned long TransmissionDirection(double *T,double *N,double *I,double kn);
-extern	void Shade(double *iP,double *N,struct ray *ray,struct irecord *hit,long pid);
+/* trace.c */
+REAL frand(void);
+BOOL GetRayJobFromBundle(RAYJOB *job, INT *x, INT *y);
+void ConvertPrimRayJobToRayMsg(RAY *ray, REAL x, REAL y);
+void RayTrace(INT pid);
 
-/*
- *	Define sphere function prototypes.
- */
+/* tri.c */
+CHAR *TriName(void);
+void TriPrint(OBJECT *po);
+void TriElementBoundBox(ELEMENT *pe, TRI *pt);
+void TriBoundBox(OBJECT *po);
+void TriNormal(IRECORD *hit, POINT Pi, POINT Ni);
+void TriDataNormalize(OBJECT *po, MATRIX normMat);
+INT TriPeIntersect(RAY *pr, ELEMENT *pe, IRECORD *hit);
+INT TriIntersect(RAY *pr, OBJECT *po, IRECORD *hit);
+void TriTransform(OBJECT *po, MATRIX xtrans, MATRIX xinvT);
+void TriRead(OBJECT *po, FILE *pf);
 
-extern	char *SphName(void );
-extern	void SphPrint(struct object *po);
-extern	void SphElementBoundBox(struct element *pe,struct sphere *ps);
-extern	void SphBoundBox(struct object *po);
-extern	void SphNormal(struct irecord *hit,double *Pi,double *Ni);
-extern	void SphDataNormalize(struct object *po,double (*normMat)[4]);
-extern	long SphPeIntersect(struct ray *pr,struct element *pe,struct irecord *hit);
-extern	long SphIntersect(struct ray *pr,struct object *po,struct irecord *hit);
-extern	void SphTransform(struct object *po,double (*xtrans)[4],double (*xinvT)[4]);
-extern	void SphRead(struct object *po,struct _iobuf *pf);
-
-extern	unsigned long GetRayJobFromBundle(struct rayjob *job,long *x,long *y);
-extern	void ConvertPrimRayJobToRayMsg(struct ray *ray,double x,double y);
-extern	void RayTrace(long pid);
-
-/*
- *	Define triangle function prototypes.
- */
-
-extern	char *TriName(void );
-extern	void TriPrint(struct object *po);
-extern	void TriElementBoundBox(struct element *pe,struct tri *pt);
-extern	void TriBoundBox(struct object *po);
-extern	void TriNormal(struct irecord *hit,double *Pi,double *Ni);
-extern	void TriDataNormalize(struct object *po,double (*normMat)[4]);
-extern	long TriPeIntersect(struct ray *pr,struct element *pe,struct irecord *hit);
-extern	long TriIntersect(struct ray *pr,struct object *po,struct irecord *hit);
-extern	void TriTransform(struct object *po,double (*xtrans)[4],double (*xinvT)[4]);
-extern	void TriRead(struct object *po,struct _iobuf *pf);
-
-extern	void InitWorkPool(long pid);
-extern	void PrintWorkPool(long pid);
-extern	void PutJob(long xs,long ys,long xe,long ye,long xbe,long ybe,long pid);
-extern	long GetJob(struct rayjob *job,long pid);
-extern	long GetJobs(struct rayjob *job,long pid);
-
+/* workpool.c */
+void PutJob(INT xs, INT ys, INT xe, INT ye, INT xbe, INT ybe, INT pid);
+INT GetJob(RAYJOB *job, INT pid);
+INT GetJobs(RAYJOB *job, INT pid);
+void PrintWorkPool(INT pid);
+void InitWorkPool(INT pid);

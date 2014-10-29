@@ -25,26 +25,24 @@ EXTERN_ENV
 #include "split.h"
 #include "global.h"
 
-INTRAF(VIR,ProcID)
-  double *VIR;
-  unsigned ProcID;
+void INTRAF(double *VIR, long ProcID)
 {
     /*
       .....this routine calculates the intra-molecular force/mass acting on
-      each atom. 
+      each atom.
       FC11, FC12, FC13, AND FC33 are the quardratic force constants
       FC111, FC112, ....... ETC. are the cubic      force constants
       FC1111, FC1112 ...... ETC. are the quartic    force constants
       */
-    
+
     double SUM, R1, R2, VR1[4], VR2[4], COS, SIN;
     double DT, DTS, DR1, DR1S, DR2, DR2S, R1S, R2S, DR11[4], DR23[4];
     double DT1[4], DT3[4], F1, F2, F3, T1, T2;
-    int mol, dir, atom;
-    double LVIR;  /* process keeps a local copy of the sum, 
+    long mol, dir, atom;
+    double LVIR;  /* process keeps a local copy of the sum,
                      to reduce synchronized updates*/
     double *temp_p;
-    
+
     /* loop through the molecules */
     for (mol = StartMol[ProcID]; mol < StartMol[ProcID+1];  mol++) {
         SUM=0.0;
@@ -62,11 +60,11 @@ INTRAF(VIR,ProcID)
             R2 += VR2[dir] * VR2[dir];
             SUM += VR1[dir] * VR2[dir];
         } /* for dir */
-        
+
         R1=sqrt(R1);
         R2=sqrt(R2);
-        
-        /* calculate cos(THETA), sin(THETA), delta(R1), 
+
+        /* calculate cos(THETA), sin(THETA), delta(R1),
            delta(R2), and delta(THETA) */
         COS=SUM/(R1*R2);
         SIN=sqrt(ONE-COS*COS);
@@ -76,9 +74,9 @@ INTRAF(VIR,ProcID)
         DR1S=DR1*DR1;
         DR2=R2-ROH;
         DR2S=DR2*DR2;
-        
+
         /* calculate derivatives of R1/X1, R2/X3, THETA/X1, and THETA/X3 */
-        
+
         R1S=ROH/(R1*SIN);
         R2S=ROH/(R2*SIN);
         for (dir = XDIR; dir <= ZDIR; dir++) {
@@ -87,7 +85,7 @@ INTRAF(VIR,ProcID)
             DT1[dir]=(-DR23[dir]+DR11[dir]*COS)*R1S;
             DT3[dir]=(-DR11[dir]+DR23[dir]*COS)*R2S;
         } /* for dir */
-        
+
         /* calculate forces */
         F1=FC11*DR1+FC12*DR2+FC13*DT;
         F2=FC33*DT +FC13*(DR1+DR2);
@@ -110,8 +108,8 @@ INTRAF(VIR,ProcID)
                *DR1+2.0*FC1122*DR1S*DR2+3.0*FC1113*DR2S*DT
                +FC1123*(2.0*DR2+DR1)*DR1*DT+(2.0*FC1133*DR2
                                              +FC1233*DR1+FC1333*DT)*DTS)*ROHI2;
-        
-        for (dir = XDIR; dir <= ZDIR; dir++) { 
+
+        for (dir = XDIR; dir <= ZDIR; dir++) {
             temp_p = VAR[mol].F[FORCES][dir];
             T1=F1*DR11[dir]+F2*DT1[dir];
             temp_p[H1] = T1;
@@ -120,20 +118,18 @@ INTRAF(VIR,ProcID)
             temp_p[O] = -(T1+T2);
         } /* for dir */
     } /* for mol */
-    
-    /* calculate summation of the product of the displacement and computed 
+
+    /* calculate summation of the product of the displacement and computed
        force for every molecule, direction, and atom */
-    
+
     LVIR=0.0;
     for (mol = StartMol[ProcID]; mol < StartMol[ProcID+1];  mol++)
         for ( dir = XDIR; dir <= ZDIR; dir++)
             for (atom = 0; atom < NATOM; atom++)
-                LVIR += VAR[mol].F[DISP][dir][atom] * 
-                    VAR[mol].F[FORCES][dir][atom];	
-    
+                LVIR += VAR[mol].F[DISP][dir][atom] *
+                    VAR[mol].F[FORCES][dir][atom];
+
     LOCK(gl->IntrafVirLock);
     *VIR =  *VIR + LVIR;
     UNLOCK(gl->IntrafVirLock);
 } /* end of subroutine INTRAF */
-
-

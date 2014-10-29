@@ -16,7 +16,7 @@
 
 /************************************************************************
 *                                                                       *
-*     constants.h:  constants needed for rendering system 				*
+*     constants.h:  constants needed for rendering system 		*
 *                                                                       *
 ************************************************************************/
 
@@ -30,10 +30,10 @@
 #define PIXELS_PER_BLOCK_DIM   4
 #define ZSCALE                 1
 #ifdef DIM
-#define ROTATE_STEPS          4
+#define ROTATE_STEPS          8
 #define STEP_SIZE             3
 #else
-#define ROTATE_STEPS           4
+#define ROTATE_STEPS           8
 #define STEP_SIZE              3
 #endif
 #define ROOT                   0
@@ -92,7 +92,7 @@
 #define MAX_OUTLEN	4096	/*   size of any output map or space         */
 #define SMALL          0.00001  /* Don't use {SMALL,BIG} in single precision */
 #define BIG            9999.999 /* expressions alongside {big,small} numbers */
-#define MAX_INT    4294967295   /* 2^32-1 is the maximum integer             */
+/*#define MAX_INT    4294967295*/   /* 2^32-1 is the maximum integer             */
 
                                 /* Definition of global constants assumed    */
 #define INSET           1               /*   inset assumes gradient          */

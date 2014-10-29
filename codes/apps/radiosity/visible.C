@@ -35,28 +35,24 @@ include(radiosity.h)
 
 #define FABS(x)  (((x) < 0)?-(x):(x))
 
-typedef struct {
-    float x, y, z;
-} Ray;
-
 
 float rand_ray1[VISI_RAYS_MAX][2], rand_ray2[VISI_RAYS_MAX][2] ;
 
 struct v_struct {
-    char pad1[PAGE_SIZE];	 	/* padding to avoid false-sharing 
-                                   and allow page-placement */	
+    char pad1[PAGE_SIZE];	 	/* padding to avoid false-sharing
+                                   and allow page-placement */
     Patch *v_src_patch, *v_dest_patch ;
     Vertex v_src_p1,   v_dest_p1 ;
     Vertex v_src_v12,  v_src_v13 ;
     Vertex v_dest_v12, v_dest_v13 ;
-    
-    int bsp_nodes_visited, total_bsp_nodes_visited ;
+
+    long bsp_nodes_visited, total_bsp_nodes_visited ;
     Ray ray_pool[VISI_POOL_NO];
     Vertex point_pool[VISI_POOL_NO];
-    int pool_dst_hits;	/* Number of rays that hit the destination  */
+    long pool_dst_hits;	/* Number of rays that hit the destination  */
     Patch *patch_cache[PATCH_CACHE_SIZE] ;
-    char pad2[PAGE_SIZE];	 	/* padding to avoid false-sharing 
-                                   and allow page-placement */	
+    char pad2[PAGE_SIZE];	 	/* padding to avoid false-sharing
+                                   and allow page-placement */
 } vis_struct[MAX_PROCESSORS];
 
 
@@ -75,16 +71,13 @@ struct v_struct {
  *       (3) Current scheme selects pairs of the small triangles in a static
  *           manner. The pairs are chosen such that rays are equally
  *           distributed.
- *	
+ *
  *************************************************************/
 
-void init_visibility_module(process_id)
-  unsigned process_id;
+void init_visibility_module(long process_id)
 {
-    void init_patch_cache() ;
-    
 #define TTICK (1.0/12.0)
-    
+
     /* Three corner triangles. P(i) -- Q(i) */
     rand_ray1[0][0] = TTICK ;      rand_ray1[0][1] = TTICK ;
     rand_ray1[1][0] = TTICK ;      rand_ray1[1][1] = TTICK * 10 ;
@@ -92,7 +85,7 @@ void init_visibility_module(process_id)
     rand_ray2[0][0] = TTICK ;      rand_ray2[0][1] = TTICK ;
     rand_ray2[1][0] = TTICK ;      rand_ray2[1][1] = TTICK * 10 ;
     rand_ray2[2][0] = TTICK * 10 ; rand_ray2[2][1] = TTICK ;
-    
+
     /* Three triangles adjacent to the corners. RotLeft P(i)--> Q(i+1) */
     rand_ray1[3][0] = TTICK * 2 ;  rand_ray1[3][1] = TTICK * 2 ;
     rand_ray1[4][0] = TTICK * 2 ;  rand_ray1[4][1] = TTICK * 8 ;
@@ -100,7 +93,7 @@ void init_visibility_module(process_id)
     rand_ray2[4][0] = TTICK * 2 ;  rand_ray2[4][1] = TTICK * 2 ;
     rand_ray2[5][0] = TTICK * 2 ;  rand_ray2[5][1] = TTICK * 8 ;
     rand_ray2[3][0] = TTICK * 8 ;  rand_ray2[3][1] = TTICK * 2 ;
-    
+
     /* Three triangles adjacent to the center. RotRight P(i)--> Q(i-1) */
     rand_ray1[6][0] = TTICK * 2 ;  rand_ray1[6][1] = TTICK * 5 ;
     rand_ray1[7][0] = TTICK * 5 ;  rand_ray1[7][1] = TTICK * 5 ;
@@ -108,11 +101,11 @@ void init_visibility_module(process_id)
     rand_ray2[8][0] = TTICK * 2 ;  rand_ray2[8][1] = TTICK * 5 ;
     rand_ray2[6][0] = TTICK * 5 ;  rand_ray2[6][1] = TTICK * 5 ;
     rand_ray2[7][0] = TTICK * 5 ;  rand_ray2[7][1] = TTICK * 2 ;
-    
+
     /* Center triangle. Straight P(i) --> Q(i) */
     rand_ray1[9][0] = TTICK * 4 ;  rand_ray1[9][1] = TTICK * 4 ;
     rand_ray2[9][0] = TTICK * 4 ;  rand_ray2[9][1] = TTICK * 4 ;
-    
+
     /* Along the pelimeter. RotRight P(i)--> Q(i-1) */
     rand_ray1[10][0] = TTICK * 1 ;  rand_ray1[10][1] = TTICK * 7 ;
     rand_ray1[11][0] = TTICK * 5 ;  rand_ray1[11][1] = TTICK * 4 ;
@@ -120,7 +113,7 @@ void init_visibility_module(process_id)
     rand_ray2[12][0] = TTICK * 1 ;  rand_ray2[12][1] = TTICK * 7 ;
     rand_ray2[10][0] = TTICK * 5 ;  rand_ray2[10][1] = TTICK * 4 ;
     rand_ray2[11][0] = TTICK * 4 ;  rand_ray2[11][1] = TTICK * 1 ;
-    
+
     /* Along the pelimeter. RotLeft P(i)--> Q(i+1) */
     rand_ray1[13][0] = TTICK * 1 ;  rand_ray1[13][1] = TTICK * 4 ;
     rand_ray1[14][0] = TTICK * 4 ;  rand_ray1[14][1] = TTICK * 7 ;
@@ -128,7 +121,7 @@ void init_visibility_module(process_id)
     rand_ray2[14][0] = TTICK * 1 ;  rand_ray2[14][1] = TTICK * 4 ;
     rand_ray2[15][0] = TTICK * 4 ;  rand_ray2[15][1] = TTICK * 7 ;
     rand_ray2[13][0] = TTICK * 7 ;  rand_ray2[13][1] = TTICK * 1 ;
-    
+
     /* Initialize patch cache */
     init_patch_cache(process_id) ;
 }
@@ -141,41 +134,36 @@ void init_visibility_module(process_id)
  *	Place: main loop.
  *
  *	Storage: must keep in the invidiual processor.
- *	
+ *
  *************************************************************/
 
-void get_test_rays( p_src, v, no, process_id )
-  
-  Vertex *p_src;
-  Ray *v;
-  int no;
-  unsigned process_id;
+void get_test_rays(Vertex *p_src, Ray *v, long no, long process_id)
 {
-    int g_index, i ;
+    long g_index, i ;
     Vertex p_dst ;
     float fv1, fv2 ;
-    
+
     if( no > VISI_RAYS_MAX )
         no = VISI_RAYS_MAX ;
-    
+
     for (i = 0, g_index = 0 ; i < no; i++, g_index++) {
-        
+
         fv1 = rand_ray1[ g_index ][0] ;
         fv2 = rand_ray1[ g_index ][1] ;
         p_src->x = vis_struct[process_id].v_src_p1.x + vis_struct[process_id].v_src_v12.x * fv1 + vis_struct[process_id].v_src_v13.x * fv2 ;
         p_src->y = vis_struct[process_id].v_src_p1.y + vis_struct[process_id].v_src_v12.y * fv1 + vis_struct[process_id].v_src_v13.y * fv2 ;
         p_src->z = vis_struct[process_id].v_src_p1.z + vis_struct[process_id].v_src_v12.z * fv1 + vis_struct[process_id].v_src_v13.z * fv2 ;
-        
+
         fv1 = rand_ray2[ g_index ][0] ;
         fv2 = rand_ray2[ g_index ][1] ;
         p_dst.x = vis_struct[process_id].v_dest_p1.x + vis_struct[process_id].v_dest_v12.x * fv1 + vis_struct[process_id].v_dest_v13.x * fv2 ;
         p_dst.y = vis_struct[process_id].v_dest_p1.y + vis_struct[process_id].v_dest_v12.y * fv1 + vis_struct[process_id].v_dest_v13.y * fv2 ;
         p_dst.z = vis_struct[process_id].v_dest_p1.z + vis_struct[process_id].v_dest_v12.z * fv1 + vis_struct[process_id].v_dest_v13.z * fv2 ;
-        
+
         v->x = p_dst.x - p_src->x;
         v->y = p_dst.y - p_src->y;
         v->z = p_dst.z - p_src->z;
-        
+
         p_src++;
         v++;
     }
@@ -184,42 +172,36 @@ void get_test_rays( p_src, v, no, process_id )
 
 /************************************************************************
  *
- *	int v_intersect(): check if the ray intersects with the polygon.
+ *	long v_intersect(): check if the ray intersects with the polygon.
  *
  *************************************************************************/
 
 
-int v_intersect( patch, p, ray, t, process_id )
-  
-  Patch *patch;
-  Vertex *p;
-  Ray *ray;
-  float t ;
-  unsigned process_id;
+long v_intersect(Patch *patch, Vertex *p, Ray *ray, float t)
 {
     float px, py, pz;
     float nx, ny, nz;
     float rx, ry, rz;
     float x, y, x1, x2, x3, y1, y2, y3;
     float a, b, c;
-    int nc, sh, nsh;
-    
+    long nc, sh, nsh;
+
     nx = patch->plane_equ.n.x;
     ny = patch->plane_equ.n.y;
     nz = patch->plane_equ.n.z;
-    
+
     rx = ray->x;
     ry = ray->y;
     rz = ray->z;
-    
+
     px = p->x;
     py = p->y;
     pz = p->z;
-    
-    
+
+
     a = FABS(nx); b = FABS(ny); c = FABS(nz);
-    
-    if (a > b) 
+
+    if (a > b)
         if (a > c) {
             x  = py + t * ry; y = pz + t * rz;
             x1 = patch->p1.y; y1 = patch->p1.z;
@@ -242,24 +224,24 @@ int v_intersect( patch, p, ray, t, process_id )
         x2 = patch->p2.x; y2 = patch->p2.y;
         x3 = patch->p3.x; y3 = patch->p3.y;
     }
-    
-    
+
+
     x1 -= x; y1 -= y;
     x2 -= x; y2 -= y;
     x3 -= x; y3 -= y;
-    
+
     nc = 0;
-    
+
     if (y1 >= 0.0)
         sh = 1;
     else
         sh = -1;
-    
+
     if (y2 >= 0.0)
         nsh = 1;
-    else 
+    else
         nsh = -1;
-    
+
     if (sh != nsh) {
         if ((x1 >= 0.0) && (x2 >= 0.0))
             nc++;
@@ -268,12 +250,12 @@ int v_intersect( patch, p, ray, t, process_id )
                 nc++;
         sh = nsh;
     }
-    
+
     if (y3 >= 0.0)
         nsh = 1;
-    else 
+    else
         nsh = -1;
-    
+
     if (sh != nsh) {
         if ((x2 >= 0.0) && (x3 >= 0.0))
             nc++;
@@ -282,12 +264,12 @@ int v_intersect( patch, p, ray, t, process_id )
                 nc++;
         sh = nsh;
     }
-    
+
     if (y1 >= 0.0)
         nsh = 1;
-    else 
+    else
         nsh = -1;
-    
+
     if (sh != nsh) {
         if ((x3 >= 0.0) && (x1 >= 0.0))
             nc++;
@@ -296,13 +278,13 @@ int v_intersect( patch, p, ray, t, process_id )
                 nc++;
         sh = nsh;
     }
-    
-    if ((nc % 2) == 0) 
+
+    if ((nc % 2) == 0)
         return(0);
     else {
         return(1);
     }
-    
+
 }
 
 
@@ -340,74 +322,61 @@ int v_intersect( patch, p, ray, t, process_id )
  *****************************************************************************/
 
 
-int traverse_bsp( src_node, p, ray, r_min, r_max, process_id )
-  
-  Patch *src_node ;
-  Vertex *p ;
-  Ray *ray ;
-  float r_min, r_max ;
-  unsigned process_id;
+long traverse_bsp(Patch *src_node, Vertex *p, Ray *ray, float r_min, float r_max, long process_id)
 {
-    float t ;
+    float t = 0.0 ;
     Patch *parent, *visited_child ;
-    int traverse_subtree() ;
-    int test_intersection() ;
-    int advice ;
-    
-    
+    long advice ;
+
+
     /* (1) Check patch cache */
     if( check_patch_cache( p, ray, r_min, r_max, process_id ) )
         return( 1 ) ;
-    
+
     /* (2) Check S+(src_node) */
     if( traverse_subtree( src_node->bsp_positive, p, ray, r_min, r_max, process_id ) )
         return( 1 ) ;
-    
+
     /* (3) Continue in-order traversal till root is encountered */
     for( parent = src_node->bsp_parent, visited_child = src_node ;
         parent ;
         visited_child = parent, parent = parent->bsp_parent )
         {
             /* Check intersection at this node */
-            advice = intersection_type( parent, p, ray, &t, r_min, r_max, process_id ) ;
-            if( (advice != POSITIVE_SUBTREE_ONLY) &&
-               (advice != NEGATIVE_SUBTREE_ONLY) )
+            advice = intersection_type( parent, p, ray, &t, r_min, r_max ) ;
+            if( (advice != POSITIVE_SUBTREE_ONLY) && (advice != NEGATIVE_SUBTREE_ONLY) )
                 {
                     if( test_intersection( parent, p, ray, t, process_id ) )
                         return( 1 ) ;
-                    
+
                     r_min = t - VIS_RANGE_MARGIN ;
                 }
-            
+
             /* Traverse unvisited subtree of the node */
-            if(   (parent->bsp_positive == visited_child)
-               && (advice != POSITIVE_SUBTREE_ONLY) )
+            if(   (parent->bsp_positive == visited_child) && (advice != POSITIVE_SUBTREE_ONLY) )
                 {
-                    if( traverse_subtree( parent->bsp_negative, p, ray,
-                                         r_min, r_max, process_id ) )
+                    if( traverse_subtree( parent->bsp_negative, p, ray, r_min, r_max, process_id ) )
                         return( 1 ) ;
                 }
-            else if( (parent->bsp_positive != visited_child)
-                    && (advice != NEGATIVE_SUBTREE_ONLY) )
+            else if( (parent->bsp_positive != visited_child) && (advice != NEGATIVE_SUBTREE_ONLY) )
                 {
-                    if( traverse_subtree( parent->bsp_positive, p, ray,
-                                         r_min, r_max, process_id ) )
+                    if( traverse_subtree( parent->bsp_positive, p, ray, r_min, r_max, process_id ) )
                         return( 1 ) ;
                 }
         }
-    
+
     return( 0 ) ;
 }
 
 
 
 
-int traverse_subtree( node, p, ray, r_min, r_max, process_id )
+long traverse_subtree(Patch *node, Vertex *p, Ray *ray, float r_min, float r_max, long process_id)
   /*
    *    To minimize the length of the traversal of the BSP tree, a pruning
    *    algorithm is incorporated.
-   *    One possibility (not used in this version) is to prune one of the 
-   *	 subtrees if the node in question intersects the ray outside of the 
+   *    One possibility (not used in this version) is to prune one of the
+   *	 subtrees if the node in question intersects the ray outside of the
    *	 range defined by the source and the destination patches.
    *    Another possibility (used here) is more aggressive pruning. Like the above
    *    method, the intersection point is checked against the range to prune the
@@ -415,27 +384,22 @@ int traverse_subtree( node, p, ray, r_min, r_max, process_id )
    *    the range itself is recursively subdivided so that the minimum range is
    *    applied the possibility of pruning maximized.
    */
-  Patch *node ;
-  Vertex *p ;
-  Ray *ray ;
-  float r_min, r_max ;
-  unsigned process_id;
 {
     float t ;
-    int advice ;
-    
-    
+    long advice ;
+
+
     if( node == 0 )
         return( 0 ) ;
-    
-    advice = intersection_type( node, p, ray, &t, r_min, r_max, process_id ) ;
+
+    advice = intersection_type( node, p, ray, &t, r_min, r_max ) ;
     if( advice == POSITIVE_SIDE_FIRST )
         {
             /* The ray is approaching from the positive side of the patch */
             if( traverse_subtree( node->bsp_positive, p, ray,
                                  r_min, t + VIS_RANGE_MARGIN, process_id ) )
                 return( 1 ) ;
-            
+
             if( test_intersection( node, p, ray, t, process_id ) )
                 return( 1 ) ;
             return( traverse_subtree( node->bsp_negative, p, ray,
@@ -449,11 +413,11 @@ int traverse_subtree( node, p, ray, r_min, r_max, process_id )
                 return( 1 ) ;
             if( test_intersection( node, p, ray, t, process_id ) )
                 return( 1 ) ;
-            
+
             return( traverse_subtree( node->bsp_positive, p, ray,
                                      t - VIS_RANGE_MARGIN, r_max, process_id ) ) ;
         }
-    
+
     else if( advice == POSITIVE_SUBTREE_ONLY )
         return( traverse_subtree( node->bsp_positive, p, ray,
                                  r_min, r_max, process_id ) ) ;
@@ -486,45 +450,38 @@ int traverse_subtree( node, p, ray, r_min, r_max, process_id )
  *
  ***************************************************************************/
 
-int intersection_type( patch, p, ray, tval, range_min, range_max, process_id )
-  
-  Patch  *patch ;
-  Vertex *p ;
-  Ray    *ray ;
-  float  *tval ;
-  float  range_min, range_max ;
-  unsigned process_id;
+long intersection_type(Patch  *patch, Vertex *p, Ray *ray, float *tval, float range_min, float range_max)
 {
     float r_dot_n ;
     float dist ;
     float t ;
     float nx, ny, nz ;
-    
+
 #if PATCH_ASSIGNMENT == PATCH_ASSIGNMENT_COSTBASED
     vis_struct[process_id].bsp_nodes_visited++ ;
 #endif
-    
+
     /* (R.N) */
     nx = patch->plane_equ.n.x ;
     ny = patch->plane_equ.n.y ;
     nz = patch->plane_equ.n.z ;
-    
+
     r_dot_n = nx * ray->x + ny * ray->y + nz * ray->z ;
     dist = patch->plane_equ.c  +  p->x * nx  +  p->y * ny  +  p->z * nz ;
-    
+
     if( (-(float)F_ZERO < r_dot_n) && (r_dot_n < (float)F_ZERO) )
         {
             if( dist > (float)F_COPLANAR )
                 return( POSITIVE_SUBTREE_ONLY ) ;
             else if( dist < -F_COPLANAR )
                 return( NEGATIVE_SUBTREE_ONLY ) ;
-            
+
             return( ON_THE_PLANE ) ;
         }
-    
+
     t = -dist / r_dot_n ;
     *tval = t ;
-    
+
     if( t < range_min )
         {
             if( r_dot_n >= 0 )
@@ -555,35 +512,27 @@ int intersection_type( patch, p, ray, tval, range_min, range_max, process_id )
  *
  *************************************************************/
 
-int test_intersection( patch, p, ray, tval, process_id )
-  
-  Patch  *patch ;
-  Vertex *p ;
-  Ray    *ray ;
-  float  tval ;
-  unsigned process_id;
+long test_intersection(Patch *patch, Vertex *p, Ray *ray, float tval, long process_id)
 {
-    void update_patch_cache() ;
-    
     /* Rays always hit the destination. Note that (R.Ndest) is already
        checked by visibility() */
-    
+
     if( patch == vis_struct[process_id].v_dest_patch )
         {
             vis_struct[process_id].pool_dst_hits++ ;
             return( 1 ) ;
         }
-    
+
     if( patch_tested( patch, process_id ) )
         return( 0 ) ;
-    
-    if( v_intersect( patch, p, ray, tval, process_id ) )
+
+    if( v_intersect( patch, p, ray, tval ) )
         {
             /* Store it in the patch-cache */
             update_patch_cache( patch, process_id ) ;
             return( 1 ) ;
         }
-    
+
     return( 0 ) ;
 }
 
@@ -600,8 +549,8 @@ int test_intersection( patch, p, ray, tval, process_id )
  *    To exploit visibility coherency, a patch cache is used.
  *    Before traversing the BSP tree, the cache contents are tested to see
  *    if they intercept the ray in question. The size of the patch cache is
- *    defined by PATCH_CACHE_SIZE (in patch.H). Since the first two 
- *    entries of the cache 
+ *    defined by PATCH_CACHE_SIZE (in patch.H). Since the first two
+ *    entries of the cache
  *    usually cover about 95% of the cache hits, increasing the cache size
  *    does not help much. Nevertheless, the program is written so that
  *    increasing cache size does not result in additional ray-intersection
@@ -609,52 +558,42 @@ int test_intersection( patch, p, ray, tval, process_id )
  *
  *************************************************************/
 
-void update_patch_cache( patch, process_id )
-  
-  Patch *patch ;
-  unsigned process_id;
+void update_patch_cache(Patch *patch, long process_id)
 {
-    int i ;
-    
+    long i ;
+
     /* Shift current contents */
     for( i = PATCH_CACHE_SIZE-1 ; i > 0  ; i-- )
         vis_struct[process_id].patch_cache[i] = vis_struct[process_id].patch_cache[i-1] ;
-    
+
     /* Store the new patch data */
     vis_struct[process_id].patch_cache[0] = patch ;
 }
 
 
 
-int check_patch_cache( p, ray, r_min, r_max, process_id )
-  
-  Vertex *p ;
-  Ray    *ray ;
-  float  r_min, r_max ;
-  unsigned process_id;
+long check_patch_cache(Vertex *p, Ray *ray, float r_min, float r_max, long process_id)
 {
-    int i ;
+    long i ;
     float t ;
     Patch *temp ;
-    int advice ;
-    
+    long advice ;
+
     for( i = 0 ; i < PATCH_CACHE_SIZE ; i++ )
         {
             if(   (vis_struct[process_id].patch_cache[i] == 0)
                || (vis_struct[process_id].patch_cache[i] == vis_struct[process_id].v_dest_patch)
                || (vis_struct[process_id].patch_cache[i] == vis_struct[process_id].v_src_patch) )
                 continue ;
-            
-            advice = intersection_type( vis_struct[process_id].patch_cache[i],  p, ray, &t,
-                                       r_min, r_max, process_id ) ;
-            
+
+            advice = intersection_type( vis_struct[process_id].patch_cache[i],  p, ray, &t, r_min, r_max ) ;
+
             /* If no intersection, then skip */
             if(   (advice == POSITIVE_SUBTREE_ONLY)
                || (advice == NEGATIVE_SUBTREE_ONLY) )
                 continue ;
-            
-            if(   (advice == ON_THE_PLANE)
-               || v_intersect( vis_struct[process_id].patch_cache[i], p, ray, t, process_id ) )
+
+            if(   (advice == ON_THE_PLANE) || v_intersect( vis_struct[process_id].patch_cache[i], p, ray, t ) )
                 {
                     /* Change priority */
                     if( i > 0 )
@@ -663,39 +602,36 @@ int check_patch_cache( p, ray, r_min, r_max, process_id )
                             vis_struct[process_id].patch_cache[ i-1 ] = vis_struct[process_id].patch_cache[ i ] ;
                             vis_struct[process_id].patch_cache[ i ] = temp ;
                         }
-                    
+
                     return( 1 ) ;
                 }
         }
-    
-    
+
+
     return( 0 ) ;
 }
 
 
 
-void init_patch_cache(process_id)
+void init_patch_cache(long process_id)
 {
-    int i ;
-    
+    long i ;
+
     for( i = 0 ; i < PATCH_CACHE_SIZE ; i++ )
         vis_struct[process_id].patch_cache[ i ] = 0 ;
 }
 
 
-int patch_tested( p, process_id )
-  
-  Patch *p ;
-  unsigned process_id;
+long patch_tested(Patch *p, long process_id)
 {
-    int i ;
-    
+    long i ;
+
     for( i = 0 ; i < PATCH_CACHE_SIZE ; i++ )
         {
             if( p == vis_struct[process_id].patch_cache[i] )
                 return( 1 ) ;
         }
-    
+
     return( 0 ) ;
 }
 
@@ -707,20 +643,16 @@ int patch_tested( p, process_id )
  *************************************************************/
 
 
-float visibility( e1, e2, n_rays, process_id )
-  
-  Element *e1, *e2;
-  int n_rays ;
-  unsigned process_id;
+float visibility(Element *e1, Element *e2, long n_rays, long process_id)
 {
     float range_max, range_min ;
-    int i;
+    long i;
     Ray *r;
-    int ray_reject ;
-    
+    long ray_reject ;
+
     vis_struct[process_id].v_src_patch  = e1->patch;
     vis_struct[process_id].v_dest_patch = e2->patch;
-    
+
     vis_struct[process_id].v_src_p1 = e1->ev1->p ;
     vis_struct[process_id].v_src_v12.x = e1->ev2->p.x - vis_struct[process_id].v_src_p1.x ;
     vis_struct[process_id].v_src_v12.y = e1->ev2->p.y - vis_struct[process_id].v_src_p1.y ;
@@ -728,7 +660,7 @@ float visibility( e1, e2, n_rays, process_id )
     vis_struct[process_id].v_src_v13.x = e1->ev3->p.x - vis_struct[process_id].v_src_p1.x ;
     vis_struct[process_id].v_src_v13.y = e1->ev3->p.y - vis_struct[process_id].v_src_p1.y ;
     vis_struct[process_id].v_src_v13.z = e1->ev3->p.z - vis_struct[process_id].v_src_p1.z ;
-    
+
     vis_struct[process_id].v_dest_p1 = e2->ev1->p ;
     vis_struct[process_id].v_dest_v12.x = e2->ev2->p.x - vis_struct[process_id].v_dest_p1.x ;
     vis_struct[process_id].v_dest_v12.y = e2->ev2->p.y - vis_struct[process_id].v_dest_p1.y ;
@@ -736,37 +668,37 @@ float visibility( e1, e2, n_rays, process_id )
     vis_struct[process_id].v_dest_v13.x = e2->ev3->p.x - vis_struct[process_id].v_dest_p1.x ;
     vis_struct[process_id].v_dest_v13.y = e2->ev3->p.y - vis_struct[process_id].v_dest_p1.y ;
     vis_struct[process_id].v_dest_v13.z = e2->ev3->p.z - vis_struct[process_id].v_dest_p1.z ;
-    
+
     get_test_rays( vis_struct[process_id].point_pool, vis_struct[process_id].ray_pool, n_rays, process_id ) ;
-    
+
     range_min = -VIS_RANGE_MARGIN ;
     range_max =  1.0 + VIS_RANGE_MARGIN ;
-    
+
     vis_struct[process_id].pool_dst_hits = 0 ;
     ray_reject = 0 ;
     for ( i = 0 ; i < n_rays ; i++ )
         {
             r = &(vis_struct[process_id].ray_pool[i]);
-            
-            if (  (inner_product( r, &(vis_struct[process_id].v_src_patch)->plane_equ.n ) <= 0.0 )
-                ||(inner_product( r, &(vis_struct[process_id].v_dest_patch)->plane_equ.n ) >= 0.0 ) )
+
+            if (  (inner_product( (Vertex *)r, &(vis_struct[process_id].v_src_patch)->plane_equ.n ) <= 0.0 )
+                ||(inner_product( (Vertex *)r, &(vis_struct[process_id].v_dest_patch)->plane_equ.n ) >= 0.0 ) )
                 {
                     ray_reject++ ;
                     continue ;
                 }
-            
+
             traverse_bsp( vis_struct[process_id].v_src_patch, &vis_struct[process_id].point_pool[i], r, range_min, range_max, process_id ) ;
         }
-    
+
     if (ray_reject == n_rays) {
         /* All rays have been trivially rejected. This can occur
            if no rays are shot between visible portion of the elements.
            Return partial visibility (1/No-of-rays). */
-        
+
         /* Return partially visible result */
         vis_struct[process_id].pool_dst_hits = 1 ;
     }
-    
+
     return( (float)vis_struct[process_id].pool_dst_hits / (float)n_rays ) ;
 }
 
@@ -780,25 +712,19 @@ float visibility( e1, e2, n_rays, process_id )
  *
  ******************************************************************/
 
-void compute_visibility_values( elem, inter, n_inter, process_id )
-  
-  Element *elem ;                /* Element that the list belongs to */
-  Interaction *inter ;	   /* Interaction list */
-  int n_inter ;		   /* Number of interactions whose visibility
-                          value is computed */
-  unsigned process_id;
+void compute_visibility_values(Element *elem, Interaction *inter, long n_inter, long process_id)
 {
     for( ; n_inter > 0 ; inter = inter->next, n_inter-- )
         {
             if( inter->visibility != VISIBILITY_UNDEF )
                 continue ;
-            
+
             vis_struct[process_id].bsp_nodes_visited = 0 ;
-            
+
             inter->visibility
                 = visibility( elem, inter->destination,
                              N_VISIBILITY_TEST_RAYS, process_id ) ;
-            
+
             vis_struct[process_id].total_bsp_nodes_visited += vis_struct[process_id].bsp_nodes_visited ;
         }
 }
@@ -813,37 +739,30 @@ void compute_visibility_values( elem, inter, n_inter, process_id )
  *
  ******************************************************************/
 
-void visibility_task( elem, inter, n_inter, k, process_id )
-  
-  Element *elem ;                /* Element that the list belongs to */
-  Interaction *inter ;	   /* Interaction list */
-  int n_inter ;		   /* Number of interactions whose visibility
-                          value is computed */
-  void (*k)() ;		   /* Continuation */
-  unsigned process_id;
+void visibility_task(Element *elem, Interaction *inter, long n_inter, void (*k)(), long process_id)
 {
 #if PATCH_ASSIGNMENT == PATCH_ASSIGNMENT_COSTBASED
     Patch_Cost *pc ;
 #endif
-    int new_vis_undef_count ;
-    
+    long new_vis_undef_count ;
+
     /* Compute visibility */
     vis_struct[process_id].total_bsp_nodes_visited = 0 ;
     compute_visibility_values( elem, inter, n_inter, process_id ) ;
-    
+
     /* Change visibility undef count */
     LOCK(elem->elem_lock->lock);
     elem->n_vis_undef_inter -= n_inter ;
     new_vis_undef_count = elem->n_vis_undef_inter ;
     UNLOCK(elem->elem_lock->lock);
-    
+
 #if PATCH_ASSIGNMENT == PATCH_ASSIGNMENT_COSTBASED
     pc = &global->patch_cost[ elem->patch->seq_no ] ;
     LOCK(pc->cost_lock->lock);
     pc->n_bsp_node += vis_struct[process_id].total_bsp_nodes_visited ;
     UNLOCK(pc->cost_lock->lock);
 #endif
-    
+
     /* Call continuation if this is the last task finished. */
     if( new_vis_undef_count == 0 )
         k( elem, process_id ) ;

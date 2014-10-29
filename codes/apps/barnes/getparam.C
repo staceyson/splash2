@@ -15,9 +15,10 @@
 /*************************************************************************/
 
 /*
- * GETPARAM.C: 
+ * GETPARAM.C:
  */
 EXTERN_ENV
+#define global extern
 
 #include "stdinc.h"
 
@@ -27,8 +28,7 @@ local string *defaults = NULL;        /* vector of "name=value" strings */
  * INITPARAM: ignore arg vector, remember defaults.
  */
 
-initparam(argv, defv)
-  string *argv, *defv;
+void initparam(string *defv)
 {
    defaults = defv;
 }
@@ -37,13 +37,11 @@ initparam(argv, defv)
  * GETPARAM: export version prompts user for value.
  */
 
-string getparam(name)
-  string name;                        /* name of parameter */
+string getparam(string name)
 {
-   int scanbind(), i, strlen(), leng;
-   string extrvalue(), def;
-   char buf[128], *strcpy();
-   char* temp;
+   long i, leng;
+   string def;
+   char buf[128];
 
    if (defaults == NULL)
       error("getparam: called before initparam\n");
@@ -60,40 +58,35 @@ string getparam(name)
       return (def);
    }
 }
-
+
 /*
- * GETIPARAM, ..., GETDPARAM: get int, long, bool, or double parameters.
+ * GETIPARAM, ..., GETDPARAM: get long, long, bool, or double parameters.
  */
 
-int getiparam(name)
-  string name;                        /* name of parameter */
+long getiparam(string name)
 {
-   string getparam(), val;
-   int atoi();
+   string val;
 
-   for (val = ""; *val == NULL;) {
+   for (val = ""; *val == '\0';) {
       val = getparam(name);
    }
    return (atoi(val));
 }
 
-long getlparam(name)
-  string name;                        /* name of parameter */
+long getlparam(string name)
 {
-   string getparam(), val;
-   long atol();
+   string val;
 
-   for (val = ""; *val == NULL; )
+   for (val = ""; *val == '\0'; )
       val = getparam(name);
    return (atol(val));
 }
 
-bool getbparam(name)
-  string name;                        /* name of parameter */
+bool getbparam(string name)
 {
-   string getparam(), val;
-    
-   for (val = ""; *val == NULL; )
+   string val;
+
+   for (val = ""; *val == '\0'; )
       val = getparam(name);
    if (strchr("tTyY1", *val) != NULL) {
       return (TRUE);
@@ -104,30 +97,25 @@ bool getbparam(name)
    error("getbparam: %s=%s not bool\n", name, val);
 }
 
-double getdparam(name)
-  string name;                        /* name of parameter */
+double getdparam(string name)
 {
-   string getparam(), val;
-   double atof();
+   string val;
 
-   for (val = ""; *val == NULL; ) {
+   for (val = ""; *val == '\0'; ) {
       val = getparam(name);
    }
    return (atof(val));
 }
 
-
+
 
 /*
  * SCANBIND: scan binding vector for name, return index.
  */
 
-int scanbind(bvec, name)
-  string bvec[];
-  string name;
+long scanbind(string bvec[], string name)
 {
-   int i;
-   bool matchname();
+   long i;
 
    for (i = 0; bvec[i] != NULL; i++)
       if (matchname(bvec[i], name))
@@ -139,8 +127,7 @@ int scanbind(bvec, name)
  * MATCHNAME: determine if "name=value" matches "name".
  */
 
-bool matchname(bind, name)
-  string bind, name;
+bool matchname(string bind, string name)
 {
    char *bp, *np;
 
@@ -150,20 +137,19 @@ bool matchname(bind, name)
       bp++;
       np++;
    }
-   return (*bp == '=' && *np == NULL);
+   return (*bp == '=' && *np == '\0');
 }
 
 /*
  * EXTRVALUE: extract value from name=value string.
  */
 
-string extrvalue(arg)
-  string arg;                        /* string of the form "name=value" */
+string extrvalue(string arg)
 {
    char *ap;
 
    ap = (char *) arg;
-   while (*ap != NULL)
+   while (*ap != '\0')
       if (*ap++ == '=')
 	 return ((string) ap);
    return (NULL);

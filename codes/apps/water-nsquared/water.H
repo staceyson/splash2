@@ -15,9 +15,9 @@
 /*************************************************************************/
 
   /* some variable declarations and some macro definitions */
-  
-  extern double OMAS,HMAS,WTMOL,ROH,ANGLE,FHM,FOM,ROHI,ROHI2;
-  extern int NATOMS;
+
+extern double OMAS,HMAS,WTMOL,ROH,ANGLE,FHM,FOM,ROHI,ROHI2;
+extern long NATOMS;
 #define max(a,b) ( (a) < (b) ) ? b : a
 #define min(a,b) ( (a) > (b) ) ? b : a
 #define ONE ((double) 1)

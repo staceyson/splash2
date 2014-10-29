@@ -100,13 +100,11 @@ INT	maxmem_pepArray;
  *	generates an error exit.
  */
 
-VOID	*LocalMalloc(n, msg)
-UINT	n;
-CHAR	*msg;
+VOID	*LocalMalloc(UINT n, CHAR *msg)
 	{
 	VOID	*p;
 
-	p = (VOID *) malloc(n);
+	p = (VOID *) /*malloc*/G_MALLOC(n);
 	if (!p)
 		{
 		printf("%s: %s cannot allocate local memory.\n", ProgName, msg);
@@ -136,8 +134,7 @@ CHAR	*msg;
  *	Nothing.
  */
 
-VOID	LocalFree(p)
-VOID	*p;
+VOID	LocalFree(VOID *p)
 	{
 	free(p);
 
@@ -215,12 +212,8 @@ VOID	GlobalHeapWalk()
  *	FALSE otherwise.
  */
 
-BOOL	GlobalHeapInit(size)
-UINT	size;
+BOOL	GlobalHeapInit(UINT size)
 	{
-	INT	i;
-	U8	*ptr;
-
 	size	     = ROUND_UP(size);
 	gm->freelist = (NODE huge *)G_MALLOC(size);
 
@@ -236,9 +229,9 @@ UINT	size;
 	gm->freelist->free = TRUE;
 	gm->freelist->cksm = CKSM;
 
-/* NOTE TO USERS: Here's where one can allocate the memory segment from 
+/* NOTE TO USERS: Here's where one can allocate the memory segment from
 	begmem to endmem round-robin among memories or however one desires */
-	
+
 	return (TRUE);
 	}
 
@@ -272,9 +265,7 @@ UINT	size;
  *	Generates error exit if there is insufficient memory available.
  */
 
-VOID	*GlobalMalloc(size, msg)
-UINT	size;
-CHAR	*msg;
+VOID	*GlobalMalloc(UINT size, CHAR *msg)
 	{
 	NODE	huge   *prev;
 	NODE	huge   *curr;
@@ -375,9 +366,7 @@ CHAR	*msg;
  *
  */
 
-VOID	*GlobalCalloc(n, size)
-UINT	n;
-UINT	size;
+VOID	*GlobalCalloc(UINT n, UINT size)
 	{
 	UINT	nbytes;
 	UINT	huge	*p;
@@ -452,9 +441,7 @@ UINT	size;
  *	As stated above.
  */
 
-VOID	*GlobalRealloc(p, size)
-VOID	*p;
-UINT	size;
+VOID	*GlobalRealloc(VOID *p, UINT size)
 	{
 	UINT		oldsize;
 	UINT		newsize;
@@ -632,8 +619,7 @@ UINT	size;
  *	Nothing.
  */
 
-VOID	GlobalFree(p)
-VOID	*p;
+VOID	GlobalFree(VOID *p)
 	{
 	BOOL		pcom;			/* TRUE if prev can combine. */
 	BOOL		ncom;			/* TRUE if next can combine. */
@@ -699,7 +685,7 @@ VOID	*p;
 
 		if (curr >= endmem)
 			{
-			fprintf(stdout, "freelist=0x%08lX, curr=0x%08lX, size=0x%08lX, pn=0x%08lX, endmem=0x%08lX\n", gm->freelist, curr, curr->size, pn, endmem);
+			fprintf(stdout, "freelist=0x%p, curr=0x%p, size=0x%lu, pn=0x%p, endmem=0x%p\n", gm->freelist, curr, curr->size, pn, endmem);
 			fprintf(stderr, "GlobalFree: Search for previous block fell off end of memory.\n");
 			exit(1);
 			}
@@ -903,9 +889,7 @@ UINT	GlobalMemMax()
  *	generates an error exit.
  */
 
-VOID	*ObjectMalloc(ObjectType, count)
-INT	ObjectType;
-INT	count;
+VOID	*ObjectMalloc(INT ObjectType, INT count)
 	{
 	INT	n;
 	VOID	*p;
@@ -980,7 +964,7 @@ INT	count;
 			break;
 
 		default:
-			printf("ObjectMalloc: Unknown object type: %d\n", ObjectType);
+			printf("ObjectMalloc: Unknown object type: %ld\n", ObjectType);
 			exit(-1);
 		}
 
@@ -1007,10 +991,7 @@ INT	count;
  *	Nothing.
  */
 
-VOID	ObjectFree(ObjectType, count, p)
-INT	ObjectType;
-INT	count;
-VOID	*p;
+VOID	ObjectFree(INT ObjectType, INT count, VOID *p)
 	{
 	INT	n;
 
@@ -1050,7 +1031,7 @@ VOID	*p;
 			break;
 
 		default:
-			printf("ObjectFree: Unknown object type: %d\n", ObjectType);
+			printf("ObjectFree: Unknown object type: %ld\n", ObjectType);
 			exit(-1);
 		}
 	}
@@ -1058,8 +1039,7 @@ VOID	*p;
 
 
 
-RAYINFO *ma_rayinfo(r)
-RAY	*r;
+RAYINFO *ma_rayinfo(RAY *r)
 	{
 	RAYINFO *p;
 
@@ -1084,16 +1064,14 @@ RAY	*r;
 
 
 
-VOID   free_rayinfo(r)
-RAY    *r;
+VOID   free_rayinfo(RAY *r)
 	{
 	r->ri_indx -= 1;
 	}
 
 
 
-VOID	reset_rayinfo(r)
-RAY	*r;
+VOID	reset_rayinfo(RAY *r)
 	{
 	r->ri_indx = 0;
 	}
@@ -1102,7 +1080,6 @@ RAY	*r;
 
 VOID	ma_print()
 	{
-	INT	i;
 	INT	mem_total;
 	INT	maxmem_total;
 
@@ -1115,11 +1092,11 @@ VOID	ma_print()
 	fprintf(stdout, "\n****** Hierarchial uniform grid memory allocation summary ******* \n\n");
 	fprintf(stdout, "     < struct >:            < current >   < maximum >    < sizeof > \n");
 	fprintf(stdout, "     <  bytes >:             <  bytes >   <   bytes >    <  bytes > \n\n");
-	fprintf(stdout, "     grid:                %11ld   %11ld   %11d \n", mem_grid,        maxmem_grid,        sizeof(GRID)   );
-	fprintf(stdout, "     hashtable entries:   %11ld   %11ld   %11d \n", mem_hashtable,   maxmem_hashtable,   sizeof(VOXEL**));
-	fprintf(stdout, "     emptycell entries:   %11ld   %11ld   %11d \n", mem_emptycells,  maxmem_emptycells,  sizeof(UINT)   );
-	fprintf(stdout, "     voxel:               %11ld   %11ld   %11d \n", mem_voxel,       maxmem_voxel,       sizeof(VOXEL)  );
-	fprintf(stdout, "     bintree_node:        %11ld   %11ld   %11d \n", mem_bintree,     maxmem_bintree,     sizeof(BTNODE) );
+	fprintf(stdout, "     grid:                %11ld   %11ld   %11ld \n", mem_grid,        maxmem_grid,        sizeof(GRID)   );
+	fprintf(stdout, "     hashtable entries:   %11ld   %11ld   %11ld \n", mem_hashtable,   maxmem_hashtable,   sizeof(VOXEL**));
+	fprintf(stdout, "     emptycell entries:   %11ld   %11ld   %11ld \n", mem_emptycells,  maxmem_emptycells,  sizeof(UINT)   );
+	fprintf(stdout, "     voxel:               %11ld   %11ld   %11ld \n", mem_voxel,       maxmem_voxel,       sizeof(VOXEL)  );
+	fprintf(stdout, "     bintree_node:        %11ld   %11ld   %11ld \n", mem_bintree,     maxmem_bintree,     sizeof(BTNODE) );
 
 	fprintf(stdout, "\n");
 	fprintf(stdout, "     Totals:              %11ld   %11ld      \n\n", mem_total,       maxmem_total);

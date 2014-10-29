@@ -23,51 +23,36 @@ EXTERN_ENV
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
-#include "decs.h" 
+#include <stdlib.h>
+#include "decs.h"
 
-void slave2(procid,firstrow,lastrow,numrows,firstcol,lastcol,numcols)
-
-int procid;
-int firstrow;
-int lastrow;
-int numrows;
-int firstcol;
-int lastcol;
-int numcols;
-
+void slave2(long procid, long firstrow, long lastrow, long numrows, long firstcol, long lastcol, long numcols)
 {
-   int i;
-   int j;
-   int nstep;
-   int iindex;
-   int iday;
-   double ysca1;
-   double y;
-   double factor;
-   double sintemp;
-   double curlt;
+   long i;
+   long j;
+   long iindex;
    double hh1;
    double hh3;
    double hinv;
    double h1inv;
-   int istart; 
-   int iend; 
-   int jstart; 
-   int jend;
-   int ist; 
-   int ien; 
-   int jst; 
-   int jen;
+   long istart;
+   long iend;
+   long jstart;
+   long jend;
+   long ist;
+   long ien;
+   long jst;
+   long jen;
    double fac;
    double ressqr;
    double psiaipriv;
    double f4;
    double timst;
-   int psiindex;
-   int i_off;
-   int j_off;
-   int multi_start;
-   int multi_end;
+   long psiindex;
+   long i_off;
+   long j_off;
+   long multi_start;
+   long multi_end;
    double **t2a;
    double **t2b;
    double **t2c;
@@ -179,7 +164,7 @@ int numcols;
      }
    }
 
-/* put the laplacian of psi{1,3} in work1{1,2} 
+/* put the laplacian of psi{1,3} in work1{1,2}
    note that psi(i,j,2) represents the psi3 array in
    the original equations  */
 
@@ -200,7 +185,7 @@ int numcols;
      laplacalc(procid,psi,work1,psiindex,
 	       firstrow,lastrow,firstcol,lastcol);
    }
- 
+
 /* set values of work2 array to psi1 - psi3   */
 
    t2a = (double **) work2[procid];
@@ -253,7 +238,7 @@ int numcols;
          t1a[iindex] = t1b[iindex] - t1c[iindex];
      }
    }
- 
+
 /* set values of work3 array to h3/h * psi1 + h1/h * psi3  */
 
    t2a = (double **) work3[procid];
@@ -350,9 +335,11 @@ int numcols;
        }
      }
    }
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_phase_1,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /*     *******************************************************
 
               s e c o n d   p h a s e
@@ -406,7 +393,7 @@ int numcols;
      }
    }
 
-/* put the laplacian of the psim array 
+/* put the laplacian of the psim array
    into the work7 array; first part of a three-laplacian
    calculation to compute the friction terms  */
 
@@ -430,7 +417,7 @@ int numcols;
 
 /* to the values of the work1{1,2} arrays obtained from the
    laplacians of psi{1,2} in the previous phase, add to the
-   elements of every column the corresponding value in the 
+   elements of every column the corresponding value in the
    one-dimenional f array  */
 
    for(psiindex=0;psiindex<=1;psiindex++) {
@@ -474,18 +461,20 @@ int numcols;
        }
      }
    }
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_phase_2,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /* 	*******************************************************
 
                  t h i r d   p h a s e
- 
+
  	*******************************************************
 
    put the jacobian of the work1{1,2} and psi{1,3} arrays
    (the latter currently in temparray) in the work5{1,2} arrays  */
-     
+
    for(psiindex=0;psiindex<=1;psiindex++) {
      jacobcalc2(work1,temparray,work5,psiindex,procid,firstrow,lastrow,
 	       firstcol,lastcol);
@@ -548,9 +537,11 @@ int numcols;
      laplacalc(procid,work7,work4,psiindex,
 	       firstrow,lastrow,firstcol,lastcol);
    }
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_phase_3,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /*     *******************************************************
 
                 f o u r t h   p h a s e
@@ -568,10 +559,12 @@ int numcols;
    for(psiindex=0;psiindex<=1;psiindex++) {
      laplacalc(procid,work4,work7,psiindex,
 	       firstrow,lastrow,firstcol,lastcol);
-   } 
-
+   }
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_phase_4,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /*     *******************************************************
 
                 f i f t h   p h a s e
@@ -581,7 +574,7 @@ int numcols;
    use the values of the work5, work6 and work7 arrays
    computed in the previous time-steps to compute the
    ga and gb arrays   */
-   
+
    hinv = 1.0/h;
    h1inv = 1.0/h1;
 
@@ -618,7 +611,7 @@ int numcols;
 	   lf*hh1*t2e[0][jm-1]+lf*hh3*t2f[0][jm-1];
    }
    if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
-     t2a[im-1][jm-1] = t2c[im-1][jm-1] - 
+     t2a[im-1][jm-1] = t2c[im-1][jm-1] -
 	   t2d[im-1][jm-1]+eig2*t2g[im-1][jm-1] +
 	   h1inv*t2h[im-1][jm-1]+lf*t2e[im-1][jm-1] -
 	   lf*t2f[im-1][jm-1];
@@ -667,7 +660,7 @@ int numcols;
    if (gp[procid].neighbors[LEFT] == -1) {
      for(j=firstrow;j<=lastrow;j++) {
        t2a[j][0] = t2c[j][0]-t2d[j][0] +
-	   eig2*t2g[j][0]+h1inv*t2h[j][0] + 
+	   eig2*t2g[j][0]+h1inv*t2h[j][0] +
 	   lf*t2e[j][0]-lf*t2f[j][0];
        t2b[j][0] = hh1*t2c[j][0] +
 	   hh3*t2d[j][0]+hinv*t2h[j][0] +
@@ -706,9 +699,11 @@ int numcols;
 	   lf*hh3*t1f[iindex];
      }
    }
-   
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_phase_5,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /*     *******************************************************
 
                s i x t h   p h a s e
@@ -793,9 +788,9 @@ int numcols;
      gp[procid].multi_time += (multi_end - multi_start);
    }
 
-/* the shared sum variable psiai is initialized to 0 at 
+/* the shared sum variable psiai is initialized to 0 at
    every time-step  */
-     
+
    if (procid == MASTER) {
      global->psiai=0.0;
    }
@@ -811,9 +806,11 @@ int numcols;
        t1c[j] = t1d[j];
      }
    }
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_phase_6,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /*     *******************************************************
 
                 s e v e n t h   p h a s e
@@ -822,7 +819,7 @@ int numcols;
 
    every process computes the running sum for its assigned portion
    in a private variable psiaipriv   */
-    
+
    psiaipriv=0.0;
    t2a = (double **) ga[procid];
    if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
@@ -868,13 +865,15 @@ int numcols;
 
 /* after computing its private sum, every process adds that to the
    shared running sum psiai  */
-   
+
    LOCK(locks->psiailock)
    global->psiai = global->psiai + psiaipriv;
    UNLOCK(locks->psiailock)
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_phase_7,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /*      *******************************************************
 
                 e i g h t h   p h a s e
@@ -997,9 +996,11 @@ int numcols;
        t1c[j] = t1d[j];
      }
    }
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_phase_8,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /*      *******************************************************
 
                 n i n t h   p h a s e
@@ -1010,7 +1011,7 @@ int numcols;
    note that here (as in most cases) the constant multipliers are made
    private variables; the specific order in which things are done is
    chosen in order to hopefully reuse things brought into the cache
-   
+
    note that here again we choose to have all processes share the work
    on both matrices despite the fact that the work done per element
    is the same, because the operand matrices are the same in both cases */
@@ -1080,9 +1081,11 @@ int numcols;
        t1c[iindex] = t1b[iindex] - hh1*t1a[iindex];
      }
    }
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_phase_9,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /*      *******************************************************
 
                 t e n t h    p h a s e
@@ -1100,15 +1103,15 @@ int numcols;
      t2a[0][0] = t2a[0][0] + timst*t2b[0][0];
    }
    if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
-     t2a[im-1][0] = t2a[im-1][0] + 
+     t2a[im-1][0] = t2a[im-1][0] +
 			       timst*t2b[im-1][0];
    }
    if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
-     t2a[0][jm-1] = t2a[0][jm-1] + 
+     t2a[0][jm-1] = t2a[0][jm-1] +
 			       timst*t2b[0][jm-1];
    }
    if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
-     t2a[im-1][jm-1] = t2a[im-1][jm-1] + 
+     t2a[im-1][jm-1] = t2a[im-1][jm-1] +
 				  timst*t2b[im-1][jm-1];
    }
    if (gp[procid].neighbors[UP] == -1) {
@@ -1132,7 +1135,7 @@ int numcols;
    }
    if (gp[procid].neighbors[RIGHT] == -1) {
      for(j=firstrow;j<=lastrow;j++) {
-       t2a[j][jm-1] = t2a[j][jm-1] + 
+       t2a[j][jm-1] = t2a[j][jm-1] +
 				 timst*t2b[j][jm-1];
      }
    }
@@ -1150,15 +1153,15 @@ int numcols;
      t2a[0][0] = t2a[0][0] + timst*t2b[0][0];
    }
    if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
-     t2a[im-1][0] = t2a[im-1][0] + 
+     t2a[im-1][0] = t2a[im-1][0] +
 			       timst*t2b[im-1][0];
    }
    if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
-     t2a[0][jm-1] = t2a[0][jm-1] + 
+     t2a[0][jm-1] = t2a[0][jm-1] +
 			       timst*t2b[0][jm-1];
    }
    if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
-     t2a[im-1][jm-1] = t2a[im-1][jm-1] + 
+     t2a[im-1][jm-1] = t2a[im-1][jm-1] +
 				  timst*t2b[im-1][jm-1];
    }
    if (gp[procid].neighbors[UP] == -1) {
@@ -1182,7 +1185,7 @@ int numcols;
    }
    if (gp[procid].neighbors[RIGHT] == -1) {
      for(j=firstrow;j<=lastrow;j++) {
-       t2a[j][jm-1] = t2a[j][jm-1] + 
+       t2a[j][jm-1] = t2a[j][jm-1] +
 				 timst*t2b[j][jm-1];
      }
    }
@@ -1194,6 +1197,9 @@ int numcols;
          t1a[iindex] = t1a[iindex] + timst*t1b[iindex];
      }
    }
-
-   BARRIER(bars->sl_phase_10,nprocs)   
+#if defined(MULTIPLE_BARRIERS)
+   BARRIER(bars->sl_phase_10,nprocs)
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 }

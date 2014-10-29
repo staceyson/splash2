@@ -22,13 +22,13 @@
 
 #include "incl.h"
 
-int block_xlen,block_ylen;
+long block_xlen,block_ylen;
 BOOLEAN adaptive;               /* adaptive ray tracing?                     */
 
 				/* During shading:                           */
-int density_epsilon;	        /*   minimum (density*map_divisor)           */
+long density_epsilon;	        /*   minimum (density*map_divisor)           */
 				/*     (>= MIN_DENSITY)                      */
-int magnitude_epsilon;  	/*   minimum (magnitude*grd_divisor)**2      */
+long magnitude_epsilon;  	/*   minimum (magnitude*grd_divisor)**2      */
 				/*     (> MIN_MAGNITUDE)                     */
 
                                 /* Shading parameters of reflective surface: */
@@ -63,22 +63,22 @@ float opacity_cutoff;   	/*   cutoff opacity                          */
 				/*     (<= MAX_OPACITY)                      */
 
 				/* During ray tracing:                       */
-int highest_sampling_boxlen;    /*   highest boxlen for adaptive sampling    */
+long highest_sampling_boxlen;    /*   highest boxlen for adaptive sampling    */
 				/*     (>= 1)                                */
-int lowest_volume_boxlen;      	/*   lowest boxlen for volume data           */
+long lowest_volume_boxlen;      	/*   lowest boxlen for volume data           */
 				/*     (>= 1)                                */
-int volume_color_difference;   	/*   minimum color diff for volume data      */
+long volume_color_difference;   	/*   minimum color diff for volume data      */
 				/*     (>= MIN_PIXEL)                        */
-int pyr_highest_level; 		/*   highest level of pyramid to look at     */
+long pyr_highest_level; 		/*   highest level of pyramid to look at     */
 				/*     (<= MAX_PYRLEVEL)                     */
-int pyr_lowest_level;  		/*   lowest level of pyramid to look at      */
+long pyr_lowest_level;  		/*   lowest level of pyramid to look at      */
 				/*     (>= 0)                                */
 float angle[NM];                /* initial viewing angle                     */
 
 
 EXTERN_ENV
 
-Init_Options()
+void Init_Options()
 {
 
   norm_address = NULL;
@@ -94,7 +94,7 @@ Init_Options()
   angle[Y] = -36.0;
   angle[Z] = 0.0;
   Init_Parallelization();
-    
+
   opacity_epsilon = 0.0;
   opacity_cutoff = 0.95;
   highest_sampling_boxlen = HBOXLEN; /* this must be less than BLOCK_LEN */
@@ -108,9 +108,9 @@ Init_Options()
 }
 
 
-Init_Opacity()
+void Init_Opacity()
 {
-  int i;
+  long i;
   float increment;
 
   density_epsilon = 96;
@@ -136,7 +136,7 @@ Init_Opacity()
 }
 
 
-Init_Lighting()  
+void Init_Lighting()
 {
   float inv_magnitude;
 
@@ -155,14 +155,14 @@ Init_Lighting()
   diffuse_color = 100.0;
   specular_color = 130.0;
   specular_exponent = 10.0;
-  
+
   depth_hither = 1.0;
-  depth_yon = 0.4;	
-  depth_exponent = 1.0;	
+  depth_yon = 0.4;
+  depth_exponent = 1.0;
 }
 
 
-Init_Parallelization()
+void Init_Parallelization()
 {
   block_xlen = BLOCK_LEN;
   block_ylen = BLOCK_LEN;
@@ -180,8 +180,8 @@ Init_Parallelization()
 #endif
 
   printf("Gouraud shading from lookup tables used\n");
-  printf("\t%d processes\n",num_nodes);
-  printf("\t%dx%d image block size\n",block_xlen,block_ylen);
+  printf("\t%ld processes\n",num_nodes);
+  printf("\t%ldx%ld image block size\n",block_xlen,block_ylen);
 
   if (adaptive) {
     printf("\tdoing adaptive rendering\n");

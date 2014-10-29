@@ -14,6 +14,7 @@
 #ifndef _GLIB_H
 #define _GLIB_H
 
+#include "../structs.H"
 
 /****************************************
 *
@@ -41,9 +42,9 @@
 
 typedef struct {
     char *name;
-    int min, max;
-    int init_value;
-    int ticks;
+    long min, max;
+    long init_value;
+    long ticks;
     void (*callback)();
 } slider;
 
@@ -53,10 +54,9 @@ typedef struct {
 typedef struct {
     char *name;
     char *possibilities[MAX_POSSIBILITIES];
-    int init_value;
+    long init_value;
     void (*callback)();
 } choice;
-
 
 /****************************************
 *
@@ -64,17 +64,16 @@ typedef struct {
 *
 *****************************************/
 
-extern void g_init() ;
-extern void g_start() ;
-extern void g_color(), g_rgb() ;
-extern void g_line() ;
-extern void g_polygon() ;
-extern void g_spolygon() ;
-extern void g_clear() ;
-extern void g_setup_view() ;
-extern void g_get_screen_size() ;
-extern void g_flush() ;
-
-
+void g_init(int ac, char *av[]);
+void g_start(void (*mouse_func)(void), long n_sliders, slider *slider_def, long n_choices, choice *choice_def);
+void g_color(long color);
+void g_rgb(Rgb color);
+void g_line(Vertex *p1, Vertex *p2);
+void g_polygon(long n, Vertex *p_list);
+void g_spolygon(long n, Vertex *p_list, Rgb *c_list);
+void g_clear(void);
+void g_setup_view(float rot_x, float rot_y, float dist, float zoom);
+void g_get_screen_size(long *u, long *v);
+void g_flush(void);
 
 #endif

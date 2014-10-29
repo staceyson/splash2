@@ -16,7 +16,7 @@
 
 /*      **************************************************************
                        end of subroutine jacobcalc
-        **************************************************************  
+        **************************************************************
 
    performs the laplacian calculation for a subblock. */
 
@@ -25,20 +25,15 @@
 #include <time.h>
 #include "decs.h"
 
-void laplacalc(x,z,firstrow,lastrow,firstcol,lastcol,numrows,numcols)
-
-double x[IMAX][JMAX];
-double z[IMAX][JMAX];
-int firstrow,lastrow,firstcol,lastcol,numrows,numcols;
-
+void laplacalc(double x[IMAX][JMAX], double z[IMAX][JMAX], long firstrow, long lastrow, long firstcol, long lastcol, long numrows, long numcols)
 {
-   int iindex;
-   int indexp1;
-   int indexm1;
-   int ip1;
-   int im1;
-   int i;
-   int j;
+   long iindex;
+   long indexp1;
+   long indexm1;
+   long ip1;
+   long im1;
+   long i;
+   long j;
 
    for (iindex=firstcol;iindex<=lastcol;iindex++) {
      indexp1 = iindex+1;

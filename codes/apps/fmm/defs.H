@@ -33,7 +33,8 @@
 #define NUM_DIMENSIONS 2
 #define NUM_DIM_POW_2 4
 
-#define DBL_MIN        2.225073858507201e-308 /* min > 0 val of "double" */
+#undef DBL_MIN
+#define DBL_MIN        2.2250738585072014e-308 /* min > 0 val of "double" */
 
 #define TIME_ALL 1  /* non-0 means time each phase within a time step */
 #define MY_TIMING (Local[my_id].Timing)
@@ -41,7 +42,7 @@
 
 #define MAX_REAL DBL_MAX
 #define MIN_REAL DBL_MIN
-#define REAL_DIG DBL_DIG
+#define REAL_DIG __DBL_DIG__
 
 #define MAX_PROCS 64
 
@@ -128,7 +129,7 @@
 #define CACHE_SIZE 16  /* should be in bytes */
 
 #define PAGE_SIZE 4096
-#define PAD_SIZE (PAGE_SIZE / (sizeof(int)))
+#define PAD_SIZE (PAGE_SIZE / (sizeof(long)))
 
 typedef enum { FALSE = 0, TRUE = 1 } bool;
 
@@ -136,8 +137,8 @@ typedef enum { FALSE = 0, TRUE = 1 } bool;
  * precision, simply change double to float and recompile! */
 typedef double real;
 
-typedef struct _Complex complex;
-struct _Complex {
+typedef struct __Complex complex;
+struct __Complex {
   real r;
   real i;
 };
@@ -161,10 +162,10 @@ struct _Time_Info {
   unsigned long total_time;
 };
 
-extern int Number_Of_Processors;
+extern long Number_Of_Processors;
 extern double Timestep_Dur;
 extern real Softening_Param;
-extern int Expansion_Terms;
+extern long Expansion_Terms;
 
 extern real RoundReal(real val);
 extern void PrintComplexNum(complex *c);

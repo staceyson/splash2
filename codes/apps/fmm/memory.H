@@ -33,35 +33,35 @@ struct _G_Mem
    LOCKDEC(mal_lock)
    LOCKDEC(single_lock)
    LOCKDEC(count_lock)
-   int count;
+   long count;
    ALOCKDEC(lock_array, MAX_LOCKS)
    BARDEC(synch)
-   volatile int *i_array;
+   volatile long *i_array;
    volatile double *d_array;
    real f_array[MAX_PROCS][NUM_DIM_POW_2];
    real max_x;
    real min_x;
    real max_y;
    real min_y;
-   int id;
+   long id;
 };
 extern g_mem *G_Memory;
 
 typedef struct _Local_Memory local_memory;
 struct _Local_Memory {
-   int pad_begin[PAD_SIZE];
+   long pad_begin[PAD_SIZE];
 
    box *B_Heap;
-   int Index_B_Heap;
-   int Max_B_Heap;
+   long Index_B_Heap;
+   long Max_B_Heap;
 
    particle **Particles;
-   int Num_Particles;
-   int Max_Particles;
+   long Num_Particles;
+   long Max_Particles;
 
    box *Childless_Partition;
    box *Parent_Partition[MAX_LEVEL];
-   int Max_Parent_Level;
+   long Max_Parent_Level;
 
    box *Local_Grid;
    real Local_X_Max;
@@ -69,19 +69,19 @@ struct _Local_Memory {
    real Local_Y_Max;
    real Local_Y_Min;
 
-   int Total_Work;
-   int Min_Work;
-   int Max_Work;
+   long Total_Work;
+   long Min_Work;
+   long Max_Work;
 
-   int Time_Step;
+   long Time_Step;
    double Time;
-   unsigned int init_done_times;
+   unsigned long init_done_times;
    time_info Timing[MAX_TIME_STEPS];
-   
-   int pad_end[PAD_SIZE];
+
+   long pad_end[PAD_SIZE];
 };
 extern local_memory Local[MAX_PROCS];
 
-extern void InitGlobalMemory();
+extern void InitGlobalMemory(void);
 
 #endif /* _Memory_H */

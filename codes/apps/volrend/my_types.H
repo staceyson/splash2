@@ -26,7 +26,7 @@ typedef unsigned char DENSITY;		/*   density                         */
 typedef unsigned char BYTE;		/*   general purpose byte            */
 typedef signed short NORMAL;            /*   density normal                  */
 typedef unsigned char PIXEL;		/*   pixel or voxel color            */
-typedef unsigned char MPIXEL;	        /*   volatile pixel or voxel color; 
+typedef unsigned char MPIXEL;	        /*   volatile pixel or voxel color;
                                                make volatile on SGIs   */
 typedef unsigned char OPACITY;          /*   voxel opacity                   */
 typedef unsigned short BOOLEAN;		/*   boolean flag                    */

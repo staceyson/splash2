@@ -15,7 +15,7 @@
 /*************************************************************************/
 
 #include <stdio.h>
-#include <values.h>
+#include <float.h>
 #include "defs.h"
 #include "memory.h"
 #include "particle.h"
@@ -27,48 +27,43 @@
 #define MY_NUM_PARTICLES (Local[my_id].Num_Particles)
 #define MY_MAX_PARTICLES (Local[my_id].Max_Particles)
 
-void DetermineGridSize(int my_id);
-void DetermineLocalGridSize(int my_id);
-void MergeLocalGridSize(int my_id);
-void ConstructLocalGrid(int my_id);
-box *InitGrid(int my_id);
-void InsertParticlesInTree(int my_id, particle **p_list, int num_of_particles,
-			   box *root);
-box *FindHome(int my_id, particle *p, box *current_home);
-box *FindInitialRoot(int my_id, particle *p, box *current_home);
-box *CreateChild(int my_id, box *pb, int new_child_num);
-void SubdivideBox(int my_id, box *b);
-void MergeLocalGrid(int my_id);
-void MLGHelper(int my_id, box *local_box, box *global_box, box *global_parent);
-void MergeLocalParticles(int my_id, particle **p_array, int num_of_particles,
-			 box *pb);
-void SplitParticles(int my_id, particle **p_array, int length,
-		    particle **p_dist, int num_p_dist[NUM_OFFSPRING], box *pb);
-box *CreateLeaf(int my_id, box *pb, int new_child_num, particle **p_array,
-		int length);
-void InsertParticlesInLeaf(int my_id, particle **p_array, int length, box *b);
-int InsertBoxInGrid(int my_id, box *b, box *pb);
-int RemoveBoxFromGrid(int my_id, box *b, box *pb);
-void InsertSubtreeInPartition(int my_id, box *b);
-void CleanupGrid(int my_id);
-void SetSiblings(int my_id, box *b);
-void SetColleagues(int my_id, box *b);
-void ConstructGridLists(int my_id, box *b);
-void ConstructInteractionLists(int my_id, box *b);
-void SetVList(int my_id, box *b);
-void SetUList(int my_id, box *b);
-void SetUListHelper(int my_id, box *b, box *pb);
-int AncestorBox(int my_id, box *b, box *ancestor_box);
-void SetWList(int my_id, box *b);
-void InsertNonAdjChildren(int my_id, box *b, box *pb);
+void DetermineGridSize(long my_id);
+void DetermineLocalGridSize(long my_id);
+void MergeLocalGridSize(long my_id);
+void ConstructLocalGrid(long my_id);
+box *InitGrid(long my_id);
+void InsertParticlesInTree(long my_id, particle **p_list, long num_of_particles, box *root);
+box *FindHome(long my_id, particle *p, box *current_home);
+box *FindInitialRoot(particle *p, box *current_home);
+box *CreateChild(long my_id, box *pb, long new_child_num);
+void SubdivideBox(long my_id, box *b);
+void MergeLocalGrid(long my_id);
+void MLGHelper(long my_id, box *local_box, box *global_box, box *global_parent);
+void MergeLocalParticles(long my_id, particle **p_array, long num_of_particles, box *pb);
+void SplitParticles(particle **p_array, long length, particle **p_dist, long num_p_dist[NUM_OFFSPRING], box *pb);
+box *CreateLeaf(long my_id, box *pb, long new_child_num, particle **p_array, long length);
+void InsertParticlesInLeaf(long my_id, particle **p_array, long length, box *b);
+long InsertBoxInGrid(long my_id, box *b, box *pb);
+long RemoveBoxFromGrid(box *b, box *pb);
+void InsertSubtreeInPartition(long my_id, box *b);
+void CleanupGrid(long my_id);
+void SetSiblings(box *b);
+void SetColleagues(long my_id, box *b);
+void ConstructGridLists(long my_id, box *b);
+void ConstructInteractionLists(long my_id, box *b);
+void SetVList(long my_id, box *b);
+void SetUList(long my_id, box *b);
+void SetUListHelper(long my_id, box *b, box *pb);
+long AncestorBox(box *b, box *ancestor_box);
+void SetWList(long my_id, box *b);
+void InsertNonAdjChildren(long my_id, box *b, box *pb);
 
 
 void
-ConstructGrid (int my_id, time_info *local_time, int time_all)
+ConstructGrid (long my_id, time_info *local_time, long time_all)
 {
-   unsigned long init, start, finish;
-   int i;
-  
+   unsigned long init = 0, start = 0, finish;
+
    if (time_all)
       CLOCK(init);
    DetermineGridSize(my_id);   /* Finds the four corners of the grid. */
@@ -91,15 +86,15 @@ ConstructGrid (int my_id, time_info *local_time, int time_all)
    if (time_all) {
       local_time[MY_TIME_STEP].other_time = start - init;
       local_time[MY_TIME_STEP].construct_time = finish - start;
-   }	
+   }
 }
 
 
 void
-ConstructLists (int my_id, time_info *local_time, int time_all)
+ConstructLists (long my_id, time_info *local_time, long time_all)
 {
    unsigned long start, finish;
-  
+
    if (time_all)
       CLOCK(start);
    PartitionIterate(my_id, ConstructGridLists, TOP);
@@ -110,19 +105,19 @@ ConstructLists (int my_id, time_info *local_time, int time_all)
 
    if (time_all) {
       local_time[MY_TIME_STEP].list_time = finish - start;
-   }	
+   }
 }
 
 
 void
-DestroyGrid (int my_id, time_info *local_time, int time_all)
+DestroyGrid (long my_id, time_info *local_time, long time_all)
 {
    box *b_scan, *tb;
    particle *p;
-   int i;
-   int particle_cost;
-   unsigned long start, finish;
-  
+   long i;
+   long particle_cost;
+   unsigned long start = 0, finish;
+
    if (time_all)
       CLOCK(start);
    b_scan = Local[my_id].Childless_Partition;
@@ -133,8 +128,7 @@ DestroyGrid (int my_id, time_info *local_time, int time_all)
       particle_cost = tb->cost / tb->num_particles;
       for (i = 0; i < tb->num_particles; i++) {
 	 if (MY_MAX_PARTICLES <= MY_NUM_PARTICLES) {
-	    LockedPrint("ERROR (P%d) : Too many particles in local array\n",
-			my_id);
+	    LockedPrint("ERROR (P%d) : Too many particles in local array\n", my_id);
 	    exit(-1);
 	 }
 	 p = tb->particles[i];
@@ -147,12 +141,12 @@ DestroyGrid (int my_id, time_info *local_time, int time_all)
    if (time_all) {
       CLOCK(finish);
       local_time[MY_TIME_STEP].other_time += finish - start;
-   }	
+   }
 }
 
 
 /*
- *  PrintGrid (int my_id)
+ *  PrintGrid (long my_id)
  *
  *  Args : none.
  *
@@ -162,7 +156,7 @@ DestroyGrid (int my_id, time_info *local_time, int time_all)
  *
  */
 void
-PrintGrid (int my_id)
+PrintGrid (long my_id)
 {
    if (Grid != NULL) {
       if (my_id == 0) {
@@ -185,7 +179,7 @@ PrintGrid (int my_id)
 
 
 void
-DetermineGridSize (int my_id)
+DetermineGridSize (long my_id)
 {
    DetermineLocalGridSize(my_id);	/* Processor looks at its own particles and
 				   finds the x and y max and min */
@@ -200,11 +194,11 @@ DetermineGridSize (int my_id)
    other before looking at the current best max and min. This speeds up the
    running time of the algorithm from 2n to 3/2n. */
 void
-DetermineLocalGridSize (int my_id)
+DetermineLocalGridSize (long my_id)
 {
    real x_pos1, x_pos2, y_pos1, y_pos2;
    real x_max_challenger, x_min_challenger, y_max_challenger, y_min_challenger;
-   int i;
+   long i;
 
    Local[my_id].Local_X_Max = -MAX_REAL;
    Local[my_id].Local_X_Min = MAX_REAL;
@@ -222,7 +216,7 @@ DetermineLocalGridSize (int my_id)
       else {
 	 x_max_challenger = x_pos2;
 	 x_min_challenger = x_pos1;
-      }      
+      }
       if (y_pos1 > y_pos2) {
 	 y_max_challenger = y_pos1;
 	 y_min_challenger = y_pos2;
@@ -257,15 +251,15 @@ DetermineLocalGridSize (int my_id)
 }
 
 
-/* Each processor writes its best to a global 
+/* Each processor writes its best to a global
    array, then they read everyone else's and find the absolute best. */
 void
-MergeLocalGridSize (int my_id)
+MergeLocalGridSize (long my_id)
 {
    real *my_f_array, *their_f_array;
    real x_max_challenger, x_min_challenger, y_max_challenger, y_min_challenger;
-   int i;
-  
+   long i;
+
    my_f_array = G_Memory->f_array[my_id];
    my_f_array[0] = Local[my_id].Local_X_Max;
    my_f_array[1] = Local[my_id].Local_X_Min;
@@ -292,23 +286,23 @@ MergeLocalGridSize (int my_id)
 
 
 void
-ConstructLocalGrid (int my_id)
+ConstructLocalGrid (long my_id)
 {
    Local[my_id].Local_Grid = InitGrid(my_id); /* Create the root box */
-   InsertParticlesInTree(my_id, MY_PARTICLES, MY_NUM_PARTICLES, 
+   InsertParticlesInTree(my_id, MY_PARTICLES, MY_NUM_PARTICLES,
 			 Local[my_id].Local_Grid);
    /* Put all of your particles into your local tree */
 }
 
 
 box *
-InitGrid (int my_id)
+InitGrid (long my_id)
 {
    real x_length, y_length;
    real grid_length, grid_x_center, grid_y_center;
-   int exp;
+   long exp;
    box *ret_box;
-  
+
    frexp(Local[my_id].Local_X_Max, &exp);
    if (Local[my_id].Local_X_Max > 0)
       Local[my_id].Local_X_Max = ldexp(1.0, exp);
@@ -337,7 +331,7 @@ InitGrid (int my_id)
       if (Local[my_id].Local_Y_Min > 0)
 	 Local[my_id].Local_Y_Min = ldexp(1.0, exp - 1);
    }
-  
+
    x_length = Local[my_id].Local_X_Max - Local[my_id].Local_X_Min;
    y_length = Local[my_id].Local_Y_Max - Local[my_id].Local_Y_Min;
    if (x_length > y_length)
@@ -362,12 +356,12 @@ InitGrid (int my_id)
    into one child, in which case that child must be subdivided as well, and so
    on until there is more than one child. */
 void
-InsertParticlesInTree (int my_id, particle **p_list, int num_of_particles, box *root)
+InsertParticlesInTree (long my_id, particle **p_list, long num_of_particles, box *root)
 {
    particle *p;
    box *dest_box;
-   int i, j;
-  
+   long i, j;
+
    dest_box = root;
    for (i = 0; i < num_of_particles; i++) {
       p = p_list[i];
@@ -385,17 +379,17 @@ InsertParticlesInTree (int my_id, particle **p_list, int num_of_particles, box *
 }
 
 
-/* This function compares the particles position to the center of the parent 
-   (or cell) box and chooses the appropriate child to move down to, until 
-   either a child box or a null pointer is reached. In the first case, the box 
+/* This function compares the particles position to the center of the parent
+   (or cell) box and chooses the appropriate child to move down to, until
+   either a child box or a null pointer is reached. In the first case, the box
    is returned, and in the second, a new child box is created for the parent,
    and that box is returned. */
 box *
-FindHome (int my_id, particle *p, box *current_home)
+FindHome (long my_id, particle *p, box *current_home)
 {
    box *pb;
 
-   pb = FindInitialRoot(my_id, p, current_home);
+   pb = FindInitialRoot(p, current_home);
    while (pb->type == PARENT) {
       if (p->pos.y > pb->y_center) {
 	 if (p->pos.x > pb->x_center) {
@@ -427,9 +421,9 @@ FindHome (int my_id, particle *p, box *current_home)
 
 
 box *
-FindInitialRoot (int my_id, particle *p, box *current_home)
+FindInitialRoot (particle *p, box *current_home)
 {
-   int found;
+   long found;
    real x_center_distance, y_center_distance;
 
    found = FALSE;
@@ -447,8 +441,8 @@ FindInitialRoot (int my_id, particle *p, box *current_home)
 	 found = TRUE;
    }
    return current_home;
-}    
-  
+}
+
 
 
 /* Simply creates a new box and sets the parent and child pointers correctly.
@@ -457,34 +451,34 @@ FindInitialRoot (int my_id, particle *p, box *current_home)
    right. That's how I know how to set the location of the child box's center
    just by knowing the child number. */
 box *
-CreateChild (int my_id, box *pb, int new_child_num)
+CreateChild (long my_id, box *pb, long new_child_num)
 {
    real child_length, child_offset;
    box *ret_box;
-  
+
    child_length = pb->length / (real) NUM_DIMENSIONS;
-   child_offset = pb->length / (real) NUM_OFFSPRING;  
+   child_offset = pb->length / (real) NUM_OFFSPRING;
    if (new_child_num == 0) {
-      pb->children[0] = InitBox(my_id, (pb->x_center + child_offset), 
-				(pb->y_center + child_offset), child_length, 
+      pb->children[0] = InitBox(my_id, (pb->x_center + child_offset),
+				(pb->y_center + child_offset), child_length,
 				pb);
       pb->shadow[0] = pb->children[0];
    }
    if (new_child_num == 1) {
-      pb->children[1] = InitBox(my_id, (pb->x_center - child_offset), 
-				(pb->y_center + child_offset), child_length, 
+      pb->children[1] = InitBox(my_id, (pb->x_center - child_offset),
+				(pb->y_center + child_offset), child_length,
 				pb);
       pb->shadow[1] = pb->children[1];
    }
    if (new_child_num == 2) {
-      pb->children[2] = InitBox(my_id, (pb->x_center - child_offset), 
-				(pb->y_center - child_offset), child_length, 
+      pb->children[2] = InitBox(my_id, (pb->x_center - child_offset),
+				(pb->y_center - child_offset), child_length,
 				pb);
       pb->shadow[2] = pb->children[2];
    }
    if (new_child_num == 3) {
-      pb->children[3] = InitBox(my_id, (pb->x_center + child_offset), 
-				(pb->y_center - child_offset), child_length, 
+      pb->children[3] = InitBox(my_id, (pb->x_center + child_offset),
+				(pb->y_center - child_offset), child_length,
 				pb);
       pb->shadow[3] = pb->children[3];
    }
@@ -495,14 +489,14 @@ CreateChild (int my_id, box *pb, int new_child_num)
 }
 
 
-/* Looks at all the particles of the parent box and distributes them amongst 
+/* Looks at all the particles of the parent box and distributes them amongst
    the children. If the child does not exist, one is created. */
 void
-SubdivideBox (int my_id, box *b)
+SubdivideBox (long my_id, box *b)
 {
    particle *p;
    box *child;
-   int i;
+   long i;
 
    for (i = 0; i < b->num_particles; i++) {
       p = b->particles[i];
@@ -541,20 +535,20 @@ SubdivideBox (int my_id, box *b)
 /* Each processor keeps track of the boxes that it has inserted into the tree.
    This list is called a partition because when construction is over, every box
    in the global tree will also reside in one and only one of the processors'
-   partitions. This is needed for list construction (which you don't have to 
+   partitions. This is needed for list construction (which you don't have to
    worry about) and cost zone computation (which you will). */
 void
-MergeLocalGrid (int my_id)
+MergeLocalGrid (long my_id)
 {
    MLGHelper(my_id, Local[my_id].Local_Grid, Grid, NULL);
 }
 
 
 void
-MLGHelper (int my_id, box *local_box, box *global_box, box *global_parent)
+MLGHelper (long my_id, box *local_box, box *global_box, box *global_parent)
 {
-   int success;
-   int i;
+   long success;
+   long i;
 
    success = FALSE;
    while (success == FALSE) {
@@ -572,9 +566,9 @@ MLGHelper (int my_id, box *local_box, box *global_box, box *global_parent)
 	       }
 	    }
 	    else {
-	       success = RemoveBoxFromGrid(my_id, global_box, global_parent);
+	       success = RemoveBoxFromGrid(global_box, global_parent);
 	       if (success == TRUE) {
-		  InsertParticlesInTree(my_id, global_box->particles, 
+		  InsertParticlesInTree(my_id, global_box->particles,
 					global_box->num_particles, local_box);
 		  success = InsertBoxInGrid(my_id, local_box, global_parent);
 	       }
@@ -592,9 +586,9 @@ MLGHelper (int my_id, box *local_box, box *global_box, box *global_parent)
 	       success = TRUE;
 	    }
 	    else {
-	       success = RemoveBoxFromGrid(my_id, global_box, global_parent);
+	       success = RemoveBoxFromGrid(global_box, global_parent);
 	       if (success == TRUE) {
-		  InsertParticlesInLeaf(my_id, global_box->particles, 
+		  InsertParticlesInLeaf(my_id, global_box->particles,
 					global_box->num_particles, local_box);
 		  success = InsertBoxInGrid(my_id, local_box, global_parent);
 	       }
@@ -612,16 +606,15 @@ MLGHelper (int my_id, box *local_box, box *global_box, box *global_parent)
 
 
 void
-MergeLocalParticles (int my_id, particle **p_array, int num_of_particles, box *pb)
+MergeLocalParticles (long my_id, particle **p_array, long num_of_particles, box *pb)
 {
    particle *(p_dist)[NUM_OFFSPRING][MAX_PARTICLES_PER_BOX];
-   int num_p_dist[NUM_OFFSPRING];
+   long num_p_dist[NUM_OFFSPRING];
    box *child;
-   box *new_box;
-   int success;
-   int i, j, k;
+   long success;
+   long i;
 
-   SplitParticles(my_id, p_array, num_of_particles, 
+   SplitParticles(p_array, num_of_particles,
 		  (particle **) p_dist, num_p_dist, pb);
    for (i= 0; i < NUM_OFFSPRING; i++) {
       if (num_p_dist[i] > 0) {
@@ -636,7 +629,7 @@ MergeLocalParticles (int my_id, particle **p_array, int num_of_particles, box *p
 	       success = TRUE;
 	    }
 	    else {
-	       success = RemoveBoxFromGrid(my_id, child, pb);
+	       success = RemoveBoxFromGrid(child, pb);
 	       if (success == TRUE) {
 		  InsertParticlesInLeaf(my_id, p_dist[i], num_p_dist[i], child);
 		  success = InsertBoxInGrid(my_id, child, pb);
@@ -654,12 +647,12 @@ MergeLocalParticles (int my_id, particle **p_array, int num_of_particles, box *p
 
 
 void
-SplitParticles (int my_id, particle **p_array, int length, particle **p_dist,
-		int num_p_dist[NUM_OFFSPRING], box *pb)
+SplitParticles (particle **p_array, long length, particle **p_dist,
+		long num_p_dist[NUM_OFFSPRING], box *pb)
 {
    particle *p;
-   int i;
-  
+   long i;
+
    for (i = 0; i < NUM_OFFSPRING; i++)
       num_p_dist[i] = 0;
    for (i = 0; i < length; i++) {
@@ -667,46 +660,46 @@ SplitParticles (int my_id, particle **p_array, int length, particle **p_dist,
       if (p->pos.y > pb->y_center) {
 	 if (p->pos.x > pb->x_center)
 	    *(p_dist + num_p_dist[0]++) = p;
-	 else 
+	 else
 	    *(p_dist + MAX_PARTICLES_PER_BOX + num_p_dist[1]++) = p;
-      }		
+      }
       else {
 	 if (p->pos.x > pb->x_center)
 	    *(p_dist + (3 * MAX_PARTICLES_PER_BOX) + num_p_dist[3]++) = p;
-	 else 
+	 else
 	    *(p_dist + (2 * MAX_PARTICLES_PER_BOX) + num_p_dist[2]++) = p;
-      }	  
+      }
    }
 }
 
 
 box *
-CreateLeaf (int my_id, box *pb, int new_child_num, particle **p_array, int length)
+CreateLeaf (long my_id, box *pb, long new_child_num, particle **p_array, long length)
 {
    real child_length, child_offset;
-   box *ret_box;
-   int i;
-    
+   box *ret_box = NULL;
+   long i;
+
    child_length = pb->length / (real) NUM_DIMENSIONS;
-   child_offset = pb->length / (real) NUM_OFFSPRING;  
+   child_offset = pb->length / (real) NUM_OFFSPRING;
    if (new_child_num == 0) {
-      ret_box = InitBox(my_id, (pb->x_center + child_offset), 
-			(pb->y_center + child_offset), child_length, 
+      ret_box = InitBox(my_id, (pb->x_center + child_offset),
+			(pb->y_center + child_offset), child_length,
 			pb);
    }
    if (new_child_num == 1) {
-      ret_box = InitBox(my_id, (pb->x_center - child_offset), 
-			(pb->y_center + child_offset), child_length, 
+      ret_box = InitBox(my_id, (pb->x_center - child_offset),
+			(pb->y_center + child_offset), child_length,
 			pb);
    }
    if (new_child_num == 2) {
-      ret_box = InitBox(my_id, (pb->x_center - child_offset), 
-			(pb->y_center - child_offset), child_length, 
+      ret_box = InitBox(my_id, (pb->x_center - child_offset),
+			(pb->y_center - child_offset), child_length,
 			pb);
    }
    if (new_child_num == 3) {
-      ret_box = InitBox(my_id, (pb->x_center + child_offset), 
-			(pb->y_center - child_offset), child_length, 
+      ret_box = InitBox(my_id, (pb->x_center + child_offset),
+			(pb->y_center - child_offset), child_length,
 			pb);
    }
    ret_box->child_num = new_child_num;
@@ -719,11 +712,11 @@ CreateLeaf (int my_id, box *pb, int new_child_num, particle **p_array, int lengt
 
 
 void
-InsertParticlesInLeaf (int my_id, particle **p_array, int length, box *b)
+InsertParticlesInLeaf (long my_id, particle **p_array, long length, box *b)
 {
-   int i, j;
-   int offset;
-  
+   long i, j;
+   long offset;
+
    if ((length + b->num_particles) > MAX_PARTICLES_PER_BOX) {
       for (i = b->num_particles, j = length - 1; i < MAX_PARTICLES_PER_BOX;
 	   i++, j--)
@@ -741,11 +734,11 @@ InsertParticlesInLeaf (int my_id, particle **p_array, int length, box *b)
 }
 
 
-int
-InsertBoxInGrid (int my_id, box *b, box *pb)
+long
+InsertBoxInGrid (long my_id, box *b, box *pb)
 {
-   int success;
-  
+   long success;
+
    if (pb == NULL) {
       LOCK(G_Memory->single_lock);
       if (Grid == NULL) {
@@ -774,11 +767,11 @@ InsertBoxInGrid (int my_id, box *b, box *pb)
 }
 
 
-int
-RemoveBoxFromGrid (int my_id, box *b, box *pb)
+long
+RemoveBoxFromGrid (box *b, box *pb)
 {
-   int success;
-  
+   long success;
+
    if (pb == NULL) {
       LOCK(G_Memory->single_lock);
       if (Grid == b) {
@@ -806,11 +799,11 @@ RemoveBoxFromGrid (int my_id, box *b, box *pb)
 
 
 void
-InsertSubtreeInPartition (int my_id, box *b)
+InsertSubtreeInPartition (long my_id, box *b)
 {
-   int i;
+   long i;
    box *child;
-  
+
    if (b->proc == my_id) {
       InsertBoxInPartition(my_id, b);
    }
@@ -827,10 +820,9 @@ InsertSubtreeInPartition (int my_id, box *b)
 
 
 void
-CleanupGrid (int my_id)
+CleanupGrid (long my_id)
 {
    box *b_scan, *tb;
-   int i;
 
    b_scan = Local[my_id].Childless_Partition;
    while (b_scan != NULL) {
@@ -856,19 +848,19 @@ CleanupGrid (int my_id)
 
 
 void
-ConstructGridLists (int my_id, box *b)
+ConstructGridLists (long my_id, box *b)
 {
-   SetSiblings(my_id, b);
+   SetSiblings(b);
    SetColleagues(my_id, b);
 }
 
 
 void
-SetSiblings (int my_id, box *b)
+SetSiblings (box *b)
 {
    box *pb, *sb;
-   int i;
-  
+   long i;
+
    b->num_siblings = 0;
    pb = b->parent;
    if (pb != NULL) {
@@ -882,10 +874,10 @@ SetSiblings (int my_id, box *b)
 
 
 void
-SetColleagues (int my_id, box *b)
+SetColleagues (long my_id, box *b)
 {
    box *pb, *cb, *cousin;
-   int i, j;
+   long i, j;
 
    b->num_colleagues = 0;
    pb = b->parent;
@@ -901,7 +893,7 @@ SetColleagues (int my_id, box *b)
 	 for (j = 0; j < NUM_OFFSPRING; j++) {
 	    cousin = cb->children[j];
 	    if (cousin != NULL) {
-	       if (AdjacentBoxes(my_id, b, cousin) == TRUE)
+	       if (AdjacentBoxes(b, cousin) == TRUE)
 		  b->colleagues[b->num_colleagues++] = cousin;
 	    }
 	 }
@@ -918,7 +910,7 @@ SetColleagues (int my_id, box *b)
 
 
 /*
- *  ConstructInteractionLists (int my_id, box *b)
+ *  ConstructInteractionLists (long my_id, box *b)
  *
  *  Args : a box, b.
  *
@@ -929,7 +921,7 @@ SetColleagues (int my_id, box *b)
  *
  */
 void
-ConstructInteractionLists (int my_id, box *b)
+ConstructInteractionLists (long my_id, box *b)
 {
 
    SetVList(my_id, b);
@@ -942,11 +934,11 @@ ConstructInteractionLists (int my_id, box *b)
 
 
 void
-SetVList (int my_id, box *b)
+SetVList (long my_id, box *b)
 {
    box *pb, *cb, *cousin;
-   int i, j;
-  
+   long i, j;
+
    b->num_v_list = 0;
    pb = b->parent;
    if (pb != NULL) {
@@ -955,17 +947,17 @@ SetVList (int my_id, box *b)
 	 for (j = 0; j < NUM_OFFSPRING; j++) {
 	    cousin = cb->children[j];
 	    if (cousin != NULL) {
-	       if (WellSeparatedBoxes(my_id, b, cousin) == TRUE)
+	       if (WellSeparatedBoxes(b, cousin) == TRUE)
 		  b->v_list[b->num_v_list++] = cousin;
 	    }
 	 }
       }
    }
-}  
+}
 
 
 /*
- *  SetUList (int my_id, box *b)
+ *  SetUList (long my_id, box *b)
  *
  *  Args : a box, b.
  *
@@ -977,7 +969,7 @@ SetVList (int my_id, box *b)
  *
  */
 void
-SetUList (int my_id, box *b)
+SetUList (long my_id, box *b)
 {
    b->num_u_list = 0;
    SetUListHelper(my_id, b, Grid);
@@ -986,7 +978,7 @@ SetUList (int my_id, box *b)
 
 
 /*
- *  SetUListHelper (int my_id, box *b, box *pb)
+ *  SetUListHelper (long my_id, box *b, box *pb)
  *
  *  Args : a box, b, and a parent box, pb.
  *
@@ -998,22 +990,22 @@ SetUList (int my_id, box *b)
  *
  */
 void
-SetUListHelper (int my_id, box *b, box *pb)
+SetUListHelper (long my_id, box *b, box *pb)
 {
    box *child;
-   int i;
+   long i;
 
    for (i = 0; i < NUM_OFFSPRING; i++) {
       child = pb->children[i];
       if (child != NULL) {
-	 if (AdjacentBoxes(my_id, b, child) == TRUE) {
+	 if (AdjacentBoxes(b, child) == TRUE) {
 	    if (child->type == CHILDLESS)
 	       b->u_list[b->num_u_list++] = child;
 	    else
 	       SetUListHelper(my_id, b, child);
 	 }
 	 else {
-	    if (AncestorBox(my_id, b, child) == TRUE)
+	    if (AncestorBox(b, child) == TRUE)
 	       SetUListHelper(my_id, b, child);
 	 }
       }
@@ -1023,7 +1015,7 @@ SetUListHelper (int my_id, box *b, box *pb)
 
 
 /*
- *  AncestorBox (int my_id, box *b, box *ancestor_box)
+ *  AncestorBox (box *b, box *ancestor_box)
  *
  *  Args : a box, b, and its possible ancestor box, ancestor_box.
  *
@@ -1031,18 +1023,18 @@ SetUListHelper (int my_id, box *b, box *pb)
  *
  *  Side Effects : none.
  *
- *  Comments : A box is NOT the ancestor of himself. So, AncestorBox(my_id, b,b)
+ *  Comments : A box is NOT the ancestor of himself. So, AncestorBox(b,b)
  *    always returns FALSE. So, ancestor_box is indeed the ancestor of b
  *    if their sizes are not equal and if b's center lies within the boundaries
  *    of ancestor_box.
  *
  */
-int
-AncestorBox (int my_id, box *b, box *ancestor_box)
+long
+AncestorBox (box *b, box *ancestor_box)
 {
    real x_center_distance;
    real y_center_distance;
-   int ret_val = TRUE;
+   long ret_val = TRUE;
 
    if (b->length != ancestor_box->length) {
 
@@ -1061,7 +1053,7 @@ AncestorBox (int my_id, box *b, box *ancestor_box)
 
 
 /*
- *  SetWList (int my_id, box *b)
+ *  SetWList (long my_id, box *b)
  *
  *  Args : a box, b.
  *
@@ -1075,10 +1067,10 @@ AncestorBox (int my_id, box *b, box *ancestor_box)
  *
  */
 void
-SetWList (int my_id, box *b)
+SetWList (long my_id, box *b)
 {
    box *co_search;
-   int i;
+   long i;
 
    b->num_w_list = 0;
    for (i = 0; i < b->num_colleagues; i++) {
@@ -1091,7 +1083,7 @@ SetWList (int my_id, box *b)
 
 
 /*
- *  InsertNonAdjChildren (int my_id, box *b, box *pb)
+ *  InsertNonAdjChildren (long my_id, box *b, box *pb)
  *
  *  Args : a parent box, pb, and the box with the weak iteraction list, b.
  *
@@ -1105,15 +1097,15 @@ SetWList (int my_id, box *b)
  *
  */
 void
-InsertNonAdjChildren (int my_id, box *b, box *pb)
+InsertNonAdjChildren (long my_id, box *b, box *pb)
 {
-   int i;
+   long i;
    box *child;
 
    for (i = 0; i < pb->num_children; i++) {
       child = pb->children[i];
       if (child != NULL) {
-	 if (AdjacentBoxes(my_id, b, child) == TRUE) {
+	 if (AdjacentBoxes(b, child) == TRUE) {
 	    if (child->type == PARENT)
 	       InsertNonAdjChildren(my_id, b, child);
 	 }
@@ -1121,7 +1113,7 @@ InsertNonAdjChildren (int my_id, box *b, box *pb)
 	    b->w_list[b->num_w_list++] = child;
       }
    }
-  
+
 }
 
 

@@ -71,10 +71,9 @@ VOID	prn_tv_stats()
  *	Nothing, yet.
  */
 
-INT	send_ray(r, v)
-RAY	*r;
-VOXEL	*v;
+INT	send_ray(RAY *r, VOXEL *v)
 	{
+		return(0);
 	}
 
 
@@ -99,9 +98,7 @@ VOXEL	*v;
  *
  */
 
-VOXEL	*lookup_hashtable(indx, g)
-INT	indx;
-GRID	*g;
+VOXEL	*lookup_hashtable(INT indx, GRID *g)
 	{
 	INT	i;
 	VOXEL	*v;
@@ -142,9 +139,7 @@ GRID	*g;
  *
  */
 
-INT	lookup_emptycells(indx, g)
-INT	indx;
-GRID	*g;
+INT	lookup_emptycells(INT indx, GRID *g)
 	{
 	INT	i, w, r, num_bits;
 	UINT	p, b;
@@ -179,8 +174,7 @@ GRID	*g;
  *	Nothing.
  */
 
-VOID	pop_up_a_grid(r)
-RAY	*r;
+VOID	pop_up_a_grid(RAY *r)
 	{
 	RAYINFO *old_ri;
 
@@ -200,7 +194,7 @@ RAY	*r;
  * SYNOPSIS
  *	VOID	push_down_grid(r, v)
  *	RAY	*r;
- *	VOXEL	*v;			/* Voxel containing the new grid.
+ *	VOXEL	*v;			Voxel containing the new grid.
  *
  * DESCRIPTION
  *	push_down_grid creates rayinfo for the new grid being entered and puts
@@ -210,9 +204,7 @@ RAY	*r;
  *	Nothing.
  */
 
-VOID	push_down_grid(r, v)
-RAY	*r;
-VOXEL	*v;
+VOID	push_down_grid(RAY *r, VOXEL *v)
 	{
 	INT	n;		       /* # cells per axis in new grid.      */
 	INT	small;
@@ -263,7 +255,7 @@ VOXEL	*v;
 	wc[2] = ti*r->D[2] + r->P[2];
 
 
-	new_ri->index3D[0] = (int)((wc[0] - new_g->min[0]) / new_g->cellsize[0]);
+	new_ri->index3D[0] = (INT)((wc[0] - new_g->min[0]) / new_g->cellsize[0]);
 
 	if (new_ri->index3D[0] < 0)
 		new_ri->index3D[0] = 0;
@@ -272,7 +264,7 @@ VOXEL	*v;
 		new_ri->index3D[0] = n - 1;
 
 
-	new_ri->index3D[1] = (int)((wc[1] - new_g->min[1]) / new_g->cellsize[1]);
+	new_ri->index3D[1] = (INT)((wc[1] - new_g->min[1]) / new_g->cellsize[1]);
 
 	if (new_ri->index3D[1] < 0)
 		new_ri->index3D[1] = 0;
@@ -281,7 +273,7 @@ VOXEL	*v;
 		new_ri->index3D[1] = n - 1;
 
 
-	new_ri->index3D[2] = (int)((wc[2] - new_g->min[2]) / new_g->cellsize[2]);
+	new_ri->index3D[2] = (INT)((wc[2] - new_g->min[2]) / new_g->cellsize[2]);
 
 	if (new_ri->index3D[2] < 0)
 		new_ri->index3D[2] = 0;
@@ -478,20 +470,23 @@ VOXEL	*v;
 					}
 
 				new_ri->d[i] = th;
-				if (t_in < tl)			/* max min   */
+//				if (t_in < tl)			/* max min   */
+				if (t_in - tl < 0.0)
 					{
 					t_in = tl;
 					i_in = il;
 					}
 
-				if (t_out > th) 		/* min max   */
+//				if (t_out > th) 		/* min max   */
+				if (t_out - th > 0.0)
 					{
 					t_out = th;
 					i_out = ih;
 					}
 				}
 
-			if ((t_in > t_out) || (t_out < 0.0))
+//			if ((t_in > t_out) || (t_out < 0.0))
+			if ((t_in - t_out > 0.0) || (t_out < 0.0))
 				{
 				fprintf(stderr, "push_down_grid: Ray origin not in voxel \n");
 				exit(-1);
@@ -533,8 +528,7 @@ VOXEL	*v;
  *	Nothing.
  */
 
-INT	step_grid(r)
-RAY	*r;
+INT	step_grid(RAY *r)
 	{
 	INT	n;			/* # cells per axis in grid.	     */
 	INT	small;			/* Index of closest cell boundary.   */
@@ -601,12 +595,10 @@ RAY	*r;
  *
  */
 
-INT	next_voxel(r)
-RAY	*r;
+INT	next_voxel(RAY *r)
 	{
 	INT	indx;
 	GRID	*gr;
-	VOXEL	*v;
 	RAYINFO *rinfo;
 
 	while ((indx = step_grid(r)) == -1)
@@ -656,8 +648,7 @@ RAY	*r;
  *	A pointer to the next nonempty voxel.
  */
 
-VOXEL	*next_nonempty_voxel(r)
-RAY	*r;
+VOXEL	*next_nonempty_voxel(RAY *r)
 	{
 	INT	indx;
 	VOXEL	*v;
@@ -727,13 +718,9 @@ RAY	*r;
  *	Nothing.
  */
 
-VOXEL	*next_nonempty_leaf(r , step, status)
-RAY	*r;
-INT	step;
-INT	*status;
+VOXEL	*next_nonempty_leaf(RAY *r, INT step, INT *status)
 	{
 	INT	indx;
-	GRID	*ng;
 	VOXEL	*v;
 	RAYINFO *rinfo;
 
@@ -819,9 +806,7 @@ INT	*status;
  *	returned, otherwise NULL is returned.
  */
 
-VOXEL	*init_ray(r, g)
-RAY	*r;
-GRID	*g;
+VOXEL	*init_ray(RAY *r, GRID *g)
 	{
 	INT	status;
 	INT	indx, grid_id;

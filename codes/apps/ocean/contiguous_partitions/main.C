@@ -59,18 +59,13 @@ MAIN_ENV
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <stdlib.h>
+#include "decs.h"
 
-struct multi_struct {
-   double err_multi;
-} *multi;
-
-struct global_struct {
-   int id;
-   int starttime;
-   int trackstart;
-   double psiai;
-   double psibi;
-} *global;
+struct multi_struct *multi;
+struct global_struct *global;
+struct locks_struct *locks;
+struct bars_struct *bars;
 
 double ****psi;
 double ****psim;
@@ -94,44 +89,7 @@ double *f;
 double ****q_multi;
 double ****rhs_multi;
 
-struct locks_struct {
-   LOCKDEC(idlock)
-   LOCKDEC(psiailock)
-   LOCKDEC(psibilock)
-   LOCKDEC(donelock)
-   LOCKDEC(error_lock)
-   LOCKDEC(bar_lock)
-} *locks;
-
-struct bars_struct {
-   BARDEC(iteration)
-   BARDEC(gsudn)
-   BARDEC(p_setup) 
-   BARDEC(p_redph) 
-   BARDEC(p_soln) 
-   BARDEC(p_subph) 
-   BARDEC(sl_prini)
-   BARDEC(sl_psini)
-   BARDEC(sl_onetime)
-   BARDEC(sl_phase_1)
-   BARDEC(sl_phase_2)
-   BARDEC(sl_phase_3)
-   BARDEC(sl_phase_4)
-   BARDEC(sl_phase_5)
-   BARDEC(sl_phase_6)
-   BARDEC(sl_phase_7)
-   BARDEC(sl_phase_8)
-   BARDEC(sl_phase_9)
-   BARDEC(sl_phase_10)
-   BARDEC(error_barrier)
-} *bars;
-
-void subblock();
-void slave();
-int log_2(int);
-void printerr(char *);
-
-int nprocs = DEFAULT_P;
+long nprocs = DEFAULT_P;
 double h1 = 1000.0;
 double h3 = 4000.0;
 double h = 5000.0;
@@ -141,12 +99,12 @@ double dtau = DEFAULT_T;
 double f0 = 8.3e-5;
 double beta = 2.0e-11;
 double gpr = 0.02;
-int im = DEFAULT_N;
-int jm;
+long im = DEFAULT_N;
+long jm;
 double tolerance = DEFAULT_E;
 double eig2;
 double ysca;
-int jmm1;
+long jmm1;
 double pi;
 double t0 = 0.5e-4 ;
 double outday0 = 1.0;
@@ -155,63 +113,37 @@ double outday2 = 2.0;
 double outday3 = 2.0;
 double factjacob;
 double factlap;
-int numlev;
-int *imx;
-int *jmx;
+long numlev;
+long *imx;
+long *jmx;
 double *lev_res;
 double *lev_tol;
 double maxwork = 10000.0;
 
-struct Global_Private {
-  char pad[PAGE_SIZE];
-  int *rel_num_x;
-  int *rel_num_y;
-  int *eist;     
-  int *ejst;     
-  int *oist;     
-  int *ojst;     
-  int *rlist;    
-  int *rljst;    
-  int *rlien;    
-  int *rljen;    
-  int rownum;
-  int colnum;
-  int neighbors[8];
-  double multi_time;
-  double total_time;
-} *gp;
+struct Global_Private *gp;
 
 double *i_int_coeff;
 double *j_int_coeff;
-int xprocs;
-int yprocs;
-int *xpts_per_proc;
-int *ypts_per_proc;
-int minlevel;
-int do_stats = 0;
-int do_output = 0;
+long xprocs;
+long yprocs;
+long *xpts_per_proc;
+long *ypts_per_proc;
+long minlevel;
+long do_stats = 0;
+long do_output = 0;
 
-void main(argc, argv)
-
-int argc;
-char *argv[];
-
+int main(int argc, char *argv[])
 {
-   int i;
-   int j;
-   int k;
-   double work_multi;
-   int my_num;
-   int x_part;
-   int y_part;
-   int d_size;
-   int itemp;
-   int jtemp;
+   long i;
+   long j;
+   long k;
+   long x_part;
+   long y_part;
+   long d_size;
+   long itemp;
+   long jtemp;
    double procsqrt;
-   FILE *fileptr;
-   int iindex;
-   int temp = 0;
-   char c;
+   long temp = 0;
    double min_total;
    double max_total;
    double avg_total;
@@ -221,10 +153,10 @@ char *argv[];
    double min_frac;
    double max_frac;
    double avg_frac;
-   int ch;
+   long ch;
    extern char *optarg;
-   unsigned int computeend;
-   unsigned int start;
+   unsigned long computeend;
+   unsigned long start;
 
    CLOCK(start)
 
@@ -268,13 +200,13 @@ char *argv[];
      }
    }
 
-   MAIN_INITENV(,60000000) 
+   MAIN_INITENV(,60000000)
 
    jm = im;
    printf("\n");
    printf("Ocean simulation with W-cycle multigrid solver\n");
-   printf("    Processors                         : %1d\n",nprocs);
-   printf("    Grid size                          : %1d x %1d\n",im,jm);
+   printf("    Processors                         : %1ld\n",nprocs);
+   printf("    Grid size                          : %1ld x %1ld\n",im,jm);
    printf("    Grid resolution (meters)           : %0.2f\n",res);
    printf("    Time between relaxations (seconds) : %0.0f\n",dtau);
    printf("    Error tolerance                    : %0.7g\n",tolerance);
@@ -283,7 +215,7 @@ char *argv[];
    xprocs = 0;
    yprocs = 0;
    procsqrt = sqrt((double) nprocs);
-   j = (int) procsqrt;
+   j = (long) procsqrt;
    while ((xprocs == 0) && (j > 0)) {
      k = nprocs / j;
      if (k * j == nprocs) {
@@ -300,7 +232,7 @@ char *argv[];
    if (xprocs == 0) {
      printerr("Could not find factors for subblocking\n");
      exit(-1);
-   }  
+   }
 
    minlevel = 0;
    itemp = 1;
@@ -313,21 +245,21 @@ char *argv[];
      if ((itemp/yprocs > 1) && (jtemp/xprocs > 1)) {
        numlev++;
      }
-   }  
-   
+   }
+
    if (numlev == 0) {
      printerr("Must have at least 2 grid points per processor in each dimension\n");
      exit(-1);
    }
 
-   imx = (int *) G_MALLOC(numlev*sizeof(int));
-   jmx = (int *) G_MALLOC(numlev*sizeof(int));
+   imx = (long *) G_MALLOC(numlev*sizeof(long));
+   jmx = (long *) G_MALLOC(numlev*sizeof(long));
    lev_res = (double *) G_MALLOC(numlev*sizeof(double));
    lev_tol = (double *) G_MALLOC(numlev*sizeof(double));
    i_int_coeff = (double *) G_MALLOC(numlev*sizeof(double));
    j_int_coeff = (double *) G_MALLOC(numlev*sizeof(double));
-   xpts_per_proc = (int *) G_MALLOC(numlev*sizeof(int));
-   ypts_per_proc = (int *) G_MALLOC(numlev*sizeof(int));
+   xpts_per_proc = (long *) G_MALLOC(numlev*sizeof(long));
+   ypts_per_proc = (long *) G_MALLOC(numlev*sizeof(long));
 
    imx[numlev-1] = im;
    jmx[numlev-1] = jm;
@@ -343,14 +275,14 @@ char *argv[];
    for (i=0;i<numlev;i++) {
      xpts_per_proc[i] = (jmx[i]-2) / xprocs;
      ypts_per_proc[i] = (imx[i]-2) / yprocs;
-   }  
+   }
    for (i=numlev-1;i>=0;i--) {
      if ((xpts_per_proc[i] < 2) || (ypts_per_proc[i] < 2)) {
        minlevel = i+1;
        break;
      }
-   }    
- 
+   }
+
    for (i=0;i<numlev;i++) {
      temp += imx[i];
    }
@@ -398,16 +330,16 @@ char *argv[];
 
    gp = (struct Global_Private *) G_MALLOC((nprocs+1)*sizeof(struct Global_Private));
    for (i=0;i<nprocs;i++) {
-     gp[i].rel_num_x = (int *) G_MALLOC(numlev*sizeof(int));
-     gp[i].rel_num_y = (int *) G_MALLOC(numlev*sizeof(int));
-     gp[i].eist = (int *) G_MALLOC(numlev*sizeof(int));
-     gp[i].ejst = (int *) G_MALLOC(numlev*sizeof(int));
-     gp[i].oist = (int *) G_MALLOC(numlev*sizeof(int));
-     gp[i].ojst = (int *) G_MALLOC(numlev*sizeof(int));
-     gp[i].rlist = (int *) G_MALLOC(numlev*sizeof(int));
-     gp[i].rljst = (int *) G_MALLOC(numlev*sizeof(int));
-     gp[i].rlien = (int *) G_MALLOC(numlev*sizeof(int));
-     gp[i].rljen = (int *) G_MALLOC(numlev*sizeof(int));
+     gp[i].rel_num_x = (long *) G_MALLOC(numlev*sizeof(long));
+     gp[i].rel_num_y = (long *) G_MALLOC(numlev*sizeof(long));
+     gp[i].eist = (long *) G_MALLOC(numlev*sizeof(long));
+     gp[i].ejst = (long *) G_MALLOC(numlev*sizeof(long));
+     gp[i].oist = (long *) G_MALLOC(numlev*sizeof(long));
+     gp[i].ojst = (long *) G_MALLOC(numlev*sizeof(long));
+     gp[i].rlist = (long *) G_MALLOC(numlev*sizeof(long));
+     gp[i].rljst = (long *) G_MALLOC(numlev*sizeof(long));
+     gp[i].rlien = (long *) G_MALLOC(numlev*sizeof(long));
+     gp[i].rljen = (long *) G_MALLOC(numlev*sizeof(long));
      gp[i].multi_time = 0;
      gp[i].total_time = 0;
    }
@@ -419,7 +351,7 @@ char *argv[];
 
    d_size = x_part*y_part*sizeof(double) + y_part*sizeof(double *);
 
-   global = (struct global_struct *) G_MALLOC(sizeof(struct global_struct));  
+   global = (struct global_struct *) G_MALLOC(sizeof(struct global_struct));
    for (i=0;i<nprocs;i++) {
      psi[i][0] = (double **) G_MALLOC(d_size);
      psi[i][1] = (double **) G_MALLOC(d_size);
@@ -452,7 +384,7 @@ char *argv[];
    multi = (struct multi_struct *) G_MALLOC(sizeof(struct multi_struct));
 
    d_size = numlev*sizeof(double **);
-   if (numlev%2 == 1) {         /* To make sure that the actual data 
+   if (numlev%2 == 1) {         /* To make sure that the actual data
                                    starts double word aligned, add an extra
                                    pointer */
      d_size += sizeof(double **);
@@ -464,7 +396,7 @@ char *argv[];
 
    d_size *= nprocs;
 
-   if (nprocs%2 == 1) {         /* To make sure that the actual data 
+   if (nprocs%2 == 1) {         /* To make sure that the actual data
                                    starts double word aligned, add an extra
                                    pointer */
      d_size += sizeof(double ***);
@@ -484,26 +416,30 @@ char *argv[];
    LOCKINIT(locks->error_lock)
    LOCKINIT(locks->bar_lock)
 
-   BARINIT(bars->iteration)
-   BARINIT(bars->gsudn)
-   BARINIT(bars->p_setup) 
-   BARINIT(bars->p_redph) 
-   BARINIT(bars->p_soln) 
-   BARINIT(bars->p_subph) 
-   BARINIT(bars->sl_prini)
-   BARINIT(bars->sl_psini)
-   BARINIT(bars->sl_onetime)
-   BARINIT(bars->sl_phase_1)
-   BARINIT(bars->sl_phase_2)
-   BARINIT(bars->sl_phase_3)
-   BARINIT(bars->sl_phase_4)
-   BARINIT(bars->sl_phase_5)
-   BARINIT(bars->sl_phase_6)
-   BARINIT(bars->sl_phase_7)
-   BARINIT(bars->sl_phase_8)
-   BARINIT(bars->sl_phase_9)
-   BARINIT(bars->sl_phase_10)
-   BARINIT(bars->error_barrier)
+#if defined(MULTIPLE_BARRIERS)
+   BARINIT(bars->iteration, nprocs)
+   BARINIT(bars->gsudn, nprocs)
+   BARINIT(bars->p_setup, nprocs)
+   BARINIT(bars->p_redph, nprocs)
+   BARINIT(bars->p_soln, nprocs)
+   BARINIT(bars->p_subph, nprocs)
+   BARINIT(bars->sl_prini, nprocs)
+   BARINIT(bars->sl_psini, nprocs)
+   BARINIT(bars->sl_onetime, nprocs)
+   BARINIT(bars->sl_phase_1, nprocs)
+   BARINIT(bars->sl_phase_2, nprocs)
+   BARINIT(bars->sl_phase_3, nprocs)
+   BARINIT(bars->sl_phase_4, nprocs)
+   BARINIT(bars->sl_phase_5, nprocs)
+   BARINIT(bars->sl_phase_6, nprocs)
+   BARINIT(bars->sl_phase_7, nprocs)
+   BARINIT(bars->sl_phase_8, nprocs)
+   BARINIT(bars->sl_phase_9, nprocs)
+   BARINIT(bars->sl_phase_10, nprocs)
+   BARINIT(bars->error_barrier, nprocs)
+#else
+   BARINIT(bars->barrier, nprocs)
+#endif
 
    link_all();
 
@@ -535,25 +471,19 @@ char *argv[];
    im = (imx[numlev-1]-2)/yprocs + 2;
    jm = (jmx[numlev-1]-2)/xprocs + 2;
 
-   for (i=1;i<nprocs;i++) {
-     CREATE(slave)  
-   }
-
    if (do_output) {
      printf("                       MULTIGRID OUTPUTS\n");
    }
 
-   slave();
-   WAIT_FOR_END(nprocs-1)
+   CREATE(slave, nprocs);
+   WAIT_FOR_END(nprocs);
    CLOCK(computeend)
 
    printf("\n");
    printf("                       PROCESS STATISTICS\n");
    printf("                  Total          Multigrid         Multigrid\n");
    printf(" Proc             Time             Time            Fraction\n");
-   printf("    0   %15.0f    %15.0f        %10.3f\n",
-          gp[0].total_time,gp[0].multi_time,
-          gp[0].multi_time/gp[0].total_time);
+   printf("    0   %15.0f    %15.0f        %10.3f\n", gp[0].total_time,gp[0].multi_time, gp[0].multi_time/gp[0].total_time);
 
    if (do_stats) {
      min_total = max_total = avg_total = gp[0].total_time;
@@ -586,45 +516,32 @@ char *argv[];
      avg_multi = avg_multi / nprocs;
      avg_frac = avg_frac / nprocs;
      for (i=1;i<nprocs;i++) {
-       printf("  %3d   %15.0f    %15.0f        %10.3f\n",
-	      i,gp[i].total_time,gp[i].multi_time,
-	      gp[i].multi_time/gp[i].total_time);
+       printf("  %3ld   %15.0f    %15.0f        %10.3f\n", i,gp[i].total_time,gp[i].multi_time, gp[i].multi_time/gp[i].total_time);
      }
-     printf("  Avg   %15.0f    %15.0f        %10.3f\n",
-            avg_total,avg_multi,avg_frac);
-     printf("  Min   %15.0f    %15.0f        %10.3f\n",
-            min_total,min_multi,min_frac);
-     printf("  Max   %15.0f    %15.0f        %10.3f\n",
-            max_total,max_multi,max_frac);
+     printf("  Avg   %15.0f    %15.0f        %10.3f\n", avg_total,avg_multi,avg_frac);
+     printf("  Min   %15.0f    %15.0f        %10.3f\n", min_total,min_multi,min_frac);
+     printf("  Max   %15.0f    %15.0f        %10.3f\n", max_total,max_multi,max_frac);
    }
    printf("\n");
 
    global->starttime = start;
    printf("                       TIMING INFORMATION\n");
-   printf("Start time                        : %16d\n",
-           global->starttime);
-   printf("Initialization finish time        : %16d\n",
-           global->trackstart);
-   printf("Overall finish time               : %16d\n",
-           computeend);
-   printf("Total time with initialization    : %16d\n",
-           computeend-global->starttime);
-   printf("Total time without initialization : %16d\n",
-           computeend-global->trackstart);
+   printf("Start time                        : %16lu\n", global->starttime);
+   printf("Initialization finish time        : %16lu\n", global->trackstart);
+   printf("Overall finish time               : %16lu\n", computeend);
+   printf("Total time with initialization    : %16lu\n", computeend-global->starttime);
+   printf("Total time without initialization : %16lu\n", computeend-global->trackstart);
    printf("    (excludes first timestep)\n");
    printf("\n");
 
    MAIN_END
 }
 
-int log_2(number)
-
-int number;
-
+long log_2(long number)
 {
-  int cumulative = 1;
-  int out = 0;
-  int done = 0;
+  long cumulative = 1;
+  long out = 0;
+  long done = 0;
 
   while ((cumulative < number) && (!done) && (out < 50)) {
     if (cumulative == number) {
@@ -642,10 +559,7 @@ int number;
   }
 }
 
-void printerr(s)
-
-char *s;
-
+void printerr(char *s)
 {
   fprintf(stderr,"ERROR: %s\n",s);
 }

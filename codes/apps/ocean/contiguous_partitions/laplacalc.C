@@ -23,25 +23,15 @@ EXTERN_ENV
 #include <time.h>
 #include "decs.h"
 
-void laplacalc(procid,x,z,psiindex,firstrow,lastrow,firstcol,lastcol)
-
-int procid;
-double ****x;
-double ****z;
-int psiindex;
-int firstrow;
-int lastrow;
-int firstcol;
-int lastcol;
-
+void laplacalc(long procid, double ****x, double ****z, long psiindex, long firstrow, long lastrow, long firstcol, long lastcol)
 {
-   int iindex;
-   int indexp1;
-   int indexm1;
-   int ip1;
-   int im1;
-   int i;
-   int j;
+   long iindex;
+   long indexp1;
+   long indexm1;
+   long ip1;
+   long im1;
+   long i;
+   long j;
    double **t2a;
    double **t2b;
    double *t1a;
@@ -120,6 +110,6 @@ int lastcol;
      for (j=firstrow;j<=lastrow;j++) {
        t2b[j][jm-1] = 0.0;
      }
-   }  
+   }
 
 }

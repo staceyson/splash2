@@ -16,6 +16,7 @@
 
 /********** storing/loading of large arrays to/from files **********/
 
+#include <fcntl.h>
 #include "incl.h"
 
 #define	PMODE	0644		/* RW for owner, R for group, R for others */
@@ -23,8 +24,7 @@
 
 EXTERN_ENV
 
-Create_File(filename)
-     char filename[];
+int Create_File(char filename[])
 {
   int fd;
   if ((fd = creat(filename,PMODE)) == -1) {
@@ -34,8 +34,7 @@ Create_File(filename)
 }
 
 
-Open_File(filename)
-     char filename[];
+int Open_File(char filename[])
 {
   int fd;
   if ((fd = open(filename,RWMODE)) == -1) {
@@ -45,10 +44,7 @@ Open_File(filename)
 }
 
 
-Write_Bytes(fd,array,length)
-     int fd;
-     unsigned char array[];
-     long length;
+void Write_Bytes(int fd, unsigned char array[], long length)
 {
   long n_written;
   long more_written;
@@ -68,13 +64,8 @@ Write_Bytes(fd,array,length)
 }
 
 
-Write_Shorts(fd,array,length)
-     int fd;
-     unsigned char array[];
-     long length;
+void Write_Shorts(int fd, unsigned char array[], long length)
 {
-  int i;
-  unsigned char byte;
   long n_written;
   long more_written;
 #ifdef FLIP
@@ -107,13 +98,8 @@ Write_Shorts(fd,array,length)
 }
 
 
-Write_Longs(fd,array,length)
-     int fd;
-     unsigned char array[];
-     long length;
+void Write_Longs(int fd, unsigned char array[], long length)
 {
-  int i;
-  unsigned char byte;
   long n_written;
   long more_written;
 #ifdef FLIP
@@ -152,10 +138,7 @@ Write_Longs(fd,array,length)
 }
 
 
-Read_Bytes(fd,array,length)
-     int fd;
-     unsigned char array[];
-     long length;
+void Read_Bytes(int fd, unsigned char array[], long length)
 {
   long n_read;
   long more_read;
@@ -175,13 +158,8 @@ Read_Bytes(fd,array,length)
 }
 
 
-Read_Shorts(fd,array,length)
-     int fd;
-     unsigned char array[];
-     long length;
+void Read_Shorts(int fd, unsigned char array[], long length)
 {
-  int i;
-  unsigned char byte;
   long n_read;
   long more_read;
   n_read = read(fd,array,MIN(length,32766));
@@ -207,13 +185,8 @@ Read_Shorts(fd,array,length)
 }
 
 
-Read_Longs(fd,array,length)
-     int fd;
-     unsigned char array[];
-     long length;
+void Read_Longs(int fd, unsigned char array[], long length)
 {
-  int i;
-  unsigned char byte;
   long n_read;
   long more_read;
   n_read = read(fd,array,MIN(length,32766));
@@ -242,8 +215,7 @@ Read_Longs(fd,array,length)
 }
 
 
-Close_File(fd)
-     int fd;
+void Close_File(int fd)
 {
   if (close(fd) == -1) {
     Error("    Can't close file %d\n",fd);

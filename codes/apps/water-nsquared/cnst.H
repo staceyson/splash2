@@ -14,8 +14,8 @@
 /*                                                                       */
 /*************************************************************************/
 
-  /*  This file contains declarations for some variables 
-  that are initialized to constants in the program and 
+  /*  This file contains declarations for some variables
+  that are initialized to constants in the program and
   then never modified */
-  
-  extern double UNITT,UNITL,UNITM,BOLTZ,AVGNO,PCC[11];
+
+extern double UNITT,UNITL,UNITM,BOLTZ,AVGNO,PCC[11];

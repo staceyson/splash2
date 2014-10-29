@@ -25,8 +25,8 @@
 *
 *************************************************************************/
 
-#define PAGE_SIZE 4096   /* page size of system, used for padding to 
-allow page placement of some logically 
+#define PAGE_SIZE 4096   /* page size of system, used for padding to
+allow page placement of some logically
 per-process data structures */
 
 /*** Task types ***/
@@ -54,7 +54,7 @@ global shared queue at a time */
 
 /* Decompose modeling object into patches (B-reps) */
 typedef struct {
-    int   type ;		     /* Object type */
+    long   type ;		     /* Object type */
     Model *model ;		     /* Object to be decomposed */
 } Modeling_Task ;
 
@@ -70,12 +70,12 @@ typedef struct {
 typedef struct {
     Element *e1, *e2 ;	     /* Interacting elements */
     float   visibility ;           /* Visibility of parent */
-    int level ;		     /* Path length from the root element */
+    long level ;		     /* Path length from the root element */
 } Refinement_Task ;
 
 
 typedef struct {
-    int  ray_type ;
+    long  ray_type ;
     Element *e ;		     /* The element we are interested in */
 } Ray_Task ;
 
@@ -83,7 +83,7 @@ typedef struct {
 typedef struct {
     Element *e ;		     /* The element we are interested in */
     Interaction *inter ;	     /* Top of interactions */
-    int   n_inter ;		     /* Number of interactions */
+    long   n_inter ;		     /* Number of interactions */
     void  (*k)() ;		     /* Continuation */
 } Visibility_Task ;
 
@@ -94,8 +94,8 @@ typedef struct {
 
 typedef struct {
     Element *e ;
-    int level ;
-    int mode ;
+    long level ;
+    long mode ;
 } RadAvg_Task ;
 
 
@@ -108,7 +108,7 @@ typedef struct {
 
 
 typedef struct _task {
-    int task_type ;
+    long task_type ;
     struct _task *next ;
     union {
         Modeling_Task   model ;
@@ -122,43 +122,48 @@ typedef struct _task {
 
 
 typedef struct {
-    char pad1[PAGE_SIZE];	 	/* padding to avoid false-sharing 
-    and allow page-placement */	
+    char pad1[PAGE_SIZE];	 	/* padding to avoid false-sharing
+    and allow page-placement */
     LOCKDEC(q_lock)
     Task  *top, *tail ;
-    int   n_tasks ;
+    long   n_tasks ;
     LOCKDEC(f_lock)
-    int   n_free ;
+    long   n_free ;
     Task  *free ;
-    char pad2[PAGE_SIZE];	 	/* padding to avoid false-sharing 
-    and allow page-placement */	
+    char pad2[PAGE_SIZE];	 	/* padding to avoid false-sharing
+    and allow page-placement */
 } Task_Queue ;
 
 
 #define TASK_APPEND (0)
 #define TASK_INSERT (1)
 
-
-extern Task *get_task() ;
-extern void free_task() ;
-extern void enqueue_task() ;
-extern Task *dequeue_task(), *dequeue_neighbor_task() ;
 #define taskq_length(q)   (q->n_tasks)
 #define taskq_top(q)      (q->top)
-extern void print_task(), print_taskq() ;
-extern int assign_taskq() ;
-extern void init_taskq() ;
 #define taskq_too_long(q)  ((q)->n_tasks > n_tasks_per_queue)
 
-extern void process_tasks() ;
-extern void create_modeling_task(), create_bsp_task() ;
-extern void create_ff_refine_task() ;
-extern void create_ray_task(), create_radavg_task() ;
-extern void create_visibility_tasks() ;
-extern void enqueue_ray_task() ;
-extern void enqueue_radavg_task() ;
-extern int  check_task_counter() ;
-
+/*
+ * taskman.C
+ */
+void process_tasks(long process_id);
+long _process_task_wait_loop(void);
+void create_modeling_task(Model *model, long type, long process_id);
+void create_bsp_task(Patch *patch, Patch *parent, long process_id);
+void create_ff_refine_task(Element *e1, Element *e2, long level, long process_id);
+void create_ray_task(Element *e, long process_id);
+void enqueue_ray_task(long qid, Element *e, long mode, long process_id);
+void create_visibility_tasks(Element *e, void (*k)(), long process_id);
+void create_radavg_task(Element *e, long mode, long process_id);
+void enqueue_radavg_task(long qid, Element *e, long mode, long process_id);
+void enqueue_task(long qid, Task *task, long mode);
+Task *dequeue_task(long qid, long max_visit, long process_id);
+Task *get_task(long process_id);
+void free_task(Task *task, long process_id);
+void init_taskq(long process_id);
+long check_task_counter(void);
+long assign_taskq(long process_id);
+void print_task(Task *task);
+void print_taskq(Task_Queue *tq);
 
 #endif
 

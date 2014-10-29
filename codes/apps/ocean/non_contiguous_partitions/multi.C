@@ -17,42 +17,31 @@
 /* shared memory implementation of the multigrid method
    implementation uses red-black gauss-seidel relaxation
    iterations, w cycles, and the method of half-injection for
-   residual computation */ 
+   residual computation */
 
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <stdlib.h>
 #include "decs.h"
 
-void multig(int);
-void relax(int,double *,int,int);
-void rescal(int,int);
-void intadd(int,int);
-void putz(int,int);
-
-void multig(my_id)
-
 /* perform multigrid (w cycles)                                     */
-
-int my_id;
-
+void multig(long my_id)
 {
-   int iter;
-   double wu; 
+   long iter;
+   double wu;
    double errp;
-   int m;
-   int minlevel;
-   int flag1;
-   int flag2;
-   int k;
-   int my_num;
+   long m;
+   long minlevel;
+   long flag1;
+   long flag2;
+   long k;
+   long my_num;
    double wmax;
    double local_err;
    double red_local_err;
    double black_local_err;
    double g_error;
-   int i;
-   int j;
 
    flag1 = 0;
    flag2 = 0;
@@ -62,7 +51,7 @@ int my_id;
    minlevel = minlev;
    my_num = my_id;
    wu = 0.0;
-   
+
    k = m;
    g_error = 1.0e30;
    while ((!flag1) && (!flag2)) {
@@ -75,14 +64,20 @@ int my_id;
 /* barrier to make sure all procs have finished intadd or rescal   */
 /* before proceeding with relaxation                               */
 
-     BARRIER(bars->error_barrier,nprocs)  
-
+#if defined(MULTIPLE_BARRIERS)
+     BARRIER(bars->error_barrier,nprocs)
+#else
+     BARRIER(bars->barrier,nprocs)
+#endif
      relax(k,&red_local_err,RED_ITER,my_num);
 
 /* barrier to make sure all red computations have been performed   */
 
-     BARRIER(bars->error_barrier,nprocs)  
-
+#if defined(MULTIPLE_BARRIERS)
+     BARRIER(bars->error_barrier,nprocs)
+#else
+     BARRIER(bars->barrier,nprocs)
+#endif
      relax(k,&black_local_err,BLACK_ITER,my_num);
 
 /* compute max local error from red_local_err and black_local_err  */
@@ -108,15 +103,21 @@ int my_id;
 
 /* barrier to make sure all processors have checked local error    */
 
-     BARRIER(bars->error_barrier,nprocs)  
-
+#if defined(MULTIPLE_BARRIERS)
+     BARRIER(bars->error_barrier,nprocs)
+#else
+     BARRIER(bars->barrier,nprocs)
+#endif
      g_error = multi->err_multi;
 
 /* barrier to make sure master does not cycle back to top of loop  */
 /* and reset global->err before we read it and decide what to do   */
 
-     BARRIER(bars->error_barrier,nprocs)  
-
+#if defined(MULTIPLE_BARRIERS)
+     BARRIER(bars->error_barrier,nprocs)
+#else
+     BARRIER(bars->barrier,nprocs)
+#endif
      if (g_error >= lev_tol[k]) {
        if (wu > wmax) {
 /* max work exceeded                                               */
@@ -125,7 +126,7 @@ int my_id;
          exit(-1);
        } else {
 /* if we have not converged                                        */
-         if ((k != 1) && (g_error/errp >= 0.6) && (k > minlevel)) {  
+         if ((k != 1) && (g_error/errp >= 0.6) && (k > minlevel)) {
 /* if need to go to coarser grid                                   */
            rescal(k,my_num);
 /* transfer residual to rhs of coarser grid                        */
@@ -151,38 +152,26 @@ int my_id;
    }
    if (do_output) {
      if (my_num == MASTER) {
-       printf("iter %d, level %d, residual norm %12.8e, work = %7.3f\n",
-               iter,k,multi->err_multi,wu);
+       printf("iter %ld, level %ld, residual norm %12.8e, work = %7.3f\n", iter,k,multi->err_multi,wu);
      }
    }
 }
 
-void relax(k,err,color,my_num) 
-
-int k;
-double *err;
-int color;
-int my_num;
-
 /* perform red or black iteration (not both)                    */
-
+void relax(long k, double *err, long color, long my_num)
 {
-   int i;
-   int j;
-   int istart;
-   int jstart;
-   int iend;
-   int jend;
-   int oddistart;
-   int oddjstart;
-   int evenistart;
-   int evenjstart;
-   int oddiendst;
-   int eveniendst;
-   int oddjendst;
-   int evenjendst;
-   int tiend;
-   int tjend;
+   long i;
+   long j;
+   long iend;
+   long jend;
+   long oddistart;
+   long oddjstart;
+   long evenistart;
+   long evenjstart;
+   long oddiendst;
+   long eveniendst;
+   long oddjendst;
+   long evenjendst;
    double a;
    double h;
    double factor;
@@ -190,11 +179,6 @@ int my_num;
    double newerr;
    double oldval;
    double newval;
-   double f1;
-   double f2;
-   double f3;
-   double f4;
-   double ressqr;
 
    i = 0;
    j = 0;
@@ -222,8 +206,8 @@ int my_num;
    if (color == RED_ITER) {
      for (i=evenistart;i<iend;i+=2) {
        for (j=evenjstart;j<jend;j+=2) {
-         a = multi->q_multi[k][i][j+1] + multi->q_multi[k][i][j-1] + 
-	     multi->q_multi[k][i-1][j] + multi->q_multi[k][i+1][j] - 
+         a = multi->q_multi[k][i][j+1] + multi->q_multi[k][i][j-1] +
+	     multi->q_multi[k][i-1][j] + multi->q_multi[k][i+1][j] -
 	     multi->rhs_multi[k][i][j] ;
          oldval = multi->q_multi[k][i][j];
          newval = a / factor;
@@ -236,8 +220,8 @@ int my_num;
      }
      for (i=oddistart;i<iend;i+=2) {
        for (j=oddjstart;j<jend;j+=2) {
-         a = multi->q_multi[k][i][j+1] + multi->q_multi[k][i][j-1] + 
-	     multi->q_multi[k][i-1][j] + multi->q_multi[k][i+1][j] - 
+         a = multi->q_multi[k][i][j+1] + multi->q_multi[k][i][j-1] +
+	     multi->q_multi[k][i-1][j] + multi->q_multi[k][i+1][j] -
 	     multi->rhs_multi[k][i][j] ;
          oldval = multi->q_multi[k][i][j];
          newval = a / factor;
@@ -251,8 +235,8 @@ int my_num;
    } else if (color == BLACK_ITER) {
      for (i=evenistart;i<iend;i+=2) {
        for (j=oddjstart;j<jend;j+=2) {
-         a = multi->q_multi[k][i][j+1] + multi->q_multi[k][i][j-1] + 
-	     multi->q_multi[k][i-1][j] + multi->q_multi[k][i+1][j] - 
+         a = multi->q_multi[k][i][j+1] + multi->q_multi[k][i][j-1] +
+	     multi->q_multi[k][i-1][j] + multi->q_multi[k][i+1][j] -
 	     multi->rhs_multi[k][i][j] ;
          oldval = multi->q_multi[k][i][j];
          newval = a / factor;
@@ -265,8 +249,8 @@ int my_num;
      }
      for (i=oddistart;i<iend;i+=2) {
        for (j=evenjstart;j<jend;j+=2) {
-         a = multi->q_multi[k][i][j+1] + multi->q_multi[k][i][j-1] + 
-	     multi->q_multi[k][i-1][j] + multi->q_multi[k][i+1][j] - 
+         a = multi->q_multi[k][i][j+1] + multi->q_multi[k][i][j-1] +
+	     multi->q_multi[k][i-1][j] + multi->q_multi[k][i+1][j] -
 	     multi->rhs_multi[k][i][j] ;
          oldval = multi->q_multi[k][i][j];
          newval = a / factor;
@@ -277,31 +261,22 @@ int my_num;
          }
        }
      }
-   } 
+   }
    *err = maxerr;
 }
 
-void rescal(kf,my_num)
-
 /* perform half-injection to next coarsest level                */
-
-int kf;
-int my_num;
-
+void rescal(long kf, long my_num)
 {
-   int ic;
-   int if17;
-   int jf;
-   int jc;
-   int krc;
-   int istart;
-   int iend;
-   int jstart;
-   int jend;
-   int oddiendst;
-   int eveniendst;
-   int oddjendst;
-   int evenjendst;
+   long ic;
+   long if17;
+   long jf;
+   long jc;
+   long krc;
+   long istart;
+   long iend;
+   long jstart;
+   long jend;
    double hf;
    double hc;
    double s;
@@ -310,7 +285,6 @@ int my_num;
    double s3;
    double s4;
    double factor;
-   double h;
    double int1;
    double int2;
    double i_int_factor;
@@ -330,7 +304,7 @@ int my_num;
 
    factor = 4.0 - eig2 * hf * hf;
 
-   if17=2*(istart-1);  
+   if17=2*(istart-1);
    for(ic=istart;ic<=iend;ic++) {
      if17+=2;
      i_int_factor = ic * i_int_coeff[krc] * 0.5;
@@ -339,75 +313,66 @@ int my_num;
        jf+=2;
        j_int_factor = jc*j_int_coeff[krc] * 0.5;
 /* method of half-injection uses 2.0 instead of 4.0 */
-       s = multi->q_multi[kf][if17][jf+1] + multi->q_multi[kf][if17][jf-1] + 
+       s = multi->q_multi[kf][if17][jf+1] + multi->q_multi[kf][if17][jf-1] +
            multi->q_multi[kf][if17-1][jf] + multi->q_multi[kf][if17+1][jf];
        s1 = 2.0 * (multi->rhs_multi[kf][if17][jf] - s +
-		   factor * multi->q_multi[kf][if17][jf]); 
+		   factor * multi->q_multi[kf][if17][jf]);
        if ((if17 == 2) || (jf ==2)) {
          s2 = 0;
        } else {
-         s = multi->q_multi[kf][if17][jf-1] + multi->q_multi[kf][if17][jf-3] + 
+         s = multi->q_multi[kf][if17][jf-1] + multi->q_multi[kf][if17][jf-3] +
              multi->q_multi[kf][if17-1][jf-2] + multi->q_multi[kf][if17+1][jf-2];
          s2 = 2.0 * (multi->rhs_multi[kf][if17][jf-2] - s +
-	  	   factor * multi->q_multi[kf][if17][jf-2]); 
+	  	   factor * multi->q_multi[kf][if17][jf-2]);
        }
        if ((if17 == 2) || (jf ==2)) {
          s3 = 0;
        } else {
-         s = multi->q_multi[kf][if17-2][jf+1] + multi->q_multi[kf][if17-2][jf-1] + 
+         s = multi->q_multi[kf][if17-2][jf+1] + multi->q_multi[kf][if17-2][jf-1] +
              multi->q_multi[kf][if17-3][jf] + multi->q_multi[kf][if17-1][jf];
          s3 = 2.0 * (multi->rhs_multi[kf][if17-2][jf] - s +
-		     factor * multi->q_multi[kf][if17-2][jf]); 
+		     factor * multi->q_multi[kf][if17-2][jf]);
        }
        if ((if17 == 2) || (jf ==2)) {
          s4 = 0;
        } else {
-         s = multi->q_multi[kf][if17-2][jf-1] + multi->q_multi[kf][if17-2][jf-3] + 
+         s = multi->q_multi[kf][if17-2][jf-1] + multi->q_multi[kf][if17-2][jf-3] +
          multi->q_multi[kf][if17-3][jf-2] + multi->q_multi[kf][if17-1][jf-2];
          s4 = 2.0 * (multi->rhs_multi[kf][if17-2][jf-2] - s +
-		   factor * multi->q_multi[kf][if17-2][jf-2]); 
+		   factor * multi->q_multi[kf][if17-2][jf-2]);
        }
        int1 = j_int_factor*s4 + (1.0-j_int_factor)*s3;
        int2 = j_int_factor*s2 + (1.0-j_int_factor)*s1;
        int_val = i_int_factor*int1+(1.0-i_int_factor)*int2;
-       multi->rhs_multi[krc][ic][jc] = i_int_factor*int1+(1.0-i_int_factor)*int2;  
+       multi->rhs_multi[krc][ic][jc] = i_int_factor*int1+(1.0-i_int_factor)*int2;
      }
    }
 }
 
-void intadd(kc,my_num)
-
 /* perform interpolation and addition to next finest grid       */
-
-int kc;
-int my_num;
-
+void intadd(long kc, long my_num)
 {
-   int ic;
-   int if17;
-   int jf;
-   int jc;
-   int i;
-   int kf;
-   int istart;
-   int jstart;
-   int iend;
-   int jend;
-   double a;
-   double am;
+   long ic;
+   long if17;
+   long jf;
+   long jc;
+   long kf;
+   long istart;
+   long jstart;
+   long iend;
+   long jend;
    double hc;
    double hf;
-   int ifine1;
-   int ifine2;
-   int jfine1;
-   int jfine2;
+   long ifine1;
+   long ifine2;
+   long jfine1;
+   long jfine2;
    double int1;
    double int2;
    double i_int_factor1;
    double j_int_factor1;
    double i_int_factor2;
    double j_int_factor2;
-   double int_val;
 
    kf = kc + 1;
    hc = lev_res[kc];
@@ -422,7 +387,7 @@ int my_num;
    jstart = gp[my_num].rel_start_x[kc];
    iend = gp[my_num].rel_start_y[kc] + gp[my_num].rel_num_y[kc] - 1;
    jend = gp[my_num].rel_start_x[kc] + gp[my_num].rel_num_x[kc] - 1;
-   if17 = 2*(istart-1);  
+   if17 = 2*(istart-1);
    for(ic=istart;ic<=iend;ic++) {
 
      if17+=2;
@@ -431,7 +396,7 @@ int my_num;
      i_int_factor1= ((imx[kc]-2)-(ic-1)) * (i_int_coeff[kf]);
      i_int_factor2= ic * i_int_coeff[kf];
 
-     jf = 2*(jstart-1); 
+     jf = 2*(jstart-1);
 
      for(jc=jstart;jc<=jend;jc++) {
        jf+=2;
@@ -440,44 +405,39 @@ int my_num;
        j_int_factor1= ((jmx[kc]-2)-(jc-1)) * (j_int_coeff[kf]);
        j_int_factor2= jc * j_int_coeff[kf];
 
-       int1 = j_int_factor1*multi->q_multi[kc][ic][jc-1] + 
+       int1 = j_int_factor1*multi->q_multi[kc][ic][jc-1] +
 	      (1.0-j_int_factor1)*multi->q_multi[kc][ic][jc];
-       int2 = j_int_factor1*multi->q_multi[kc][ic-1][jc-1] + 
+       int2 = j_int_factor1*multi->q_multi[kc][ic-1][jc-1] +
 	      (1.0-j_int_factor1)*multi->q_multi[kc][ic-1][jc];
-       multi->q_multi[kf][if17-1][jf-1] += i_int_factor1*int2 + 
+       multi->q_multi[kf][if17-1][jf-1] += i_int_factor1*int2 +
 	      (1.0-i_int_factor1)*int1;
-       int2 = j_int_factor1*multi->q_multi[kc][ic+1][jc-1] + 
+       int2 = j_int_factor1*multi->q_multi[kc][ic+1][jc-1] +
 	      (1.0-j_int_factor1)*multi->q_multi[kc][ic+1][jc];
-       multi->q_multi[kf][if17][jf-1] += i_int_factor2*int2 + 
+       multi->q_multi[kf][if17][jf-1] += i_int_factor2*int2 +
 	      (1.0-i_int_factor2)*int1;
-       int1 = j_int_factor2*multi->q_multi[kc][ic][jc+1] + 
+       int1 = j_int_factor2*multi->q_multi[kc][ic][jc+1] +
 	      (1.0-j_int_factor2)*multi->q_multi[kc][ic][jc];
-       int2 = j_int_factor2*multi->q_multi[kc][ic-1][jc+1] + 
+       int2 = j_int_factor2*multi->q_multi[kc][ic-1][jc+1] +
 	      (1.0-j_int_factor2)*multi->q_multi[kc][ic-1][jc];
-       multi->q_multi[kf][if17-1][jf] += i_int_factor1*int2 + 
+       multi->q_multi[kf][if17-1][jf] += i_int_factor1*int2 +
 	      (1.0-i_int_factor1)*int1;
-       int2 = j_int_factor2*multi->q_multi[kc][ic+1][jc+1] + 
+       int2 = j_int_factor2*multi->q_multi[kc][ic+1][jc+1] +
 	      (1.0-j_int_factor2)*multi->q_multi[kc][ic+1][jc];
-       multi->q_multi[kf][if17][jf] += i_int_factor2*int2 + 
+       multi->q_multi[kf][if17][jf] += i_int_factor2*int2 +
 	      (1.0-i_int_factor2)*int1;
      }
    }
 }
 
-void putz(k,my_num)
-
 /* initialize a grid to zero in parallel                        */
-
-int k;
-int my_num;
-
+void putz(long k, long my_num)
 {
-   int i;
-   int j;
-   int istart;
-   int jstart;
-   int iend;
-   int jend;
+   long i;
+   long j;
+   long istart;
+   long jstart;
+   long iend;
+   long jend;
 
    istart = gp[my_num].pist[k];
    jstart = gp[my_num].pjst[k];

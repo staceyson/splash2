@@ -19,12 +19,12 @@
 
 #include "box.h"
 
-extern void InitExpTables();
-extern void PrintExpTables();
-extern void UpwardPass(int my_id, box *b);
-extern void ComputeInteractions(int my_id, box *b);
-extern void DownwardPass(int my_id, box *b);
-extern void ComputeParticlePositions(int my_id, box *b);
+extern void InitExpTables(void);
+extern void PrintExpTables(void);
+extern void UpwardPass(long my_id, box *b);
+extern void ComputeInteractions(long my_id, box *b);
+extern void DownwardPass(long my_id, box *b);
+extern void ComputeParticlePositions(long my_id, box *b);
 
 #endif /* _Interactions_H */
 

@@ -21,47 +21,43 @@ EXTERN_ENV
 
 extern struct GlobalMemory *Global;
 extern BMatrix LB;
-extern int P;
-extern int BS;
-extern int *node;  /* global */
+extern long P;
+extern long BS;
+extern long *node;  /* global */
+extern long scatter_decomposition, P_dimi, P_dimj;
 struct BlockList ***AllBlocks, ***DiagBlock;
-int **ToReceive, **NReceived;
+long **ToReceive, **NReceived;
 
 
-PreProcessFO(MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void PreProcessFO(long MyNum)
 {
-  InitRemainingFO(MyNum, lc);
-  InitReceivedFO(MyNum, lc);
+  InitRemainingFO(MyNum);
+  InitReceivedFO(MyNum);
 }
 
-PreAllocate1FO()
+void PreAllocate1FO()
 {
-  int i;
-  extern int P;
+  long i;
 
   AllBlocks = (struct BlockList ***) MyMalloc(P*sizeof(struct BlockList **),
 					       DISTRIBUTED);
   DiagBlock = (struct BlockList ***) MyMalloc(P*sizeof(struct BlockList **),
 					       DISTRIBUTED);
-  ToReceive = (int **) MyMalloc(P*sizeof(int *), DISTRIBUTED);
-  NReceived = (int **) MyMalloc(P*sizeof(int *), DISTRIBUTED);
+  ToReceive = (long **) MyMalloc(P*sizeof(long *), DISTRIBUTED);
+  NReceived = (long **) MyMalloc(P*sizeof(long *), DISTRIBUTED);
   for (i=0; i<P; i++) {
-    ToReceive[i] = (int *) MyMalloc(LB.n_partitions*sizeof(int), i);
-    NReceived[i] = (int *) MyMalloc(LB.n_partitions*sizeof(int), i);
+    ToReceive[i] = (long *) MyMalloc(LB.n_partitions*sizeof(long), i);
+    NReceived[i] = (long *) MyMalloc(LB.n_partitions*sizeof(long), i);
   }
 }
 
 
-PreAllocateFO(MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void PreAllocateFO(long MyNum, struct LocalCopies *lc)
 {
-  int i, j, stor_size, root, update_size;
+  long i, j, stor_size, root, update_size;
 
-  lc->link = (int *) MyMalloc((LB.n+1)*sizeof(int), MyNum);
-  lc->first = (int *) MyMalloc(LB.n*sizeof(int), MyNum);
+  lc->link = (long *) MyMalloc((LB.n+1)*sizeof(long), MyNum);
+  lc->first = (long *) MyMalloc(LB.n*sizeof(long), MyNum);
 
   for (i=0; i<LB.n; i++)
     lc->first[i] = lc->link[i] = 0;
@@ -89,7 +85,7 @@ struct LocalCopies *lc;
   lc->updatetmp = (double *) MyMalloc(stor_size*sizeof(double), MyNum);
   for (i=0; i<stor_size; i++)
     lc->updatetmp[i] = 0.0;
-  lc->relative = (int *) MyMalloc(LB.max_partition*sizeof(int), MyNum);
+  lc->relative = (long *) MyMalloc(LB.max_partition*sizeof(long), MyNum);
 
   AllBlocks[MyNum] = (struct BlockList **)
     MyMalloc(LB.n_partitions*sizeof(struct BlockList *), MyNum);
@@ -116,11 +112,9 @@ struct LocalCopies *lc;
 }
 
 
-BNumericSolveFO(MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void BNumericSolveFO(long MyNum, struct LocalCopies *lc)
 {
-  int i;
+  long i;
 
   for (i=0; i<LB.n; i++)
     lc->link[i] = -1;
@@ -137,12 +131,9 @@ struct LocalCopies *lc;
 }
 
 
-DriveParallelFO(MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void DriveParallelFO(long MyNum, struct LocalCopies *lc)
 {
-  int some, j;
-  extern int *node, *firstchild;
+  long some, j;
 
   some = 0;
   for (j=0; j<LB.n; j+=node[j])
@@ -157,16 +148,14 @@ struct LocalCopies *lc;
     while (HandleTaskFO(MyNum, lc))
       ;
 
-  if (TaskWaiting(MyNum, lc))
+  if (TaskWaiting(MyNum))
     printf("**** Termination error ***\n");
 }
 
 
-HandleTaskFO(MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+long HandleTaskFO(long MyNum, struct LocalCopies *lc)
 {
-  int desti, destj, src;
+  long desti, destj, src;
   struct Update *update;
 
   GetBlock(&desti, &destj, &src, &update, MyNum, lc);
@@ -193,14 +182,12 @@ struct LocalCopies *lc;
 
 /*  Receive a block.  Use it to produce updates to other blocks. */
 
-DiagReceived(diag,MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void DiagReceived(long diag, long MyNum, struct LocalCopies *lc)
 {
-  int i, column;
-  struct BlockList *diagbl, *CopyOneBlock();
+  long i, column;
+  struct BlockList *diagbl;
 
-  diagbl = CopyOneBlock(diag, MyNum, lc);
+  diagbl = CopyOneBlock(diag, MyNum);
   column = LB.renumbering[BLOCKCOL(diag)];
   diagbl->next = NULL;
   DiagBlock[MyNum][column] = diagbl;
@@ -209,8 +196,7 @@ struct LocalCopies *lc;
   for (i=LB.col[column]+1; i<LB.col[column+1]; i++)
     if (BLOCK(i)->owner == MyNum &&
 	BLOCK(i)->remaining == 0) {
-      BDiv(diag, i, diagbl->length, BLOCK(i)->length,
-	   diagbl->nz, BLOCK(i)->nz, MyNum, lc);
+      BDiv(diagbl->length, BLOCK(i)->length, diagbl->nz, BLOCK(i)->nz, lc);
       BlockDoneFO(i, MyNum, lc);
     }
 
@@ -224,17 +210,15 @@ struct LocalCopies *lc;
 
 /*  Receive a block.  Use it to produce updates to other blocks. */
 
-BlockReceived(block,MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void BlockReceived(long block, long MyNum, struct LocalCopies *lc)
 {
-  int column;
-  struct BlockList *thisbl, *bl, *CopyOneBlock();
+  long column;
+  struct BlockList *thisbl, *bl;
 
   column = LB.renumbering[BLOCKCOL(block)];
 
   /* add block to list for 'column' */
-  thisbl = CopyOneBlock(block, MyNum, lc);
+  thisbl = CopyOneBlock(block, MyNum);
   thisbl->next = AllBlocks[MyNum][column];
   AllBlocks[MyNum][column] = thisbl;
 
@@ -258,13 +242,9 @@ struct LocalCopies *lc;
 /* if 'copy_across' is set, all relevant info is copied across */
 /* otherwise, structure points to info in home */
 
-struct BlockList *CopyOneBlock(block,MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+struct BlockList *CopyOneBlock(long block, long MyNum)
 {
   struct BlockList *bl;
-  int i, size, num_nz, num_ind, copy_across;
-  extern int solution_method;
 
     bl = (struct BlockList *) MyMalloc(sizeof(struct BlockList), MyNum);
 
@@ -279,7 +259,7 @@ struct LocalCopies *lc;
 }
 
 
-FreeColumnListFO(p, col)
+void FreeColumnListFO(long p, long col)
 {
   struct BlockList *bl;
   
@@ -293,13 +273,10 @@ FreeColumnListFO(p, col)
     DiagBlock[p][col] = bl->next;
     MyFree(bl);
   }
-
 }
 
 
-DecrementRemaining(dest_block,MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void DecrementRemaining(long dest_block, long MyNum, struct LocalCopies *lc)
 {
   BLOCK(dest_block)->remaining--;
   if (BLOCK(dest_block)->remaining == 0)
@@ -309,14 +286,11 @@ struct LocalCopies *lc;
 }
 
 
-PerformUpdate(above_bl, below_bl,MyNum, lc)
-struct BlockList *above_bl, *below_bl;
-int MyNum;
-struct LocalCopies *lc;
+void PerformUpdate(struct BlockList *above_bl, struct BlockList *below_bl, long MyNum, struct LocalCopies *lc)
 {
-  int above, below;
-  int desti, destj, dest_block, is_diag;
-  int *relative_i, *relative_j;
+  long above, below;
+  long desti, destj, dest_block, is_diag;
+  long *relative_i, *relative_j;
   double *destination;
 
   above = above_bl->theBlock;
@@ -329,7 +303,7 @@ struct LocalCopies *lc;
 
   dest_block = FindBlock(desti, destj);
   if (dest_block == -1)
-    printf("Couldn't find %d,%d\n", desti, destj);
+    printf("Couldn't find %ld,%ld\n", desti, destj);
   else if (BLOCK(dest_block)->owner != MyNum)
     return; /* not my block */
 
@@ -341,8 +315,7 @@ struct LocalCopies *lc;
       destination = lc->updatetmp;
 
     /* modify diagonal block */
-    BLMod(below, below_bl->length, LB.partition_size[below_bl->col],
-	  below_bl->nz, destination, MyNum, lc);
+    BLMod(below_bl->length, LB.partition_size[below_bl->col], below_bl->nz, destination, lc);
 
     if (destination == lc->updatetmp) {
 
@@ -361,9 +334,7 @@ struct LocalCopies *lc;
     else if (!BLOCK(dest_block)->structure)
       relative_i = below_bl->structure;
     else {
-      FindRelativeIndices(below_bl->structure, below_bl->length,
-			  BLOCK(dest_block)->structure,
-			  BLOCK(dest_block)->length, lc->relative);
+      FindRelativeIndices(below_bl->structure, below_bl->length, BLOCK(dest_block)->structure, lc->relative);
       relative_i = lc->relative;
     }
       
@@ -377,8 +348,7 @@ struct LocalCopies *lc;
     else
       destination = lc->updatetmp;
 
-    BMod(above, below, above_bl->length, LB.partition_size[above_bl->col],
-	 below_bl->length, above_bl->nz, below_bl->nz, destination, MyNum, lc);
+    BMod(above_bl->length, LB.partition_size[above_bl->col], below_bl->length, above_bl->nz, below_bl->nz, destination, lc);
 
     if (destination == lc->updatetmp) {
 
@@ -387,21 +357,16 @@ struct LocalCopies *lc;
 		      BLOCK(dest_block)->length,
 		      lc->updatetmp, BLOCK(dest_block)->nz);
 
-
     }
-
   }
-
   DecrementRemaining(dest_block, MyNum, lc);
 }
 
 
 
-DistributeUpdateFO(which_domain, MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void DistributeUpdateFO(long which_domain, long MyNum, struct LocalCopies *lc)
 {
-  int bi, bj, desti, destj, dest_block;
+  long bi, bj, desti, destj, dest_block;
 
   for (bi=LB.col[LB.n+which_domain]; bi<LB.col[LB.n+which_domain+1]; bi++) {
     for (bj=LB.col[LB.n+which_domain]; bj<=bi; bj++) {
@@ -416,30 +381,26 @@ struct LocalCopies *lc;
 }
 
 
-HandleUpdate2FO(which_domain, bli, blj,MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void HandleUpdate2FO(long which_domain, long bli, long blj, long MyNum, struct LocalCopies *lc)
 {
-  int dest_block, desti, destj;
-  int *relative_i, *relative_j;
-  int stride;
+  long dest_block, desti, destj;
+  long *relative_i, *relative_j;
+  long stride;
   double *update;
 
   desti = BLOCKROW(bli); destj = BLOCKROW(blj);
   dest_block = FindBlock(desti, destj);
 
   if (dest_block == -1)
-    printf("Couldn't find %d,%d\n", desti, destj);
+    printf("Couldn't find %ld,%ld\n", desti, destj);
   else if (BLOCK(dest_block)->owner != MyNum)
-    printf("Sent to wrong PE\n", desti, destj);
+    printf("Sent to wrong PE\n");
 
-  FindBlockUpdate(which_domain, bli, blj, &update, &stride, MyNum, lc);
+  FindBlockUpdate(which_domain, bli, blj, &update, &stride);
 
   if (BLOCK(bli)->structure && BLOCK(dest_block)->structure) {
     if (BLOCK(bli)->length != BLOCK(dest_block)->length) {
-      FindRelativeIndices(BLOCK(bli)->structure, BLOCK(bli)->length,
-			  BLOCK(dest_block)->structure,
-			  BLOCK(dest_block)->length, lc->relative);
+      FindRelativeIndices(BLOCK(bli)->structure, BLOCK(bli)->length, BLOCK(dest_block)->structure, lc->relative);
       relative_i = lc->relative;
     }
     else
@@ -464,11 +425,10 @@ struct LocalCopies *lc;
 }
 
 
-FindRelativeIndices(src_structure, src_len, dest_structure, dest_len, relative)
-int *src_structure, src_len, *dest_structure, dest_len, *relative;
+void FindRelativeIndices(long *src_structure, long src_len, long *dest_structure, long *relative)
 {
-  int srci, desti;
-  int *leftRow, *rightRow, *last;
+  long srci, desti;
+  long *leftRow, *rightRow, *last;
 
   leftRow = src_structure;
   rightRow = dest_structure;
@@ -487,23 +447,20 @@ int *src_structure, src_len, *dest_structure, dest_len, *relative;
 }
 
 
-BlockReadyFO(block,MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void BlockReadyFO(long block, long MyNum, struct LocalCopies *lc)
 {
-  int column;
+  long column;
   struct BlockList *diagbl;
 
   if (BLOCKROW(block) == BLOCKCOL(block)) {
-    BFac(block, MyNum, lc);
+    BFac(block, lc);
     BlockDoneFO(block, MyNum, lc);
   }
   else {
     column = LB.renumbering[BLOCKCOL(block)];
     if (DiagBlock[MyNum][column]) {
       diagbl = DiagBlock[MyNum][column];
-      BDiv(LB.col[BLOCKCOL(block)], block, diagbl->length, BLOCK(block)->length,
-	   diagbl->nz, BLOCK(block)->nz, MyNum, lc);
+      BDiv(diagbl->length, BLOCK(block)->length, diagbl->nz, BLOCK(block)->nz, lc);
       BlockDoneFO(block, MyNum, lc);
     }
 
@@ -511,14 +468,10 @@ struct LocalCopies *lc;
 }
 
 
-BlockDoneFO(block,MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void BlockDoneFO(long block, long MyNum, struct LocalCopies *lc)
 {
-  int i;
-  int P_row, P_col;
-  extern int P_dimi, P_dimj;
-  extern int scatter_decomposition;
+  long i;
+  long P_row, P_col;
 
   if (scatter_decomposition) {
     P_row = LB.mapI[LB.renumbering[BLOCKROW(block)]]%P_dimi;
@@ -540,9 +493,9 @@ struct LocalCopies *lc;
 }
 
 
-CheckRemaining()
+void CheckRemaining()
 {
-  int i, j, bogus=0;
+  long i, j, bogus=0;
   
   for (j=0; j<LB.n; j+=LB.partition_size[j])
     if (!LB.domain[j]) {
@@ -558,9 +511,9 @@ CheckRemaining()
 }
 
 
-CheckReceived()
+void CheckReceived()
 {
-  int p, i, bogus=0;
+  long p, i, bogus=0;
 
   for (p=0; p<P; p++)
     for (i=0; i<LB.n_partitions; i++) {
@@ -577,10 +530,10 @@ CheckReceived()
 
 /* determine number of updates that must be performed on each block */
 
-ComputeRemainingFO()
+void ComputeRemainingFO()
 {
-  int i, j, k;
-  int desti, destj, dest_block;
+  long i, j, k;
+  long desti, destj, dest_block;
 
   for (j=0; j<LB.n; j++)
     if (!LB.domain[j]) {
@@ -621,11 +574,9 @@ ComputeRemainingFO()
 }
 
 
-InitRemainingFO(MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void InitRemainingFO(long MyNum)
 {
-  int i, k;
+  long i, k;
 
   /* block updates */
   for (k=0; k<LB.n; k++)
@@ -636,11 +587,10 @@ struct LocalCopies *lc;
 }
 
 
-ComputeReceivedFO()
+void ComputeReceivedFO()
 {
-  int p, i, j, k, block;
-  int P_row, P_col, destp;
-  extern int scatter_decomposition, P_dimi, P_dimj;
+  long p, i, k, block;
+  long P_row, P_col, destp;
 
   for (p=0; p<P; p++)
     for (i=0; i<LB.n_partitions; i++)
@@ -678,11 +628,9 @@ ComputeReceivedFO()
 }
 
 
-InitReceivedFO(MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void InitReceivedFO(long MyNum)
 {
-  int i, p;
+  long i;
 
   for (i=0; i<LB.n_partitions; i++)
     NReceived[MyNum][i] = ToReceive[MyNum][i];
@@ -690,11 +638,9 @@ struct LocalCopies *lc;
 
 
 
-ScatterUpdateFO(dimi, structi, dimj, structj, destdim, oldupdate, newupdate)
-int dimi, *structi, dimj, *structj;
-double *oldupdate, *newupdate;
+void ScatterUpdateFO(long dimi, long *structi, long dimj, long *structj, long destdim, double *oldupdate, double *newupdate)
 {
-  int i, j, top_of_destcol;
+  long i, j;
   double *srccol, *destcol;
 
   for (j=0; j<dimj; j++) {
@@ -718,12 +664,9 @@ double *oldupdate, *newupdate;
 
 
 
-ScatterUpdateFO2(dimi, structi, dimj, structj, stride, destdim,
-		 oldupdate, newupdate)
-int dimi, *structi, dimj, *structj, stride;
-double *oldupdate, *newupdate;
+void ScatterUpdateFO2(long dimi, long *structi, long dimj, long *structj, long stride, long destdim, double *oldupdate, double *newupdate)
 {
-  int i, j, top_of_srccol, top_of_destcol;
+  long i, j, top_of_srccol, top_of_destcol;
 
   top_of_srccol = 0;
   for (j=0; j<dimj; j++) {

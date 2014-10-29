@@ -17,60 +17,45 @@
 EXTERN_ENV
 #define global extern
 
-#include "code.h"
-#include "defs.h"
-
-bool intcoord();
-cellptr makecell(unsigned int ProcessId);
-leafptr makeleaf(unsigned int ProcessId);
-cellptr SubdivideLeaf(leafptr le, cellptr parent, unsigned int l,
-		      unsigned int ProcessId);
-
-cellptr InitCell(cellptr parent, unsigned int ProcessId);
-leafptr InitLeaf(cellptr parent, unsigned int ProcessId);
-nodeptr loadtree(bodyptr p, cellptr root, unsigned int ProcessId);
+#include "stdinc.h"
 
 /*
  * MAKETREE: initialize tree structure for hack force calculation.
  */
 
-maketree(ProcessId)
-   unsigned ProcessId;
+void maketree(long ProcessId)
 {
    bodyptr p, *pp;
 
    Local[ProcessId].myncell = 0;
    Local[ProcessId].mynleaf = 0;
    if (ProcessId == 0) {
-      Local[ProcessId].mycelltab[Local[ProcessId].myncell++] = Global->G_root; 
+      Local[ProcessId].mycelltab[Local[ProcessId].myncell++] = Global->G_root;
    }
    Local[ProcessId].Current_Root = (nodeptr) Global->G_root;
-   for (pp = Local[ProcessId].mybodytab; 
+   for (pp = Local[ProcessId].mybodytab;
 	pp < Local[ProcessId].mybodytab+Local[ProcessId].mynbody; pp++) {
       p = *pp;
       if (Mass(p) != 0.0) {
-	 Local[ProcessId].Current_Root 
-	    = (nodeptr) loadtree(p, (cellptr) Local[ProcessId].Current_Root, 
+	 Local[ProcessId].Current_Root
+	    = (nodeptr) loadtree(p, (cellptr) Local[ProcessId].Current_Root,
 				 ProcessId);
       }
       else {
 	 LOCK(Global->io_lock);
-	 fprintf(stderr, "Process %d found body %d to have zero mass\n",
-		 ProcessId, (int) p);	
+	 fprintf(stderr, "Process %ld found body %ld to have zero mass\n",
+		 ProcessId, (long) p);
 	 UNLOCK(Global->io_lock);
       }
    }
-   BARRIER(Global->Bartree,NPROC);
-   hackcofm( 0, ProcessId );
-   BARRIER(Global->Barcom,NPROC);
+   BARRIER(Global->Barrier,NPROC);
+   hackcofm(ProcessId );
+   BARRIER(Global->Barrier,NPROC);
 }
 
-cellptr InitCell(parent, ProcessId)
-   cellptr parent;
-   unsigned ProcessId;
+cellptr InitCell(cellptr parent, long ProcessId)
 {
    cellptr c;
-   int i, Mycell;
 
    c = makecell(ProcessId);
    c->processor = ProcessId;
@@ -85,12 +70,9 @@ cellptr InitCell(parent, ProcessId)
    return (c);
 }
 
-leafptr InitLeaf(parent, ProcessId)
-   cellptr parent;
-   unsigned ProcessId;
+leafptr InitLeaf(cellptr parent, long ProcessId)
 {
    leafptr l;
-   int i, Mycell;
 
    l = makeleaf(ProcessId);
    l->processor = ProcessId;
@@ -105,59 +87,57 @@ leafptr InitLeaf(parent, ProcessId)
    return (l);
 }
 
-printtree (n)
-   nodeptr n;
+void printtree(nodeptr n)
 {
-   int k;
+   long k;
    cellptr c;
    leafptr l;
    bodyptr p;
    nodeptr tmp;
-   unsigned long nseq;
-   int xp[NDIM];
+   long nseq;
 
    switch (Type(n)) {
     case CELL:
       c = (cellptr) n;
       nseq = c->seqnum;
-      printf("Cell : Cost = %d, ", Cost(c));
+      printf("Cell : Cost = %ld, ", Cost(c));
       PRTV("Pos", Pos(n));
       printf("\n");
       for (k = 0; k < NSUB; k++) {
-	 printf("Child #%d: ", k);
+	 printf("Child #%ld: ", k);
 	 if (Subp(c)[k] == NULL) {
 	    printf("NONE");
 	 }
 	 else {
 	    if (Type(Subp(c)[k]) == CELL) {
 	       nseq = ((cellptr) Subp(c)[k])->seqnum;
-	       printf("C: Cost = %d, ", Cost(Subp(c)[k]));
+	       printf("C: Cost = %ld, ", Cost(Subp(c)[k]));
 	    }
 	    else {
 	       nseq = ((leafptr) Subp(c)[k])->seqnum;
-	       printf("L: # Bodies = %2d, Cost = %d, ", 
+	       printf("L: # Bodies = %2ld, Cost = %ld, ",
 		      ((leafptr) Subp(c)[k])->num_bodies, Cost(Subp(c)[k]));
-	    }	
+	    }
 	    tmp = Subp(c)[k];
 	    PRTV("Pos", Pos(tmp));
 	 }
 	 printf("\n");
       }
       for (k=0;k<NSUB;k++) {
-	 if (Subp(c)[k] != NULL) {	    
+	 if (Subp(c)[k] != NULL) {
 	    printtree(Subp(c)[k]);
 	 }
-      }      
+      }
       break;
     case LEAF:
       l = (leafptr) n;
       nseq = l->seqnum;
-      printf("Leaf : # Bodies = %2d, Cost = %d, ", l->num_bodies, Cost(l));
+      printf("Leaf : # Bodies = %2ld, Cost = %ld, ", l->num_bodies, Cost(l));
       PRTV("Pos", Pos(n));
       printf("\n");
       for (k = 0; k < l->num_bodies; k++) {
 	 p = Bodyp(l)[k];
-	 printf("Body #%2d: Num = %2d, Level = %o, ",
+	 printf("Body #%2ld: Num = %2ld, Level = %ld, ",
 		p - bodytab, k, Level(p));
 	 PRTV("Pos",Pos(p));
 	 printf("\n");
@@ -175,18 +155,13 @@ printtree (n)
  * LOADTREE: descend tree and insert particle.
  */
 
-nodeptr
-loadtree(p, root, ProcessId)
-   bodyptr p;                        /* body to load into tree */
-   cellptr root;
-   unsigned ProcessId;
+nodeptr loadtree(bodyptr p, cellptr root, long ProcessId)
 {
-   int l, xq[NDIM], xp[NDIM], xor[NDIM], subindex(), flag;
-   int i, j, root_level;
+   long l, xp[NDIM], xor[NDIM], flag;
+   long i, j, root_level;
    bool valid_root;
-   int kidIndex;
+   long kidIndex;
    volatile nodeptr *volatile qptr, mynode;
-   cellptr c;
    leafptr le;
 
    intcoord(xp, Pos(p));
@@ -220,7 +195,7 @@ loadtree(p, root, ProcessId)
 	       }
 	    }
 	    if (!valid_root) {
-	       printf("P%d body %d\n", ProcessId, p - bodytab);
+	       printf("P%ld body %ld\n", ProcessId, p - bodytab);
 	       root = Global->G_root;
 	    }
 	 }
@@ -232,13 +207,12 @@ loadtree(p, root, ProcessId)
    qptr = &Subp(mynode)[kidIndex];
 
    l = Level(mynode) >> 1;
-
    flag = TRUE;
    while (flag) {                           /* loop descending tree     */
       if (l == 0) {
 	 error("not enough levels in tree\n");
       }
-      if (*qptr == NULL) { 
+      if (*qptr == NULL) {
 	 /* lock the parent cell */
 	 ALOCK(CellLock->CL, ((cellptr) mynode)->seqnum % MAXLOCK);
 	 if (*qptr == NULL) {
@@ -285,22 +259,22 @@ loadtree(p, root, ProcessId)
    SETV(Local[ProcessId].Root_Coords, xp);
    return Parent((leafptr) *qptr);
 }
-
+
 
 /* * INTCOORD: compute integerized coordinates.  * Returns: TRUE
 unless rp was out of bounds.  */
 
-bool intcoord(xp, rp)
-  int xp[NDIM];                  /* integerized coordinate vector [0,IMAX) */
-  vector rp;                     /* real coordinate vector (system coords) */
+/* integerized coordinate vector [0,IMAX) */
+/* real coordinate vector (system coords) */
+bool intcoord(long xp[NDIM], vector rp)
 {
-   int k;
+   long k;
    bool inb;
-   double xsc, floor();
-    
+   double xsc;
+
    inb = TRUE;
    for (k = 0; k < NDIM; k++) {
-      xsc = (rp[k] - Global->rmin[k]) / Global->rsize; 
+      xsc = (rp[k] - Global->rmin[k]) / Global->rsize;
       if (0.0 <= xsc && xsc < 1.0) {
 	 xp[k] = floor(IMAX * xsc);
       }
@@ -315,13 +289,13 @@ bool intcoord(xp, rp)
  * SUBINDEX: determine which subcell to select.
  */
 
-int subindex(x, l)
-  int x[NDIM];                       /* integerized coordinates of particle */
-  int l;                             /* current level of tree */
+/* integerized coordinates of particle */
+/* current level of tree */
+long subindex(long x[NDIM], long l)
 {
-   int i, k;
-   int yes;
-    
+   long i, k;
+   long yes;
+
    i = 0;
    yes = FALSE;
    if (x[0] & l) {
@@ -329,7 +303,7 @@ int subindex(x, l)
       yes = TRUE;
    }
    for (k = 1; k < NDIM; k++) {
-      if (((x[k] & l) && !yes) || (!(x[k] & l) && yes)) { 
+      if (((x[k] & l) && !yes) || (!(x[k] & l) && yes)) {
 	 i += NSUB >> (k + 1);
 	 yes = TRUE;
       }
@@ -339,32 +313,28 @@ int subindex(x, l)
    return (i);
 }
 
-
+
 
 /*
  * HACKCOFM: descend tree finding center-of-mass coordinates.
  */
 
-hackcofm(nc, ProcessId)
-  int nc;
-  unsigned ProcessId;
+void hackcofm(long ProcessId)
 {
-   int i,Myindex;
+   long i;
    nodeptr r;
    leafptr l;
    leafptr* ll;
    bodyptr p;
    cellptr q;
    cellptr *cc;
-   vector tmpv, dr;
-   real drsq;
-   matrix drdr, Idrsq, tmpm;
+   vector tmpv;
 
    /* get a cell using get*sub.  Cells are got in reverse of the order in */
    /* the cell array; i.e. reverse of the order in which they were created */
    /* this way, we look at child cells before parents			 */
-    
-   for (ll = Local[ProcessId].myleaftab + Local[ProcessId].mynleaf - 1; 
+
+   for (ll = Local[ProcessId].myleaftab + Local[ProcessId].mynleaf - 1;
 	ll >= Local[ProcessId].myleaftab; ll--) {
       l = *ll;
       Mass(l) = 0.0;
@@ -395,7 +365,7 @@ hackcofm(nc, ProcessId)
 #endif
       Done(l)=TRUE;
    }
-   for (cc = Local[ProcessId].mycelltab+Local[ProcessId].myncell-1; 
+   for (cc = Local[ProcessId].mycelltab+Local[ProcessId].myncell-1;
 	cc >= Local[ProcessId].mycelltab; cc--) {
       q = *cc;
       Mass(q) = 0.0;
@@ -436,19 +406,14 @@ hackcofm(nc, ProcessId)
       Done(q)=TRUE;
    }
 }
-
-cellptr
-SubdivideLeaf (le, parent, l, ProcessId)
-   leafptr le;
-   cellptr parent;
-   unsigned int l;
-   unsigned int ProcessId;
+
+cellptr SubdivideLeaf(leafptr le, cellptr parent, long l, long ProcessId)
 {
    cellptr c;
-   int i, index;
-   int xp[NDIM];
+   long i, index;
+   long xp[NDIM];
    bodyptr bodies[MAX_BODIES_PER_LEAF];
-   int num_bodies;
+   long num_bodies;
    bodyptr p;
 
    /* first copy leaf's bodies to temp array, so we can reuse the leaf */
@@ -500,14 +465,13 @@ SubdivideLeaf (le, parent, l, ProcessId)
  * MAKECELL: allocation routine for cells.
  */
 
-cellptr makecell(ProcessId)
-   unsigned ProcessId;
+cellptr makecell(long ProcessId)
 {
    cellptr c;
-   int i, Mycell;
-    
+   long i, Mycell;
+
    if (Local[ProcessId].mynumcell == maxmycell) {
-      error("makecell: Proc %d needs more than %d cells; increase fcells\n", 
+      error("makecell: Proc %ld needs more than %ld cells; increase fcells\n",
 	    ProcessId,maxmycell);
    }
    Mycell = Local[ProcessId].mynumcell++;
@@ -527,14 +491,13 @@ cellptr makecell(ProcessId)
  * MAKELEAF: allocation routine for leaves.
  */
 
-leafptr makeleaf(ProcessId)
-   unsigned ProcessId;
+leafptr makeleaf(long ProcessId)
 {
    leafptr le;
-   int i, Myleaf;
-    
+   long i, Myleaf;
+
    if (Local[ProcessId].mynumleaf == maxmyleaf) {
-      error("makeleaf: Proc %d needs more than %d leaves; increase fleaves\n",
+      error("makeleaf: Proc %ld needs more than %ld leaves; increase fleaves\n",
 	    ProcessId,maxmyleaf);
    }
    Myleaf = Local[ProcessId].mynumleaf++;

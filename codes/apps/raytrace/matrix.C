@@ -47,8 +47,7 @@ typedef REAL	GJMATRIX[4][8]; 	/* Matrix for Gauss-Jordan inversion.*/
  *	Nothing.
  */
 
-VOID	VecNorm(V)
-POINT	V;
+VOID	VecNorm(POINT V)
 	{
 	REAL	l;
 
@@ -77,10 +76,7 @@ POINT	V;
  *	Nothing.
  */
 
-VOID	VecMatMult(Vt, M, V)
-POINT	Vt;
-MATRIX	M;
-POINT	V;
+VOID	VecMatMult(POINT Vt, MATRIX M, POINT V)
 	{
 	INT	i, j;
 	POINT	tvec;
@@ -115,9 +111,7 @@ POINT	V;
  *	Nothing.
  */
 
-VOID	PrintMatrix(M, s)
-MATRIX	M;
-CHAR	*s;
+VOID	PrintMatrix(MATRIX M, CHAR *s)
 	{
 	INT	i, j;
 
@@ -148,8 +142,7 @@ CHAR	*s;
  *	Nothing.
  */
 
-VOID	MatrixIdentity(M)
-MATRIX	M;
+VOID	MatrixIdentity(MATRIX M)
 	{
 	INT	i, j;
 
@@ -178,8 +171,7 @@ MATRIX	M;
  *	Nothing.
  */
 
-VOID	MatrixCopy(A, B)
-MATRIX	A, B;
+VOID	MatrixCopy(MATRIX A, MATRIX B)
 	{
 	INT	i, j;
 
@@ -203,9 +195,7 @@ MATRIX	A, B;
  *	Nothing.
  */
 
-VOID	MatrixTranspose(MT, M)
-MATRIX	MT;
-MATRIX	M;
+VOID	MatrixTranspose(MATRIX MT, MATRIX M)
 	{
 	INT	i, j;
 	MATRIX	tmp;
@@ -231,8 +221,7 @@ MATRIX	M;
  *	Nothing.
  */
 
-VOID	MatrixMult(C, A, B)
-MATRIX	C, A, B;
+VOID	MatrixMult(MATRIX C, MATRIX A, MATRIX B)
 	{
 	INT	i, j, k;
 	MATRIX	T;			/* Temporary matrix.		     */
@@ -269,9 +258,7 @@ MATRIX	C, A, B;
  *	Nothing.
  */
 
-VOID	MatrixInverse(Minv, Mat)
-MATRIX	Minv;
-MATRIX	Mat;
+VOID	MatrixInverse(MATRIX Minv, MATRIX Mat)
 	{
 	INT		i, j, k;	/* Indices.			     */
 	GJMATRIX	gjmat;		/* Inverse calculator.		     */
@@ -380,9 +367,7 @@ MATRIX	Mat;
  *	Nothing.
  */
 
-VOID	Translate(M, dx, dy, dz)
-MATRIX	M;
-REAL	dx, dy, dz;
+VOID	Translate(MATRIX M, REAL dx, REAL dy, REAL dz)
 	{
 	MatrixIdentity(M);
 
@@ -406,9 +391,7 @@ REAL	dx, dy, dz;
  *	Nothing.
  */
 
-VOID	Scale(M, sx, sy, sz)
-MATRIX	M;
-REAL	sx, sy, sz;
+VOID	Scale(MATRIX M, REAL sx, REAL sy, REAL sz)
 	{
 	MatrixIdentity(M);
 
@@ -433,10 +416,7 @@ REAL	sx, sy, sz;
  *	Nothing.
  */
 
-VOID	Rotate(axis, M, angle)
-INT	axis;
-MATRIX	M;
-REAL	angle;
+VOID	Rotate(INT axis, MATRIX M, REAL angle)
 	{
 	REAL	cosangle;
 	REAL	sinangle;

@@ -48,10 +48,7 @@
  *	Nothing.
  */
 
-VOID	SpecularDirection(R, N, I)
-POINT	R;
-POINT	N;
-POINT	I;
+VOID	SpecularDirection(POINT R, POINT N, POINT I)
 	{
 	REAL	I_dot_N;		/* I*N				     */
 	POINT	N2;			/* 2N				     */
@@ -87,11 +84,7 @@ POINT	I;
  *	TRUE if the ray was transmitted, FALSE if the ray was blocked.
  */
 
-BOOL	TransmissionDirection(T, N, I, kn)
-POINT	T;
-POINT	N;
-POINT	I;
-REAL	kn;
+BOOL	TransmissionDirection(POINT T, POINT N, POINT I, REAL kn)
 	{
 	POINT	vprime; 		/* Parameters in calculation.	     */
 	POINT	vplusn;
@@ -146,12 +139,7 @@ REAL	kn;
  *	Nothing.
  */
 
-VOID	Shade(iP, N, ray, hit, pid)
-VEC3	iP;
-VEC3	N;
-RAY	*ray;
-IRECORD *hit;
-INT	pid;
+VOID	Shade(VEC3 iP, VEC3 N, RAY *ray, IRECORD *hit, INT pid)
 	{
 	VEC3	Lvec;			/* Light vector.		     */
 	VEC3	Hvec;			/* Highlight vector.		     */
@@ -166,7 +154,7 @@ INT	pid;
 	REAL	spec;			/* Highlight variable.		     */
 	OBJECT	*po;			/* Ptr to object.		     */
 	SURF	*s;			/* Surface pointer.		     */
-	INT	i, j;			/* Index variables.		     */
+	INT	i;			/* Index variables.		     */
 	REAL	lightlen;		/* Length of light vector.	     */
 	REAL	shadtrans;		/* Shadow transmission. 	     */
 	LIGHT	*lptr;			/* Light pointer.		     */

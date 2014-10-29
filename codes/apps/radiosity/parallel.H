@@ -32,7 +32,7 @@
 *    Some machines provide only a limited number of lock variables. This
 *    data structure allows sharing of these lock variables.
 *    The shared locks are divided into 2 segments so that different types of
-*    objects are given different locks. 
+*    objects are given different locks.
 *
 ****************************************************************************/
 
@@ -46,9 +46,6 @@ typedef struct
 #define SHARED_LOCK_SEG0 (0)
 #define SHARED_LOCK_SEG1 (1)
 #define SHARED_LOCK_SEGANY (2)
-
-extern void init_sharedlock() ;
-extern Shared_Lock *get_sharedlock() ;
 
 /****************************************************************************
 *

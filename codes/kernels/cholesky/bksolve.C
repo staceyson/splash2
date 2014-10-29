@@ -19,12 +19,9 @@ EXTERN_ENV
 #include "matrix.h"
 #include <math.h>
 
-double *TriBSolve(LB, b, PERM, INVP)
-BMatrix LB;
-double *b;
-int *PERM, *INVP;
+double *TriBSolve(BMatrix LB, double *b, long *PERM)
 {
-  int i, j, i1, j1, bl, row;
+  long i, j, i1, j1, bl, row;
   double *y, *xp, *x, *bt;
 
   x = (double *) malloc(LB.n*sizeof(double));
@@ -128,11 +125,10 @@ int *PERM, *INVP;
   return(x);
 }
 
-double ComputeNorm(x, n)
-double *x;
+double ComputeNorm(double *x, long n)
 {
   double tmp = 0.0;
-  int i;
+  long i;
 
   for (i=0; i<n; i++)
     if (fabs(x[i]-1.0) > tmp)
@@ -141,11 +137,10 @@ double *x;
   return(tmp);
 }
 
-double *CreateVector(M)
-SMatrix M;
+double *CreateVector(SMatrix M)
 {
-  int i, j;
-  double *b, Value();
+  long i, j;
+  double *b;
 
   b = NewVector(M.n);
 
@@ -161,9 +156,10 @@ SMatrix M;
   else {
     for (j=0; j<M.n; j++)
       for (i=M.col[j]; i<M.col[j+1]; i++) {
-	b[M.row[i]] += Value(M.row[i], j, M.n);
+	b[M.row[i]] += Value(M.row[i], j);
       }
   }
 
   return(b);
 }
+

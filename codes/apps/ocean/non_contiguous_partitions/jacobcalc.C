@@ -14,7 +14,7 @@
 /*                                                                       */
 /*************************************************************************/
 
-/* does the arakawa jacobian calculation (of the x and y matrices, 
+/* does the arakawa jacobian calculation (of the x and y matrices,
    putting the results in the z matrix) for a subblock. */
 
 #include <stdio.h>
@@ -22,14 +22,7 @@
 #include <time.h>
 #include "decs.h"
 
-void jacobcalc(x,y,z,pid,firstrow,lastrow,firstcol,lastcol,numrows,numcols) 
-
-double x[IMAX][JMAX];
-double y[IMAX][JMAX];
-double z[IMAX][JMAX];
-int pid;
-int firstrow,lastrow,firstcol,lastcol,numrows,numcols;
-
+void jacobcalc(double x[IMAX][JMAX], double y[IMAX][JMAX], double z[IMAX][JMAX], long pid, long firstrow, long lastrow, long firstcol, long lastcol, long numrows, long numcols)
 {
    double f1;
    double f2;
@@ -39,13 +32,13 @@ int firstrow,lastrow,firstcol,lastcol,numrows,numcols;
    double f6;
    double f7;
    double f8;
-   int iindex;
-   int indexp1;
-   int indexm1;
-   int im1;
-   int ip1;
-   int i;
-   int j;
+   long iindex;
+   long indexp1;
+   long indexm1;
+   long im1;
+   long ip1;
+   long i;
+   long j;
 
    if (pid == MASTER) {
      z[0][0]=0.0;
@@ -77,7 +70,7 @@ int firstrow,lastrow,firstcol,lastcol,numrows,numcols;
        f6 = (y[i][indexm1]-y[im1][iindex])*(x[i][iindex]-x[im1][indexm1]);
        f7 = (y[i][indexp1]-y[im1][iindex])*(x[im1][indexp1]-x[i][iindex]);
        f8 = (y[ip1][iindex]-y[i][indexm1])*(x[i][iindex]-x[ip1][indexm1]);
- 
+
        z[i][iindex] = factjacob*(f1+f2+f3+f4+f5+f6+f7+f8);
      }
    }

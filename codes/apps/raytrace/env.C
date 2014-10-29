@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include "rt.h"
 
 
@@ -420,8 +421,7 @@ VOID	InitDisplay()
  *	TRUE if color is within range, FALSE otherwise.
  */
 
-BOOL	VerifyColorRange(c)
-COLOR	c;
+BOOL	VerifyColorRange(COLOR c)
 	{
 	if (c[0] < 0.0 || c[0] > 1.0  ||
 	    c[1] < 0.0 || c[1] > 1.0  ||
@@ -448,8 +448,7 @@ COLOR	c;
  *	Nothing.
  */
 
-VOID	TransformLights(m)
-MATRIX	m;
+VOID	TransformLights(MATRIX m)
 	{
 	INT	i;
 	LIGHT	*lp;
@@ -477,9 +476,7 @@ MATRIX	m;
  *	Nothing.
  */
 
-VOID	ViewRotate(M, x, y, z)
-MATRIX	M;
-REAL	x, y, z;
+VOID	ViewRotate(MATRIX M, REAL x, REAL y, REAL z)
 	{
 	REAL	r, rx;
 
@@ -560,8 +557,7 @@ VOID	CreateViewMatrix()
  *	Nothing.
  */
 
-VOID	TransformViewRay(tray)
-POINT	tray;
+VOID	TransformViewRay(POINT tray)
 	{
 	VecMatMult(tray, View.vtransInv, tray);
 	}
@@ -580,11 +576,8 @@ POINT	tray;
  *	Nothing.
  */
 
-VOID	NormalizeEnv(normMat)
-MATRIX	normMat;
+VOID	NormalizeEnv(MATRIX normMat)
 	{
-	POINT	tmp;
-
 	View.eye[3] = 1.0;
 	VecMatMult(View.eye, normMat, View.eye);
 
@@ -608,8 +601,7 @@ MATRIX	normMat;
  *	The corresponding opcode.
  */
 
-CHAR	LookupCommand(s)
-CHAR	*s;
+CHAR	LookupCommand(CHAR *s)
 	{
 	INT	i;
 
@@ -635,8 +627,7 @@ CHAR	*s;
  *	Nothing.
  */
 
-VOID	ReadEnvFile(EnvFileName)
-CHAR	*EnvFileName;
+VOID	ReadEnvFile(CHAR *EnvFileName)
 	{
 	INT	i, j;				/* Indices.		     */
 	INT	stat;				/* Input var status counter. */
@@ -755,7 +746,7 @@ CHAR	*EnvFileName;
 			/* Recursion level. */
 			case OP_MAXLEVEL:
 				stat = fscanf(pf, "%ld", &(Display.maxlevel));
-				printf("maxlevel of ray recursion = %d\n",Display.maxlevel);	
+				printf("maxlevel of ray recursion = %ld\n",Display.maxlevel);
 				fflush(stdout);
 				if (stat != 1)
 					{

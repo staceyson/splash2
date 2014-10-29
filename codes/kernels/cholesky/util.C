@@ -21,36 +21,34 @@ EXTERN_ENV
 #include "matrix.h"
 
 #define Error(m) { printf(m); exit(0); }
-#define Outside(M, i) (i >= M.n || i < 0)
-#define AddMember(set, new) { int s, n; s = set; n = new; \
-			       link[n] = link[s]; link[s] = n; }
+#define AddMember(set, new) { long s, n; s = set; n = new; link[n] = link[s]; link[s] = n; }
 
+long maxm;
 
-int maxm;
-
-SMatrix NewMatrix(n, m, nz)
+SMatrix NewMatrix(long n, long m, long nz)
 {
   SMatrix M;
 
   M.n = n; M.m = m;
-  M.col = (int *) MyMalloc((n+1)*sizeof(int), DISTRIBUTED);
-  M.startrow = (int *) MyMalloc((n+1)*sizeof(int), DISTRIBUTED);
-  M.row = (int *) MyMalloc((m+n)*sizeof(int), DISTRIBUTED);
+  M.col = (long *) MyMalloc((n+1)*sizeof(long), DISTRIBUTED);
+  M.startrow = (long *) MyMalloc((n+1)*sizeof(long), DISTRIBUTED);
+  M.row = (long *) MyMalloc((m+n)*sizeof(long), DISTRIBUTED);
   if (nz) {
-    M.nz = (double *) MyMalloc((m+n)*sizeof(double), DISTRIBUTED);
+	M.nz = (double *) MyMalloc((m+n)*sizeof(double), DISTRIBUTED);
+  } else {
+	M.nz = NULL;
   }
-  else M.nz = NULL;
 
   if (!M.col || !M.row || (nz && !M.nz)) {
-    printf("NewMatrix %d %d: Out of memory\n", n, m);
+    printf("NewMatrix %ld %ld: Out of memory\n", n, m);
     exit(0);
   }
 
   return(M);
 }
 
-FreeMatrix(M)
-SMatrix M;
+
+void FreeMatrix(SMatrix M)
 {
   MyFree(M.col);
   MyFree(M.startrow);
@@ -60,14 +58,14 @@ SMatrix M;
 }
 
 
-double *NewVector(n)
+double *NewVector(long n)
 {
   double *v;
 
   v = (double *) MyMalloc(n*sizeof(double), DISTRIBUTED);
 
   if (!v && n) {
-    printf("Out of memory: NewVector(%d)\n", n);
+    printf("Out of memory: NewVector(%ld)\n", n);
     exit(0);
   }
 
@@ -75,35 +73,35 @@ double *NewVector(n)
 }
 
 
-double Value(i, j, n)
-int i, j, n;
+double Value(long i, long j)
 {
-  if (i == j)
-    return((double) maxm+0.1);
-  else if (0)
-    return(-1.0+(i+j)/(double) n);
-  else
-    return(-1.0);
+  if (i == j) {
+	return((double) maxm+0.1);
+  } else {
+	return(-1.0);
+  }
 }
 
 
-SMatrix ReadSparse(name, probName)
-char *name, *probName;
+SMatrix ReadSparse(char *name, char *probName)
 {
 	FILE *fp;
-	int n, m, i, j;
-	int n_rows, tmp;
-	int numer_lines;
-	int colnum, colsize, rownum, rowsize;
+	long n, m, i, j;
+	long n_rows, tmp;
+	long numer_lines;
+	long colnum, colsize, rownum, rowsize;
 	char buf[100], type[4];
-	SMatrix M, F, LowerToFull();
+	SMatrix M, F;
 
-	if (!name || name[0] == 0)
+	if (!name || name[0] == 0) {
 		fp = stdin;
-	else fp = fopen(name, "r");
+	} else {
+		fp = fopen(name, "r");
+	}
 
-	if (!fp) 
+	if (!fp) {
 		Error("Error opening file\n");
+	}
 
 	fscanf(fp, "%72c", buf);
 
@@ -113,7 +111,7 @@ char *name, *probName;
 
 	for (i=0; i<5; i++) {
 	  fscanf(fp, "%14c", buf);
-	  sscanf(buf, "%d", &tmp);
+	  sscanf(buf, "%ld", &tmp);
 	  if (i == 3)
 	    numer_lines = tmp;
 	}
@@ -128,13 +126,13 @@ char *name, *probName;
 
 	fscanf(fp, "%11c", buf); /* pad */
 
-	fscanf(fp, "%14c", buf); sscanf(buf, "%d", &n_rows);
+	fscanf(fp, "%14c", buf); sscanf(buf, "%ld", &n_rows);
 
-	fscanf(fp, "%14c", buf); sscanf(buf, "%d", &n);
+	fscanf(fp, "%14c", buf); sscanf(buf, "%ld", &n);
 
-	fscanf(fp, "%14c", buf); sscanf(buf, "%d", &m);
+	fscanf(fp, "%14c", buf); sscanf(buf, "%ld", &m);
 
-	fscanf(fp, "%14c", buf); sscanf(buf, "%d", &tmp);
+	fscanf(fp, "%14c", buf); sscanf(buf, "%ld", &tmp);
 	if (tmp != 0)
 	  printf("This is not an assembled matrix!\n");
 	if (n_rows != n)
@@ -177,7 +175,7 @@ char *name, *probName;
 	if (F.nz) {
 	  for (j=0; j<n; j++)
 	    for (i=F.col[j]; i<F.col[j+1]; i++)
-	      F.nz[i] = Value(F.row[i], j, F.n);
+	      F.nz[i] = Value(F.row[i], j);
 	}
 
 	FreeMatrix(M);
@@ -185,18 +183,15 @@ char *name, *probName;
 	return(F);
 }
 
-DumpLine(fp)
-FILE *fp;
+void DumpLine(FILE *fp)
 {
-	int c;
+	long c;
 
 	while ((c = fgetc(fp)) != '\n')
 		;
 }
 
-ParseIntFormat(buf, num, size)
-char *buf;
-int *num, *size;
+void ParseIntFormat(char *buf, long *num, long *size)
 {
   char *tmp;
 
@@ -204,19 +199,17 @@ int *num, *size;
 
   while (*tmp++ != '(')
     ;
-  sscanf(tmp, "%d", num);
+  sscanf(tmp, "%ld", num);
 
   while (*tmp++ != 'I')
     ;
-  sscanf(tmp, "%d", size);
+  sscanf(tmp, "%ld", size);
 }
 
 
-ReadVector(fp, n, where, perline, persize)
-FILE *fp;
-int *where;
+void ReadVector(FILE *fp, long n, long *where, long perline, long persize)
 {
-  int i, j, item;
+  long i, j, item;
   char tmp, buf[100];
 
   i = 0;
@@ -231,47 +224,49 @@ int *where;
   }
 }
 
-
-SMatrix LowerToFull(L)
-SMatrix L;
+SMatrix LowerToFull(SMatrix L)
 {
   SMatrix M;
-  int *link, *first;
-  int i, j, nextj, ind = 0;
+  long *link, *first;
+  long i, j, nextj, ind = 0;
 
-  link = (int *) malloc(L.n*sizeof(int));
-  first = (int *) malloc(L.n*sizeof(int));
+  link = (long *) malloc(L.n*sizeof(long));
+  first = (long *) malloc(L.n*sizeof(long));
 
-  for (i=0; i<L.n; i++)
+  for (i=0; i<L.n; i++) {
     link[i] = first[i] = -1;
-    
+  }
+
   M = NewMatrix(L.n, 2*(L.m-L.n)+L.n, 0);
 
   for (i=0; i<L.n; i++) {
     M.col[i] = ind;
 
-    for (j=L.col[i]; j<L.col[i+1]; j++)
+    for (j=L.col[i]; j<L.col[i+1]; j++) {
       if (L.row[j] >= i) {
 	M.row[ind++] = L.row[j];
       }
+    }
 
     j = link[i];
     while (j != -1) {
       nextj = link[j];
       M.row[ind++] = j;
       first[j]++;
-      if (first[j] < L.col[j+1])
+      if (first[j] < L.col[j+1]) {
 	AddMember(L.row[first[j]], j);
+      }
       j = nextj;
     }
 
     first[i] = L.col[i];
-    if (L.row[first[i]] == i)
+    if (L.row[first[i]] == i) {
       first[i]++;
-    else {
-      fprintf(stderr, "Missing diagonal: %d: ", i);
-      for (j=L.col[i]; j<L.col[i+1]; j++)
-	fprintf(stderr, "%d ", L.row[j]);
+    } else {
+      fprintf(stderr, "Missing diagonal: %ld: ", i);
+      for (j=L.col[i]; j<L.col[i+1]; j++) {
+	fprintf(stderr, "%ld ", L.row[j]);
+      }
       fprintf(stderr, "\n");
     }
 
@@ -282,23 +277,24 @@ SMatrix L;
 
   M.col[M.n] = ind;
 
-  for (i=0; i<=L.n; i++)
+  for (i=0; i<=L.n; i++) {
     M.startrow[i] = M.col[i];
+  }
 
-  if (ind != M.m)
+  if (ind != M.m) {
     printf("Lost some\n");
+  }
 
   free(link); free(first);
 
   return(M);
 }
 
-ISort(M, k)
-SMatrix M;
+
+void ISort(SMatrix M, long k)
 {
-	int hi, lo;
-	int i, j, tmp;
-	double tmp2;
+	long hi, lo;
+	long i, j, tmp;
 
 	hi = M.col[k+1];
 	lo = M.col[k];
@@ -314,3 +310,4 @@ SMatrix M;
 		}
 
 }
+

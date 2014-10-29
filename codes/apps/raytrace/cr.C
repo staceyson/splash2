@@ -34,9 +34,9 @@
 
 GRID	*gridlist = NULL;
 
-/* 
+/*
 	Note: gridlist doesn't need to be an array since it is only used when
-	building HUG, which is done before child process creation 
+	building HUG, which is done before child process creation
 */
 
 
@@ -151,13 +151,9 @@ VOID	init_masks()
  *
  */
 
-GRID	*init_world_grid(v, pepa, num_pe)
-VOXEL	*v;
-ELEMENT **pepa;
-INT	num_pe;
+GRID	*init_world_grid(VOXEL	*v, ELEMENT **pepa, INT	num_pe)
 	{
 	UINT	*ec;
-	UINT	*pc;
 	BBOX	wbox;
 	GRID	*g;
 	VOXEL	**ht;
@@ -220,9 +216,7 @@ INT	num_pe;
  *
  */
 
-VOXEL	*init_world_voxel(pepa, numelements)
-ELEMENT **pepa;
-INT	numelements;
+VOXEL	*init_world_voxel(ELEMENT **pepa, INT	numelements)
 	{
 	VOXEL	*v;
 
@@ -254,9 +248,7 @@ INT	numelements;
  *	Nothing.
  */
 
-VOID	mark_empty(index1D, g)
-INT	index1D;
-GRID	*g;
+VOID	mark_empty(INT	index1D, GRID	*g)
 	{
 	INT	i, r;
 	UINT	w;
@@ -284,9 +276,7 @@ GRID	*g;
  *	Nothing.
  */
 
-VOID	mark_nonempty(index1D, g)
-INT	index1D;
-GRID	*g;
+VOID	mark_nonempty(INT index1D, GRID *g)
 	{
 	INT	i, r;
 	UINT	w;
@@ -314,9 +304,7 @@ GRID	*g;
  *	Nothing.
  */
 
-VOID	insert_in_hashtable(v, g)
-VOXEL	*v;
-GRID	*g;
+VOID	insert_in_hashtable(VOXEL *v, GRID *g)
 	{
 	INT	i, r;
 	VOXEL	*vht;
@@ -346,11 +334,7 @@ GRID	*g;
  *	bounding box.
  */
 
-ELEMENT **prims_in_box2(pepa, n_in, b, n)
-ELEMENT **pepa;
-INT	n_in;
-BBOX	b;
-INT	*n;
+ELEMENT **prims_in_box2(ELEMENT **pepa, INT n_in, BBOX b, INT *n)
 	{
 	INT	ovlap, i, j, k;
 	ELEMENT *pe;
@@ -371,7 +355,7 @@ INT	*n;
 		npepa = ObjectMalloc(OT_PEPARRAY, n_in);
 	else
 		{
-		npepa == NULL;
+		npepa = NULL;
 		*n = 0;
 		return (npepa);
 		}
@@ -449,11 +433,9 @@ INT	*n;
  *
  */
 
-BTNODE	*init_bintree(ng)
-GRID	*ng;
+BTNODE	*init_bintree(GRID *ng)
 	{
 	BTNODE	*btn;
-	ELEMENT **pepa;
 
 	btn = ObjectMalloc(OT_BINTREE, 1);
 
@@ -503,9 +485,7 @@ GRID	*ng;
  *
  */
 
-VOID	subdiv_bintree(btn, g)
-BTNODE	*btn;
-GRID	*g;
+VOID	subdiv_bintree(BTNODE *btn, GRID *g)
 	{
 	BTNODE	*btn1, *btn2;
 	INT	 n1, n2, imax, dmax;
@@ -600,7 +580,7 @@ GRID	*g;
 
 		btn2->pe    = prims_in_box2(btn->pe, btn->nprims, b2, &(btn2->nprims));
 		btn2->totalPrimsAllocated = btn->nprims;
-		
+
 		}
 
 	if (btn1->n[0] == 1 && btn1->n[1] == 1 && btn1->n[2] == 1)
@@ -630,9 +610,7 @@ GRID	*g;
  *	Nothing.
  */
 
-VOID	create_bintree(root , g)
-BTNODE	*root;
-GRID	*g;
+VOID	create_bintree(BTNODE *root, GRID *g)
 	{
 	BTNODE	*btn;
 
@@ -675,13 +653,8 @@ GRID	*g;
  *
  */
 
-ELEMENT **bintree_lookup(root, i, j, k, g, n)
-BTNODE	*root;
-INT	i, j, k;
-GRID	*g;
-INT	*n;
+ELEMENT **bintree_lookup(BTNODE	*root, INT i, INT j, INT k, GRID *g, INT *n)
 	{
-	INT	l,x;
 	INT	ijk[3];
 	INT	child;
 	INT	idiv;
@@ -776,8 +749,7 @@ INT	*n;
  *	Nothing.
  */
 
-VOID	deleteBinTree(binTree)
-BTNODE	*binTree;
+VOID	deleteBinTree(BTNODE *binTree)
 	{
 	BTNODE *left, *right;
 
@@ -821,20 +793,15 @@ BTNODE	*binTree;
  *	A pointer to the grid.
  */
 
-GRID	*create_grid(v, g, num_prims)
-VOXEL	*v;
-GRID	*g;
-INT	num_prims;
+GRID	*create_grid(VOXEL *v, GRID *g, INT num_prims)
 	{
 	INT	n;
 	INT	i, j, k, r;
 	INT	nprims;
 	INT	index1D;
 	UINT	*ec;
-	UINT	*pc;
-	R64	nec, unsgn, ncells;
+	R64	ncells;
 	GRID	*ng, *nng;	/* New grid. */
-	BBOX	b;
 	VOXEL	*nv;
 	VOXEL	**ht;
 	BTNODE	*bintree;

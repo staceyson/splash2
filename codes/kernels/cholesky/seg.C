@@ -19,18 +19,15 @@ EXTERN_ENV
 #include "matrix.h"
 #include <math.h>
 
-#define SWAP(x, y) {int tmp; tmp=x; x=y; y=tmp;}
-
 double max_block_size;
-extern int *node;
-int *boundary, *next_in_segment, *next_segment, *sets_affected, n_affected;
-int *partition;
-int *segment_perm;
+extern long *node;
+long *boundary, *next_in_segment, *next_segment, *sets_affected, n_affected;
+long *partition;
+long *segment_perm;
 
-ComputeTargetBlockSize(M, P)
-SMatrix M;
+void ComputeTargetBlockSize(SMatrix M, long P)
 {
-  int max_ht;
+  long max_ht;
   double total_ops;
   extern double *work_tree;
 
@@ -41,17 +38,15 @@ SMatrix M;
 
   max_block_size = sqrt(total_ops/(3*max_ht)/P);
 
-  printf("%d max height, %.0f ops, %.2f conc, %.2f bl for %d P\n",
+  printf("%ld max height, %.0f ops, %.2f conc, %.2f bl for %ld P\n",
 	 max_ht, total_ops, total_ops/(3*max_ht), max_block_size, P);
 
 }
 
-FindMaxHeight(L, root, height, maxm)
-SMatrix L;
-int *maxm;
+void FindMaxHeight(SMatrix L, long root, long height, long *maxm)
 {
-  int i;
-  extern int *firstchild, *child;
+  long i;
+  extern long *firstchild, *child;
 
   if (height > *maxm)
     *maxm = height;
@@ -61,23 +56,19 @@ int *maxm;
 }
 
 
-NoSegments(M)
-SMatrix M;
+void NoSegments(SMatrix M)
 {
-  int i;
+  long i;
 
-  partition = (int *) MyMalloc(M.n*sizeof(int), DISTRIBUTED);
+  partition = (long *) MyMalloc(M.n*sizeof(long), DISTRIBUTED);
   for (i=0; i<M.n; i++)
     partition[i] = node[i];
 }
 
 
-CreatePermutation(n, node, PERM, permutation_method)
-int *node, *PERM;
+void CreatePermutation(long n, long *PERM, long permutation_method)
 {
-  int j, k;
-  int swap, tmp;
-  extern int *domain;
+  long j;
 
   PERM[n] = n;
   if (permutation_method == NO_PERM) {

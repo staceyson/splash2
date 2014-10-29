@@ -17,6 +17,6 @@
 #ifndef _Cost_Zones_H
 #define _Cost_Zones_H 1
 
-extern void CostZones(int my_id);
+extern void CostZones(long my_id);
 
 #endif /* _Cost_Zones_H */

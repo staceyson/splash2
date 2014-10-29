@@ -27,22 +27,22 @@ EXTERN_ENV
 
 #define SIZE(block) (block[-1]) /* in all blocks */
 #define HOME(block) (block[-2]) /* in all blocks */
-#define NEXTFREE(block) (*((unsigned **) block)) /* in free blocks */
+#define NEXTFREE(block) (*((long **) block)) /* in free blocks */
 
 struct MemPool {
 	LOCKDEC(memoryLock)
-	unsigned *volatile*freeBlock;
-	int tally, touched, maxm;
+	long *volatile*freeBlock;
+	long tally, touched, maxm;
 	} *mem_pool;
 
-int mallocP = 1, machineP = 1;
+long mallocP = 1, machineP = 1;
 
 extern struct GlobalMemory *Global;
 
 
-MallocInit(P)
+void MallocInit(long P)
 {
-  int p;
+  long p;
   
   mallocP = P;
 
@@ -56,20 +56,20 @@ MallocInit(P)
 }
 
 
-InitOneFreeList(p)
+void InitOneFreeList(long p)
 {
-  int j;
+  long j;
 
   LOCKINIT(mem_pool[p].memoryLock);
   if (p > 0) {
-    mem_pool[p].freeBlock = (unsigned **)
-      G_MALLOC((MAXFAST+1)*sizeof(unsigned *), p);
-    MigrateMem(mem_pool[p].freeBlock, (MAXFAST+1)*sizeof(unsigned *), p);
+    mem_pool[p].freeBlock = (long **)
+      G_MALLOC((MAXFAST+1)*sizeof(long *), p);
+    MigrateMem(mem_pool[p].freeBlock, (MAXFAST+1)*sizeof(long *), p);
   }
   else {
-    mem_pool[p].freeBlock = (unsigned **)
-      G_MALLOC((MAXFAST+1)*sizeof(unsigned *), 0);
-    MigrateMem(mem_pool[p].freeBlock, (MAXFAST+1)*sizeof(unsigned *),
+    mem_pool[p].freeBlock = (long **)
+      G_MALLOC((MAXFAST+1)*sizeof(long *), 0);
+    MigrateMem(mem_pool[p].freeBlock, (MAXFAST+1)*sizeof(long *),
 	       DISTRIBUTED);
   }
   for (j=0; j<=MAXFAST; j++)
@@ -78,16 +78,16 @@ InitOneFreeList(p)
 }
 
 
-MallocStats()
+void MallocStats()
 {
-  int i;
+  long i;
 
   printf("Malloc max: ");
   for (i=0; i<mallocP; i++)
     if (mem_pool[i].touched > 0)
-      printf("%d* ", mem_pool[i].maxm);
+      printf("%ld* ", mem_pool[i].maxm);
     else
-      printf("%d ", mem_pool[i].maxm);
+      printf("%ld ", mem_pool[i].maxm);
   printf("\n");
 
 }
@@ -95,9 +95,9 @@ MallocStats()
 
 /* returns first bucket where 2^bucket >= size */
 
-FindBucket(size)
+long FindBucket(long size)
 {
-  int bucket;
+  long bucket;
 
   if (size > MAXFASTBL)
     bucket = MAXFAST;
@@ -113,13 +113,10 @@ FindBucket(size)
 
 /* size is in bytes */
 
-char *MyMalloc(size, home)
-int size, home;
+char *MyMalloc(long size, long home)
 {
-  int i, bucket, leftover, alloc_size;
-  unsigned *d, *result, *prev, *freespace, *freelast;
-  unsigned int block_size;
-  extern int MyNum;
+  long i, bucket, leftover, alloc_size, block_size;
+  long *d, *result, *prev, *freespace;
 
   if (size < ALIGN)
     size = ALIGN;
@@ -156,8 +153,8 @@ int size, home;
 
       if (block_size >= alloc_size) {  /* Found one! */
 
-	leftover = block_size - alloc_size - 2*sizeof(unsigned);
-        result = d + (leftover/sizeof(unsigned)) + 2;
+	leftover = block_size - alloc_size - 2*sizeof(long);
+        result = d + (leftover/sizeof(long)) + 2;
 	SIZE(result) = alloc_size;
 	HOME(result) = home;
 
@@ -196,16 +193,15 @@ int size, home;
     /* grab a big block, free it, then retry request */
     block_size = max(alloc_size, 4*(1<<MAXFAST));
     LOCK(Global->memLock);
-    freespace = (unsigned *) G_MALLOC(block_size+2*sizeof(unsigned),
-					   home);
-    MigrateMem(freespace, block_size+2*sizeof(unsigned), home);
+    freespace = (long *) G_MALLOC(block_size+2*sizeof(long), home);
+    MigrateMem(freespace, block_size+2*sizeof(long), home);
 
     mem_pool[home].touched++;
     UNLOCK(Global->memLock);
     freespace+=2;
     SIZE(freespace) = block_size;
     HOME(freespace) = home;
-    for (i=0; i<block_size/sizeof(unsigned); i++)
+    for (i=0; i<block_size/sizeof(long); i++)
       freespace[i] = 0;
     if (block_size == alloc_size)
       result = freespace;
@@ -215,7 +211,7 @@ int size, home;
 	mem_pool[home].maxm = mem_pool[home].tally;
       }
       MyFree(freespace);
-      result = (unsigned *) MyMalloc(alloc_size, home);
+      result = (long *) MyMalloc(alloc_size, home);
     }
   }
 
@@ -225,31 +221,29 @@ int size, home;
   }
 
   if (SIZE(result) < size)
-    printf("*** Bad size from malloc %d, %d\n", size, SIZE(result));
+    printf("*** Bad size from malloc %ld, %ld\n", size, SIZE(result));
 
   return((char *) result);
 
 }
 
 
-MigrateMem(start, length, home)
-unsigned int *start;
-int length, home;
+void MigrateMem(long *start, long length, long home)
 {
-  unsigned int *finish;
-  unsigned int currpage, endpage;
-  int i;
-  int j;
+/*  unsigned long *finish;
+  unsigned long currpage, endpage;
+  long i;
+  long j;*/
 
 /* POSSIBLE ENHANCEMENT:  Here is where one might distribute the memory
    pages across physically distributed memories as desired.
 
    One way to do this is as follows:
 
-   finish = (unsigned int *) (((char *) start) + length);
+   finish = (unsigned long *) (((char *) start) + length);
 
-   currpage = (unsigned int) start;
-   endpage = (unsigned int) finish;
+   currpage = (unsigned long) start;
+   endpage = (unsigned long) finish;
    if ((home == DISTRIBUTED) || (home < 0) || (home >= mallocP)) {
      j = 0;
      while (currpage < endpage) {
@@ -268,10 +262,9 @@ int length, home;
 }
     
 
-MyFree(block)
-unsigned *block;
+void MyFree(long *block)
 {
-  int home;
+  long home;
 
   home = HOME(block);
   LOCK(mem_pool[home].memoryLock)
@@ -280,21 +273,19 @@ unsigned *block;
 }
 
 
-MyFreeNow(block)
-unsigned *block;
+void MyFreeNow(long *block)
 {
-  int bucket, size, home;
-  extern int MyNum;
+  long bucket, size, home;
 
   size = SIZE(block);
   home = HOME(block);
 
   if (size <= 0) {
-    printf("Bad size %d\n", size);
+    printf("Bad size %ld\n", size);
     exit(-1);
   }
   if (home < -1 || home >= mallocP) {
-    printf("Bad home %d\n", home);
+    printf("Bad home %ld\n", home);
     exit(-1);
   }
 
@@ -310,7 +301,7 @@ unsigned *block;
   if (bucket == 0)
     return;
 
-  NEXTFREE(block) = (unsigned *) mem_pool[home].freeBlock[bucket];
+  NEXTFREE(block) = (long *) mem_pool[home].freeBlock[bucket];
   mem_pool[home].freeBlock[bucket] = block;
   mem_pool[home].tally -= size;
 

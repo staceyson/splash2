@@ -22,13 +22,13 @@
 
 #include "incl.h"
 
-extern int num_traced_rays_hit_volume;
-extern int num_samples_trilirped;     
-extern int traversal_time,trilirp_time,init_time,composite_time;
+extern long num_traced_rays_hit_volume;
+extern long num_samples_trilirped;
+extern long traversal_time,trilirp_time,init_time,composite_time;
 
 #define VXEL(X,SIGN)		((SIGN) > 0 ? \
-				 (int)((X)+SMALL) : \
-				 (int)((X)-SMALL))
+				 (long)((X)+SMALL) : \
+				 (long)((X)-SMALL))
 
 #define SBIT_ADDRESS(TA)        (sbit_address+(TA))
 #define SHD_ADDRESS(TA)         (shd_address+(TA))
@@ -37,8 +37,7 @@ extern int traversal_time,trilirp_time,init_time,composite_time;
 
 EXTERN_ENV
 
-Trace_Ray(outx, outy, foutx, fouty, pixel_address)
-     int outx, outy;
+void Trace_Ray(foutx, fouty, pixel_address)
      float foutx, fouty;
      PIXEL *pixel_address;
 {
@@ -54,31 +53,27 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
                                 /*   in input map encountered by ray         */
                                 /*   (min is first, i.e. closest to eye)     */
                                 /*   (max is last, i.e. farthest from eye)   */
-  int segment_zmin,	        /* Image space loop terminals of segments of */
+  long segment_zmin,	        /* Image space loop terminals of segments of */
   segment_zmax;	                /*   samples between polygon intersections   */
-  int span_zmin,		/* Image space loop terminals of spans of    */
+  long span_zmin,		/* Image space loop terminals of spans of    */
   span_zmax;	        	/*   samples within pyramid boxes            */
   float sample[NM],	        /* Object space coordinates of sample        */
   sample2[NM];	                /*   before and after indenting for trilirp  */
-  int outz;		        /* Image space loop index along ray          */
-  int i,samplex,sampley,samplez;
-  int sample2x,sample2y,sample2z;
-  
+  long outz;		        /* Image space loop index along ray          */
+  long i,samplex,sampley,samplez;
+  long sample2x,sample2y,sample2z;
+
   float box_zmin,box_zmax;
-  int starting_level,level;
+  long starting_level,level;
   float jump[NM],min_jump;
   float voxel[NM],next_voxel[NM];
-  int ivoxel[NM],next_ivoxel[NM];
+  long ivoxel[NM],next_ivoxel[NM];
   BOOLEAN bit;
-  
+
   float xalpha,yalpha,zalpha;
   float one_minus_xalpha,one_minus_yalpha,one_minus_zalpha;
   float weight,wopacity,wopacitysum,wcolorsum;
-  int table_addr,xnorm,ynorm,znorm;
-  float normal[NM],wnormalsum[NM];
-  float inv_magnitude,magnitude;
   float additional_opacity;
-  float dot_product,diffuse,specular;
 
   float color;			/*   color (MIN_PIXEL..MAX_PIXEL)            */
   float opacity;		/*   opacity (0.0..1.0)                      */
@@ -104,7 +99,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
 	invjacobian[Y][i]*fouty;
     ray[1][i] = ray[0][i] + invjacobian[Z][i]*image_zlen;
   }
-  
+
   /* Compute ray space centers of min and max voxels in input map      */
   /* for each coordinate.  If denominator for any coordinate is zero,  */
   /* ray is perpendicular to coordinate axis and that coordinate can   */
@@ -113,7 +108,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
   /* Accumulate to yield ray space centers of first and last           */
   /* voxels in input map encountered by viewing ray, applying          */
   /* frustum and option clipping at the same time.                     */
-  
+
   ray_min = 0.0;
   ray_max = 1.0;
   for (i=0; i<NM; i++) {
@@ -140,10 +135,10 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
   /* the first and last sample positions along ray fall within the     */
   /* map, taking advantage of the fact that input map mins = 0 and     */
   /* integerization of slightly negative numbers rounds up to zero.    */
-  
+
   segment_zmin = ROUNDUP(image_zlen * ray_min);
   segment_zmax = ROUNDDOWN(image_zlen * ray_max);
-  
+
   /* If loop terminals call for no work to be done, skip ray.          */
   if (segment_zmax < segment_zmin) return;
 
@@ -152,7 +147,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
   /* Unless lowest level to look at is lowest level of pyramid,        */
   /* sample spans may include some non-interesting samples,            */
   /* so binary mask should be used along with pyramid.                 */
-    
+
   /* Start search at start of segment computed above, at the       */
   /* corresponding voxel coordinates, and at lower of selected     */
   /* highest level to look at and highest level present.           */
@@ -165,7 +160,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
   /* real coordinates near integers are rounded to that integer    */
   /* if moving in the positive direction, but to the next lower    */
   /* integer if moving in the negative direction.                  */
-  
+
   box_zmin = (float)segment_zmin;
   voxel[X] = ray[0][X] + invjacobian[Z][X]*box_zmin;
   voxel[Y] = ray[0][Y] + invjacobian[Z][Y]*box_zmin;
@@ -175,25 +170,25 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
   ivoxel[Z] = VXEL(voxel[Z],invjacobian[Z][Z]);
   starting_level = MIN(pyr_highest_level,pyr_levels-1);
   level = starting_level;
-  
+
   while (1) {
-    
+
     /* Extract bit from pyramid.  Note:  If mipmapping,          */
     /* use of OR'ed pyramid and no trilirp is valid but wasteful,*/
     /* but use of un-OR'ed pyramid and trilirp is invalid.       */
-    
+
     bit = PYR(level,ivoxel[Z]>>level,
 	      ivoxel[Y]>>level,
 	      ivoxel[X]>>level);
     if (bit && level > pyr_lowest_level) {
-      
+
       /* This pyramid box contains something interesting,  */
       /* but we are not at lowest level to be looked at,   */
       /* so stay at current position and drop a level.     */
       level--;
       continue;
     }
-    
+
     /* Compute image space position of far box boundary by       */
     /* computing image space distance from near box boundary     */
     /* to each of the three planes that bound the box in the     */
@@ -239,26 +234,26 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
       min_jump = MIN(min_jump,jump[Z]);
     }
     box_zmax = box_zmin + min_jump;
-    
+
     if (bit) {
       /* This pyramid box contains something interesting,  */
       /* and we are at lowest level to be looked at, so    */
       /* break out of loop and begin rendering.            */
       break;
     }
-    
+
     /* This pyramid box either contains nothing interesting,     */
     /* or contains something which has now been rendered.        */
     /* If far box boundary is beyond end of segment,             */
     /* skip to end of segment.  Otherwise, set near              */
     /* boundary of next box to far boundary of current box.      */
-    
+
   next_box:
     if (box_zmax >= (float)segment_zmax) {
       goto end_of_segment;
     }
     box_zmin = box_zmax;
-    
+
     /* Compute voxel coordinates of near boundary of next box    */
     next_voxel[X] = voxel[X] + invjacobian[Z][X]*min_jump;
     next_voxel[Y] = voxel[Y] + invjacobian[Z][Y]*min_jump;
@@ -266,7 +261,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     next_ivoxel[X] = VXEL(next_voxel[X],invjacobian[Z][X]);
     next_ivoxel[Y] = VXEL(next_voxel[Y],invjacobian[Z][Y]);
     next_ivoxel[Z] = VXEL(next_voxel[Z],invjacobian[Z][Z]);
-    
+
     /* If current and next boxes do not have the same parent,    */
     /* time can be saved by popping up to parent of next box,    */
     /* which spans more image space distance than its child.     */
@@ -284,7 +279,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
       else
 	break;
     }
-    
+
     /* Advance voxel coordinates to near boundary of next box    */
     /* and loop for next bit from pyramid.                       */
     voxel[X] = next_voxel[X];
@@ -294,7 +289,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     ivoxel[Y] = next_ivoxel[Y];
     ivoxel[Z] = next_ivoxel[Z];
   }
-    
+
   /* We have now broken out of loop to begin rendering.            */
   /* Set image space loop terminals of sample span to include      */
   /* either all integer image space positions falling inside or    */
@@ -303,26 +298,26 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
   /* Use of integer positions insures even spacing of samples,     */
   /* which prevents addition of noise component to image.          */
   span_zmin = ROUNDUP(box_zmin);
-  span_zmax = MIN((int)box_zmax,segment_zmax);
-  
+  span_zmax = MIN((long)box_zmax,segment_zmax);
+
   /* If span contains no samples, skip it.                         */
   if (span_zmax < span_zmin) goto next_box;
-  
+
   /* Compute coordinates of first sample position in span              */
   sample[X] = ray[0][X] + invjacobian[Z][X]*span_zmin;
   sample[Y] = ray[0][Y] + invjacobian[Z][Y]*span_zmin;
   sample[Z] = ray[0][Z] + invjacobian[Z][Z]*span_zmin;
-  
+
   for (outz=span_zmin; outz<=span_zmax; outz++) {
-    
+
     /* If binary octree is zero for all eight neighbors in the    */
     /* base level, if trilirp'ing, or lower neighbor otherwise, skip it.     */
     /* Use of OR'ed mask and no trilirp is valid but wasteful, but use of    */
     /* un-OR'ed mask and trilirp is invalid.                                 */
-    
-    samplex=(int)sample[X];
-    sampley=(int)sample[Y];
-    samplez=(int)sample[Z];
+
+    samplex=(long)sample[X];
+    sampley=(long)sample[Y];
+    samplez=(long)sample[Z];
 
       bit=PYR(0,samplez,sampley,samplex);
       if (!bit) goto end_of_sample;
@@ -333,7 +328,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     /* If not trilirp'ing and not shadowing, then                */
     /* extract color and opacity of lower neighbor,              */
     /* and pre-multiply color by opacity.                        */
-    
+
     /* Indent object space coordinates of sample position      */
     /* by an amount unlikely to produce visible artifacts if   */
     /* necessary so that they fall strictly inside input map   */
@@ -343,10 +338,10 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     sample2[X] = MIN(sample[X],in_max[X]);
     sample2[Y] = MIN(sample[Y],in_max[Y]);
     sample2[Z] = MIN(sample[Z],in_max[Z]);
-    
-    sample2x = (int)sample2[X];
-    sample2y = (int)sample2[Y];
-    sample2z = (int)sample2[Z];
+
+    sample2x = (long)sample2[X];
+    sample2y = (long)sample2[Y];
+    sample2z = (long)sample2[Z];
 
     xalpha = sample2[X]-sample2x++;
     yalpha = sample2[Y]-sample2y;
@@ -358,7 +353,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     /* note that the code below is optimized for the particular map        */
     /* layout and is not abstracted so that if the map layout changes,     */
     /* so must the code that does the trilinear interpolation below.       */
-    
+
     one_minus_xalpha = 1.0 - xalpha;
     one_minus_yalpha = 1.0 - yalpha;
     one_minus_zalpha = 1.0 - zalpha;
@@ -368,13 +363,13 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     color = SHD(*local_norm_address--);
     wcolorsum = color * wopacity;
     wopacitysum = wopacity;
-    
+
     weight = one_minus_xalpha * one_minus_yalpha * one_minus_zalpha;
     wopacity = *local_opc_address * weight;
     color = SHD(*local_norm_address);
     wcolorsum += color * wopacity;
     wopacitysum += wopacity;
-    
+
     weight = xalpha * yalpha * one_minus_zalpha;
     local2_opc_address = local_opc_address+opc_xlen;
     local2_norm_address = local_norm_address+norm_xlen;
@@ -388,7 +383,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     color = SHD(*local2_norm_address);
     wcolorsum += color * wopacity;
     wopacitysum += wopacity;
-    
+
     weight = xalpha * one_minus_yalpha * zalpha;
     local_opc_address = local_opc_address+opc_xylen;
     local_norm_address = local_norm_address+norm_xylen;
@@ -396,13 +391,13 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     color = SHD(*local_norm_address--);
     wcolorsum += color * wopacity;
     wopacitysum += wopacity;
-    
+
     weight = one_minus_xalpha * one_minus_yalpha * zalpha;
     wopacity = *local_opc_address * weight;
     color = SHD(*local_norm_address);
     wcolorsum += color * wopacity;
     wopacitysum += wopacity;
-    
+
     weight = xalpha * yalpha * zalpha;
     local2_opc_address = local_opc_address+opc_xlen;
     local2_norm_address = local_norm_address+norm_xlen;
@@ -410,7 +405,7 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     color = SHD(*local2_norm_address--);
     wcolorsum += color * wopacity;
     wopacitysum += wopacity;
-    
+
     weight = one_minus_xalpha * yalpha * zalpha;
     wopacity = *local2_opc_address * weight;
     color = SHD(*local2_norm_address);
@@ -434,17 +429,17 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
     /* Direction-sensitive initialization of inverse Jacobian    */
     /* insures that compositing will be along image space Z-axis */
     /* and from origin towards +Z axis, i.e. front-to-back.      */
-	
+
     additional_opacity = opacity * (1.0-ray_opacity);
     ray_color += color * (1.0-ray_opacity);
     ray_opacity += additional_opacity;
-    
+
     /* If accumulated opacity of geometry/volume ray is unity,   */
     /* if polygon list exists and adaptively ray tracing,        */
     /* bypass volume data, but continue geometry-only ray until  */
     /* its opacity becomes unity or we run out of intersections. */
     /* If no polygons or not adaptively ray tracing, ray is done.*/
-	
+
     if (ray_opacity > opacity_cutoff) {
       goto end_of_ray;
     }
@@ -476,17 +471,16 @@ Trace_Ray(outx, outy, foutx, fouty, pixel_address)
 }
 
 
-Pre_Shade(int my_node)
+void Pre_Shade(long my_node)
 {
-  int xnorm,ynorm,znorm,table_addr,norm_lshift,i;
-  int shd_table_partition,zstart,zstop;
+  long xnorm,ynorm,znorm,table_addr,norm_lshift;
+  long shd_table_partition,zstart,zstop;
   float mag,error,inv_num_nodes;
   float normal[NM];
   float dot_product,diffuse,specular,color;
   float dpartial_product1,dpartial_product2;
   float spartial_product1,spartial_product2;
-  BOOLEAN *local_sbit_address;
-  int temp;
+  long temp;
 
   inv_num_nodes = 1.0/(float)num_nodes;
 
@@ -517,7 +511,7 @@ of the frame.
       if (mag > error) {
 	mag = MAX(mag,0.0);
 	normal[X] = sqrt(mag);
-	xnorm = (int)normal[X];
+	xnorm = (long)normal[X];
 	dpartial_product1 = normal[Z] * obslight[Z] + normal[Y] * obslight[Y];
 	dpartial_product2 = normal[X] * obslight[X];
 	spartial_product1 = normal[Z] * obshighlight[Z] +
@@ -532,7 +526,7 @@ of the frame.
 	color = ambient_color + diffuse*diffuse_color +
 	  specular*specular_color;
 	color = NINT(MIN(color,MAX_PIXEL));
-	temp = (int) color;
+	temp = (long) color;
 	SHD(table_addr+1) = (unsigned char) temp;
 	if (normal[X] > 0.0) {
 	  dot_product = dpartial_product1 - dpartial_product2;
@@ -544,12 +538,12 @@ of the frame.
 	    specular*specular_color;
 	  color = NINT(MIN(color,MAX_PIXEL));
 	}
-	temp = (int) color;
+	temp = (long) color;
 	SHD(table_addr) = (unsigned char) temp;
       }
     }
   }
   table_addr = LOOKUP_HSIZE+(norm_lshift*LOOKUP_PREC+2)*2+1;
-  temp = (int) ambient_color;
+  temp = (long) ambient_color;
   SHD(table_addr) = (unsigned char) temp;
 }

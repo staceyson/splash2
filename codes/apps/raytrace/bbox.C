@@ -45,10 +45,7 @@
  *	Nothing.
  */
 
-VOID	InquireBoundBoxValues(pbb, minx, miny, minz, maxx, maxy, maxz)
-BBOX	*pbb;
-REAL	*minx, *miny, *minz;
-REAL	*maxx, *maxy, *maxz;
+VOID	InquireBoundBoxValues(BBOX *pbb, REAL *minx, REAL *miny, REAL *minz, REAL *maxx, REAL *maxy, REAL *maxz)
 	{
 	*minx = pbb->dnear[0];
 	*miny = pbb->dnear[1];
@@ -73,9 +70,7 @@ REAL	*maxx, *maxy, *maxz;
  *	Nothing.
  */
 
-VOID	NormalizeBoundBox(pbb, mat)
-BBOX	*pbb;
-MATRIX	mat;
+VOID	NormalizeBoundBox(BBOX *pbb, MATRIX mat)
 	{
 	POINT	tmp;
 

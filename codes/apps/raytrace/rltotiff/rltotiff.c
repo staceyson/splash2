@@ -1,4 +1,4 @@
-/*************************************************************************/
+/************************************************************************/
 /*                                                                       */
 /*  Copyright (c) 1994 Stanford University                               */
 /*                                                                       */
@@ -23,14 +23,14 @@
 typedef short SHORT;
 typedef long LONG;
 typedef char CHAR;
-typedef int INT;
+typedef long INT;
 typedef float REAL;
 typedef void VOID;
 typedef unsigned short USHORT;
 typedef unsigned char BYTE;
 typedef unsigned char BOOL;
 typedef unsigned char UCHAR;
-typedef unsigned int UINT;
+typedef unsigned long UINT;
 typedef unsigned long ULONG;
 
 #define FALSE 0
@@ -133,16 +133,15 @@ SPAPIX	sp;				/* Spach pixel buffer.		     */
 TGAPIX	tp;				/* TGA pixel buffer.		     */
 
 
-static int *gbRGBA;
-static int gbWidth;
-static int gbHeight;
-static int gbUseCurrentDim;
+static long *gbRGBA;
+static long gbWidth;
+static long gbHeight;
 
 VOID	ProcessSpachFile(FILE	*pf, CHAR	*pchFileName);
 void configRGBABuf(void);
 void SetPixel24(INT i, INT j,  BYTE r,  BYTE g, BYTE b);
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     FILE *fp;
     char *spachfile, *tiffile;
@@ -155,7 +154,7 @@ main(int argc, char **argv)
     tiffile = argv[2];
 
     fp = fopen(spachfile, "rb");
-    
+
     if (!fp) {
 	fprintf(stderr, "spachtotiff: could not open file %s\n", spachfile);
 	exit(1);
@@ -163,6 +162,7 @@ main(int argc, char **argv)
 
     ProcessSpachFile(fp, spachfile);
     tiff_save_rgba(tiffile, gbRGBA, gbWidth, gbHeight);
+    return(0);
 }
 
 
@@ -170,7 +170,7 @@ main(int argc, char **argv)
 void
 configRGBABuf()
 {
-    gbRGBA = (int *)malloc(gbWidth*gbHeight*sizeof(int));
+    gbRGBA = (long *)malloc(gbWidth*gbHeight*sizeof(long));
 }
 
 
@@ -181,7 +181,7 @@ SetPixel24(INT i, INT j,  BYTE r,  BYTE g, BYTE b)
     if (i+j*gbWidth >= gbWidth*gbHeight)
 	fprintf(stderr, "Bug!\n");
 
-    gbRGBA[i+(gbHeight-j-1)*gbWidth] = 
+    gbRGBA[i+(gbHeight-j-1)*gbWidth] =
 	((UINT)r)*256*256 + ((UINT)g)*256 + ((UINT)b);
 }
 
@@ -205,8 +205,7 @@ VOID	ProcessSpachFile(FILE	*pf, CHAR	*pchFileName)
 	INT	j;
 	INT	k;
 	INT	count;
-	UINT	ui, ui2, ui_low, ui_high;
-	UINT    c1, c2, c3, c4, c5, c6;
+	UINT	ui;
 	LONG	lPixCnt;
 
 	ui	 = getc(pf);
@@ -225,7 +224,7 @@ VOID	ProcessSpachFile(FILE	*pf, CHAR	*pchFileName)
 	lPixCnt  = (ULONG)iCntResX*(ULONG)iCntResY;
 
 	configRGBABuf();
-	
+
 
 	if (fCenter)
 		{
@@ -252,7 +251,7 @@ VOID	ProcessSpachFile(FILE	*pf, CHAR	*pchFileName)
 				}
 
 			if (fDebug)
-				printf("%d\t%d\t0x%02X\t0x%02X\t0x%02X\t0x%02X\n",
+				printf("%ld\t%ld\t0x%02X\t0x%02X\t0x%02X\t0x%02X\n",
 					i, j, sp.count, sp.r, sp.g, sp.b);
 
 			SetPixel24(i, j, sp.r, sp.g, sp.b);

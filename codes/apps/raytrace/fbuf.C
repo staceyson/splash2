@@ -44,9 +44,9 @@ static	struct				/* Runlength pixel definition.	     */
 	}
 	image[MAX_X];
 
-/*	
+/*
 	image does not have  have to be made an array for tango-lite
-	since it is only used in RunLengthEncode, which is only 
+	since it is only used in RunLengthEncode, which is only
 	called by CloseFrameBuffer, which is only called after
 	all children have terminated
 */
@@ -67,10 +67,7 @@ static	struct				/* Runlength pixel definition.	     */
  *	Nothing.
  */
 
-VOID	RunLengthEncode(pf, fb, xsize)
-FILE	*pf;
-PIXEL	*fb;
-INT	xsize;
+VOID	RunLengthEncode(FILE *pf, PIXEL *fb, INT xsize)
 	{
 	INT	x;			/* Original buffer entry address.    */
 	INT	rl;			/* Runlength buffer entry address.   */
@@ -159,10 +156,7 @@ VOID	OpenFrameBuffer()
  *	Nothing.
  */
 
-VOID	AddPixelColor(c, x, y)
-COLOR	c;
-INT	x;
-INT	y;
+VOID	AddPixelColor(COLOR c, INT x, INT y)
 	{
 	INT	addr;			/* Index into framebuffer.	     */
 	PIXEL	*fb;			/* Ptr to framebuffer.		     */
@@ -189,8 +183,7 @@ INT	y;
  *	Nothing.
  */
 
-VOID	CloseFrameBuffer(PicFileName)
-CHAR	*PicFileName;
+VOID	CloseFrameBuffer(CHAR *PicFileName)
 	{
 	INT	x;
 	INT	y;

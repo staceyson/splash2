@@ -14,7 +14,7 @@
 /*                                                                       */
 /*************************************************************************/
 
-/* Does the arakawa jacobian calculation (of the x and y matrices, 
+/* Does the arakawa jacobian calculation (of the x and y matrices,
    putting the results in the z matrix) for a subblock.  */
 
 EXTERN_ENV
@@ -24,17 +24,7 @@ EXTERN_ENV
 #include <time.h>
 #include "decs.h"
 
-void jacobcalc(x,y,z,pid,firstrow,lastrow,firstcol,lastcol) 
-
-double ***x;
-double ***y;
-double ***z;
-int pid;
-int firstrow;
-int lastrow;
-int firstcol;
-int lastcol;
-
+void jacobcalc(double ***x, double ***y, double ***z, long pid, long firstrow, long lastrow, long firstcol, long lastcol)
 {
    double f1;
    double f2;
@@ -44,14 +34,14 @@ int lastcol;
    double f6;
    double f7;
    double f8;
-   int iindex;
-   int indexp1;
-   int indexm1;
-   int im1;
-   int ip1;
-   int i;
-   int j;
-   int jj;
+   long iindex;
+   long indexp1;
+   long indexm1;
+   long im1;
+   long ip1;
+   long i;
+   long j;
+   long jj;
    double **t2a;
    double **t2b;
    double **t2c;
@@ -66,16 +56,16 @@ int lastcol;
    t2a = (double **) z[pid];
    if ((gp[pid].neighbors[UP] == -1) && (gp[pid].neighbors[LEFT] == -1)) {
      t2a[0][0]=0.0;
-   }  
+   }
    if ((gp[pid].neighbors[DOWN] == -1) && (gp[pid].neighbors[LEFT] == -1)) {
      t2a[im-1][0]=0.0;
    }
    if ((gp[pid].neighbors[UP] == -1) && (gp[pid].neighbors[RIGHT] == -1)) {
      t2a[0][jm-1]=0.0;
-   }  
+   }
    if ((gp[pid].neighbors[DOWN] == -1) && (gp[pid].neighbors[RIGHT] == -1)) {
      t2a[im-1][jm-1]=0.0;
-   }  
+   }
 
    t2a = (double **) x[pid];
    jj = gp[pid].neighbors[UPLEFT];

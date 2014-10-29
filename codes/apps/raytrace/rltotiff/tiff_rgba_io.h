@@ -37,16 +37,16 @@ extern "C" {
 *
 *  Arguments:
 *    char *filename - name of TIFF image target file
-*    int *pixels - 32-bit r,g,b,a image
-*    int width - image width
-*    int height - image height
+*    long *pixels - 32-bit r,g,b,a image
+*    long width - image width
+*    long height - image height
 *
 *  Description:
 *    Stores the pixels into the given file name as a TIFF file.
 *
 ******/
 
-int tiff_save_rgba(char *, int *, int, int);
+long tiff_save_rgba(char *, long *, long, long);
 
 
 
@@ -56,16 +56,16 @@ int tiff_save_rgba(char *, int *, int, int);
 *
 *  Arguments:
 *    char *filename - name of TIFF image target file
-*    int **pixels - 32-bit r,g,b,a image
-*    int *width - image width
-*    int *height - image height
+*    long **pixels - 32-bit r,g,b,a image
+*    long *width - image width
+*    long *height - image height
 *
 *  Description:
 *    Loads the pixels from the named TIFF file.
 *
 ******/
 
-int tiff_load_rgba(char *, int **, int*, int*);
+long tiff_load_rgba(char *, long **, long *, long *);
 
 
 #ifdef __cplusplus

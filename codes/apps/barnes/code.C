@@ -21,7 +21,7 @@ Command line options:
     -h : Print out input file description
 
     Input parameters should be placed in a file and redirected through
-    standard input.  There are a total of twelve parameters, and all of 
+    standard input.  There are a total of twelve parameters, and all of
     them have default values.
 
     1) infile (char*) : The name of an input file that contains particle
@@ -52,7 +52,7 @@ Command line options:
        Default is 0.05.
     7) tol (double) : The cell subdivision tolerance.
        Default is 1.0.
-    8) fcells (double) : Number of cells created = fcells * number of 
+    8) fcells (double) : Number of cells created = fcells * number of
        leaves.
        Default is 2.0.
     9) fleaves (double) : Number of leaves created = fleaves * nbody.
@@ -69,10 +69,7 @@ MAIN_ENV
 
 #define global  /* nada */
 
-#include "code.h"
-#include "defs.h"
-#include <math.h>
-#include <time.h>
+#include "stdinc.h"
 
 string defv[] = {                 /* DEFAULT PARAMETER VALUES              */
     /* file names for input/output                                         */
@@ -96,24 +93,157 @@ string defv[] = {                 /* DEFAULT PARAMETER VALUES              */
     "NPROC=1",                    /* number of processors                  */
 };
 
-void SlaveStart ();
-void stepsystem (unsigned int ProcessId);
-void ComputeForces ();
-void Help();
-FILE *fopen();
+/* The more complicated 3D case */
+#define NUM_DIRECTIONS 32
+#define BRC_FUC 0
+#define BRC_FRA 1
+#define BRA_FDA 2
+#define BRA_FRC 3
+#define BLC_FDC 4
+#define BLC_FLA 5
+#define BLA_FUA 6
+#define BLA_FLC 7
+#define BUC_FUA 8
+#define BUC_FLC 9
+#define BUA_FUC 10
+#define BUA_FRA 11
+#define BDC_FDA 12
+#define BDC_FRC 13
+#define BDA_FDC 14
+#define BDA_FLA 15
 
-main(argc, argv)
-int argc;
-string argv[];
+#define FRC_BUC 16
+#define FRC_BRA 17
+#define FRA_BDA 18
+#define FRA_BRC 19
+#define FLC_BDC 20
+#define FLC_BLA 21
+#define FLA_BUA 22
+#define FLA_BLC 23
+#define FUC_BUA 24
+#define FUC_BLC 25
+#define FUA_BUC 26
+#define FUA_BRA 27
+#define FDC_BDA 28
+#define FDC_BRC 29
+#define FDA_BDC 30
+#define FDA_BLA 31
+
+static long Child_Sequence[NUM_DIRECTIONS][NSUB] =
 {
-   unsigned ProcessId = 0;
-   int c;
+	{ 2, 5, 6, 1, 0, 3, 4, 7},  /* BRC_FUC */
+ { 2, 5, 6, 1, 0, 7, 4, 3},  /* BRC_FRA */
+ { 1, 6, 5, 2, 3, 0, 7, 4},  /* BRA_FDA */
+ { 1, 6, 5, 2, 3, 4, 7, 0},  /* BRA_FRC */
+ { 6, 1, 2, 5, 4, 7, 0, 3},  /* BLC_FDC */
+ { 6, 1, 2, 5, 4, 3, 0, 7},  /* BLC_FLA */
+ { 5, 2, 1, 6, 7, 4, 3, 0},  /* BLA_FUA */
+ { 5, 2, 1, 6, 7, 0, 3, 4},  /* BLA_FLC */
+ { 1, 2, 5, 6, 7, 4, 3, 0},  /* BUC_FUA */
+ { 1, 2, 5, 6, 7, 0, 3, 4},  /* BUC_FLC */
+ { 6, 5, 2, 1, 0, 3, 4, 7},  /* BUA_FUC */
+ { 6, 5, 2, 1, 0, 7, 4, 3},  /* BUA_FRA */
+ { 5, 6, 1, 2, 3, 0, 7, 4},  /* BDC_FDA */
+ { 5, 6, 1, 2, 3, 4, 7, 0},  /* BDC_FRC */
+ { 2, 1, 6, 5, 4, 7, 0, 3},  /* BDA_FDC */
+ { 2, 1, 6, 5, 4, 3, 0, 7},  /* BDA_FLA */
+
+ { 3, 4, 7, 0, 1, 2, 5, 6},  /* FRC_BUC */
+ { 3, 4, 7, 0, 1, 6, 5, 2},  /* FRC_BRA */
+ { 0, 7, 4, 3, 2, 1, 6, 5},  /* FRA_BDA */
+ { 0, 7, 4, 3, 2, 5, 6, 1},  /* FRA_BRC */
+ { 7, 0, 3, 4, 5, 6, 1, 2},  /* FLC_BDC */
+ { 7, 0, 3, 4, 5, 2, 1, 6},  /* FLC_BLA */
+ { 4, 3, 0, 7, 6, 5, 2, 1},  /* FLA_BUA */
+ { 4, 3, 0, 7, 6, 1, 2, 5},  /* FLA_BLC */
+ { 0, 3, 4, 7, 6, 5, 2, 1},  /* FUC_BUA */
+ { 0, 3, 4, 7, 6, 1, 2, 5},  /* FUC_BLC */
+ { 7, 4, 3, 0, 1, 2, 5, 6},  /* FUA_BUC */
+ { 7, 4, 3, 0, 1, 6, 5, 2},  /* FUA_BRA */
+ { 4, 7, 0, 3, 2, 1, 6, 5},  /* FDC_BDA */
+ { 4, 7, 0, 3, 2, 5, 6, 1},  /* FDC_BRC */
+ { 3, 0, 7, 4, 5, 6, 1, 2},  /* FDA_BDC */
+ { 3, 0, 7, 4, 5, 2, 1, 6},  /* FDA_BLA */
+};
+
+static long Direction_Sequence[NUM_DIRECTIONS][NSUB] =
+{
+	{ FRC_BUC, BRA_FRC, FDA_BDC, BLA_FUA, BUC_FLC, FUA_BUC, BRA_FRC, FDA_BLA },
+ /* BRC_FUC */
+ { FRC_BUC, BRA_FRC, FDA_BDC, BLA_FUA, BRA_FDA, FRC_BRA, BUC_FUA, FLC_BDC },
+ /* BRC_FRA */
+ { FRA_BDA, BRC_FRA, FUC_BUA, BLC_FDC, BDA_FLA, FDC_BDA, BRC_FRA, FUC_BLC },
+ /* BRA_FDA */
+ { FRA_BDA, BRC_FRA, FUC_BUA, BLC_FDC, BUC_FLC, FUA_BUC, BRA_FRC, FDA_BLA },
+ /* BRA_FRC */
+ { FLC_BDC, BLA_FLC, FUA_BUC, BRA_FDA, BDC_FRC, FDA_BDC, BLA_FLC, FUA_BRA },
+ /* BLC_FDC */
+ { FLC_BDC, BLA_FLC, FUA_BUC, BRA_FDA, BLA_FUA, FLC_BLA, BDC_FDA, FRC_BUC },
+ /* BLC_FLA */
+ { FLA_BUA, BLC_FLA, FDC_BDA, BRC_FUC, BUA_FRA, FUC_BUA, BLC_FLA, FDC_BRC },
+ /* BLA_FUA */
+ { FLA_BUA, BLC_FLA, FDC_BDA, BRC_FUC, BLC_FDC, FLA_BLC, BUA_FUC, FRA_BDA },
+ /* BLA_FLC */
+ { FUC_BLC, BUA_FUC, FRA_BRC, BDA_FLA, BUA_FRA, FUC_BUA, BLC_FLA, FDC_BRC },
+ /* BUC_FUA */
+ { FUC_BLC, BUA_FUC, FRA_BRC, BDA_FLA, BLC_FDC, FLA_BLC, BUA_FUC, FRA_BDA },
+ /* BUC_FLC */
+ { FUA_BRA, BUC_FUA, FLC_BLA, BDC_FRC, BUC_FLC, FUA_BUC, BRA_FRC, FDA_BLA },
+ /* BUA_FUC */
+ { FUA_BRA, BUC_FUA, FLC_BLA, BDC_FRC, BRA_FDA, FRC_BRA, BUC_FUA, FLC_BDC },
+ /* BUA_FRA */
+ { FDC_BRC, BDA_FDC, FLA_BLC, BUA_FRA, BDA_FLA, FDC_BDA, BRC_FRA, FUC_BLC },
+ /* BDC_FDA */
+ { FDC_BRC, BDA_FDC, FLA_BLC, BUA_FRA, BUC_FLC, FUA_BUC, BRA_FRC, FDA_BLA },
+ /* BDC_FRC */
+ { FDA_BLA, BDC_FDA, FRC_BRA, BUC_FLC, BDC_FRC, FDA_BDC, BLA_FLC, FUA_BRA },
+ /* BDA_FDC */
+ { FDA_BLA, BDC_FDA, FRC_BRA, BUC_FLC, BLA_FUA, FLC_BLA, BDC_FDA, FRC_BUC },
+ /* BDA_FLA */
+
+ { BUC_FLC, FUA_BUC, BRA_FRC, FDA_BLA, FUC_BLC, BUA_FUC, FRA_BRC, BDA_FLA },
+ /* FRC_BUC */
+ { BUC_FLC, FUA_BUC, BRA_FRC, FDA_BLA, FRA_BDA, BRC_FRA, FUC_BUA, BLC_FDC },
+ /* FRC_BRA */
+ { BRA_FDA, FRC_BRA, BUC_FUA, FLC_BDC, FDA_BLA, BDC_FDA, FRC_BRA, BUC_FLC },
+ /* FRA_BDA */
+ { BRA_FDA, FRC_BRA, BUC_FUA, FLC_BDC, FRC_BUC, BRA_FRC, FDA_BDC, BLA_FUA },
+ /* FRA_BRC */
+ { BLC_FDC, FLA_BLC, BUA_FUC, FRA_BDA, FDC_BRC, BDA_FDC, FLA_BLC, BUA_FRA },
+ /* FLC_BDC */
+ { BLC_FDC, FLA_BLC, BUA_FUC, FRA_BDA, FLA_BUA, BLC_FLA, FDC_BDA, BRC_FUC },
+ /* FLC_BLA */
+ { BLA_FUA, FLC_BLA, BDC_FDA, FRC_BUC, FUA_BRA, BUC_FUA, FLC_BLA, BDC_FRC },
+ /* FLA_BUA */
+ { BLA_FUA, FLC_BLA, BDC_FDA, FRC_BUC, FLC_BDC, BLA_FLC, FUA_BUC, BRA_FDA },
+ /* FLA_BLC */
+ { BUC_FLC, FUA_BUC, BRA_FRC, FDA_BLA, FUA_BRA, BUC_FUA, FLC_BLA, BDC_FRC },
+ /* FUC_BUA */
+ { BUC_FLC, FUA_BUC, BRA_FRC, FDA_BLA, FLC_BDC, BLA_FLC, FUA_BUC, BRA_FDA },
+ /* FUC_BLC */
+ { BUA_FRA, FUC_BUA, BLC_FLA, FDC_BRC, FUC_BLC, BUA_FUC, FRA_BRC, BDA_FLA },
+ /* FUA_BUC */
+ { BUA_FRA, FUC_BUA, BLC_FLA, FDC_BRC, FRA_BDA, BRC_FRA, FUC_BUA, BLC_FDC },
+ /* FUA_BRA */
+ { BDC_FRC, FDA_BDC, BLA_FLC, FUA_BRA, FDA_BLA, BDC_FDA, FRC_BRA, BUC_FLC },
+ /* FDC_BDA */
+ { BDC_FRC, FDA_BDC, BLA_FLC, FUA_BRA, FRC_BUC, BRA_FRC, FDA_BDC, BLA_FUA },
+ /* FDC_BRC */
+ { BDA_FLA, FDC_BDA, BRC_FRA, FUC_BLC, FDC_BRC, BDA_FDC, FLA_BLC, BUA_FRA },
+ /* FDA_BDC */
+ { BDA_FLA, FDC_BDA, BRC_FRA, FUC_BLC, FLA_BUA, BLC_FLA, FDC_BDA, BRC_FUC },
+ /* FDA_BLA */
+};
+
+int main (int argc, string argv[])
+{
+   long c;
 
    while ((c = getopt(argc, argv, "h")) != -1) {
      switch(c) {
-      case 'h': 
-	Help(); 
-	exit(-1); 
+      case 'h':
+	Help();
+	exit(-1);
 	break;
       default:
 	fprintf(stderr, "Only valid option is \"-h\".\n");
@@ -122,8 +252,8 @@ string argv[];
      }
    }
 
-   ANLinit();
-   initparam(argv, defv);
+   Global = NULL;
+   initparam(defv);
    startrun();
    initoutput();
    tab_init();
@@ -132,58 +262,48 @@ string argv[];
    Global->partitiontime = 0;
    Global->treebuildtime = 0;
    Global->forcecalctime = 0;
-
-   /* Create the slave processes: number of processors less one,
-      since the master will do work as well */
    Global->current_id = 0;
-   for(ProcessId = 1; ProcessId < NPROC; ProcessId++) {
-      CREATE(SlaveStart);
-   }
 
-   /* Make the master do slave work so we don't waste the processor */
    CLOCK(Global->computestart);
-   printf("COMPUTESTART  = %12u\n",Global->computestart);
-   SlaveStart();
+
+   printf("COMPUTESTART  = %12lu\n",Global->computestart);
+
+   CREATE(SlaveStart, NPROC);
+
+   WAIT_FOR_END(NPROC);
 
    CLOCK(Global->computeend);
 
-   WAIT_FOR_END(NPROC-1);
-
-   printf("COMPUTEEND    = %12u\n",Global->computeend);
-   printf("COMPUTETIME   = %12u\n",Global->computeend - Global->computestart);
-   printf("TRACKTIME     = %12u\n",Global->tracktime); 
-   printf("PARTITIONTIME = %12u\t%5.2f\n",Global->partitiontime,
+   printf("COMPUTEEND    = %12lu\n",Global->computeend);
+   printf("COMPUTETIME   = %12lu\n",Global->computeend - Global->computestart);
+   printf("TRACKTIME     = %12lu\n",Global->tracktime);
+   printf("PARTITIONTIME = %12lu\t%5.2f\n",Global->partitiontime,
 	  ((float)Global->partitiontime)/Global->tracktime);
-   printf("TREEBUILDTIME = %12u\t%5.2f\n",Global->treebuildtime, 
+   printf("TREEBUILDTIME = %12lu\t%5.2f\n",Global->treebuildtime,
 	  ((float)Global->treebuildtime)/Global->tracktime);
-   printf("FORCECALCTIME = %12u\t%5.2f\n",Global->forcecalctime,
+   printf("FORCECALCTIME = %12lu\t%5.2f\n",Global->forcecalctime,
 	  ((float)Global->forcecalctime)/Global->tracktime);
-   printf("RESTTIME      = %12u\t%5.2f\n",
-	  Global->tracktime - Global->partitiontime - 
-	  Global->treebuildtime - Global->forcecalctime, 
+   printf("RESTTIME      = %12lu\t%5.2f\n",
+	  Global->tracktime - Global->partitiontime -
+	  Global->treebuildtime - Global->forcecalctime,
 	  ((float)(Global->tracktime-Global->partitiontime-
 		   Global->treebuildtime-Global->forcecalctime))/
 	  Global->tracktime);
    MAIN_END;
 }
-
+
 /*
  * ANLINIT : initialize ANL macros
  */
-ANLinit()
+void ANLinit()
 {
    MAIN_INITENV(,70000000,);
    /* Allocate global, shared memory */
 
    Global = (struct GlobalMemory *) G_MALLOC(sizeof(struct GlobalMemory));
    if (Global==NULL) error("No initialization for Global\n");
-    
-   BARINIT(Global->Barload);
-   BARINIT(Global->Bartree);
-   BARINIT(Global->Barcom);
-   BARINIT(Global->Baraccel);
-   BARINIT(Global->Barstart);
-   BARINIT(Global->Barpos);
+
+   BARINIT(Global->Barrier, NPROC);
 
    LOCKINIT(Global->CountLock);
    LOCKINIT(Global->io_lock);
@@ -192,12 +312,12 @@ ANLinit()
 /*
  * INIT_ROOT: Processor 0 reinitialize the global root at each time step
  */
-init_root (ProcessId)
-   unsigned int ProcessId;
+void init_root()
 {
-   int i;
+   long i;
 
    Global->G_root=Local[0].ctab;
+   Global->G_root->seqnum = 0;
    Type(Global->G_root) = CELL;
    Done(Global->G_root) = FALSE;
    Level(Global->G_root) = IMAX >> 1;
@@ -207,11 +327,10 @@ init_root (ProcessId)
    Local[0].mynumcell=1;
 }
 
-int Log_base_2(number)
-int number;
+long Log_base_2(long number)
 {
-   int cumulative;
-   int out;
+   long cumulative;
+   long out;
 
    cumulative = 1;
    for (out = 0; out < 20; out++) {
@@ -223,7 +342,7 @@ int number;
       }
    }
 
-   fprintf(stderr,"Log_base_2: couldn't find log2 of %d\n", number);
+   fprintf(stderr,"Log_base_2: couldn't find log2 of %ld\n", number);
    exit(-1);
 }
 
@@ -231,14 +350,12 @@ int number;
  * TAB_INIT : allocate body and cell data space
  */
 
-tab_init()
+void tab_init()
 {
-   cellptr pc;
-   int i;
-   char *starting_address, *ending_address;
+   long i;
 
    /*allocate leaf/cell space */
-   maxleaf = (int) ((double) fleaves * nbody);
+   maxleaf = (long) ((double) fleaves * nbody);
    maxcell = fcells * maxleaf;
    for (i = 0; i < NPROC; ++i) {
       Local[i].ctab = (cellptr) G_MALLOC((maxcell / NPROC) * sizeof(cell));
@@ -246,10 +363,10 @@ tab_init()
    }
 
    /*allocate space for personal lists of body pointers */
-   maxmybody = (nbody+maxleaf*MAX_BODIES_PER_LEAF)/NPROC; 
+   maxmybody = (nbody+maxleaf*MAX_BODIES_PER_LEAF)/NPROC;
    Local[0].mybodytab = (bodyptr*) G_MALLOC(NPROC*maxmybody*sizeof(bodyptr));
    /* space is allocated so that every */
-   /* process can have a maximum of maxmybody pointers to bodies */ 
+   /* process can have a maximum of maxmybody pointers to bodies */
    /* then there is an array of bodies called bodytab which is  */
    /* allocated in the distribution generation or when the distr. */
    /* file is read */
@@ -267,12 +384,14 @@ tab_init()
  */
 void SlaveStart()
 {
-   unsigned int ProcessId;
+   long ProcessId;
 
    /* Get unique ProcessId */
    LOCK(Global->CountLock);
      ProcessId = Global->current_id++;
    UNLOCK(Global->CountLock);
+
+   BARINCLUDE(Global->Barrier);
 
 /* POSSIBLE ENHANCEMENT:  Here is where one might pin processes to
    processors to avoid migration */
@@ -286,24 +405,24 @@ void SlaveStart()
    Local[ProcessId].mycelltab = Local[0].mycelltab + (maxmycell * ProcessId);
    Local[ProcessId].myleaftab = Local[0].myleaftab + (maxmyleaf * ProcessId);
 /* POSSIBLE ENHANCEMENT:  Here is where one might distribute the
-   data across physically distributed memories as desired. 
+   data across physically distributed memories as desired.
 
    One way to do this is as follows:
 
-   int i;
+   long i;
 
    if (ProcessId == 0) {
      for (i=0;i<NPROC;i++) {
-       Place all addresses x such that 
+       Place all addresses x such that
          &(Local[i]) <= x < &(Local[i])+
            sizeof(struct local_memory) on node i
-       Place all addresses x such that 
+       Place all addresses x such that
          &(Local[i].mybodytab) <= x < &(Local[i].mybodytab)+
            maxmybody * sizeof(bodyptr) - 1 on node i
-       Place all addresses x such that 
+       Place all addresses x such that
          &(Local[i].mycelltab) <= x < &(Local[i].mycelltab)+
            maxmycell * sizeof(cellptr) - 1 on node i
-       Place all addresses x such that 
+       Place all addresses x such that
          &(Local[i].myleaftab) <= x < &(Local[i].myleaftab)+
            maxmyleaf * sizeof(leafptr) - 1 on node i
      }
@@ -322,24 +441,22 @@ void SlaveStart()
    /* main loop */
    while (Local[ProcessId].tnow < tstop + 0.1 * dtime) {
       stepsystem(ProcessId);
+//      printtree(Global->G_root);
+//      printf("Going to next step!!!\n");
    }
 }
 
-
+
 /*
  * STARTRUN: startup hierarchical N-body code.
  */
 
-startrun()
+void startrun()
 {
-   string getparam();
-   int getiparam();
-   bool getbparam();
-   double getdparam();
-   int seed;
+   long seed;
 
    infile = getparam("in");
-   if (*infile != NULL) {
+   if (*infile != '\0'/*NULL*/) {
       inputdata();
    }
    else {
@@ -365,10 +482,11 @@ startrun()
    Local[0].nstep = 0;
    pranset(seed);
    testdata();
+   ANLinit();
    setbound();
    Local[0].tout = Local[0].tnow + dtout;
 }
-
+
 /*
  * TESTDATA: generate Plummer model initial conditions for test runs,
  * scaled to units such that M = -4E = G = 1 (Henon, Hegge, etc).
@@ -377,23 +495,21 @@ startrun()
 
 #define MFRAC  0.999                /* mass cut off at MFRAC of total */
 
-testdata()
+void testdata()
 {
-   real rsc, vsc, sqrt(), xrand(), pow(), rsq, r, v, x, y;
+   real rsc, vsc, r, v, x, y;
    vector cmr, cmv;
    register bodyptr p;
-   int rejects = 0;
-   int k;
-   int halfnbody, i;
+   long rejects = 0;
+   long halfnbody, i;
    float offset;
    register bodyptr cp;
-   double tmp;
 
    headline = "Hack code: Plummer model";
    Local[0].tnow = 0.0;
    bodytab = (bodyptr) G_MALLOC(nbody * sizeof(body));
    if (bodytab == NULL) {
-      error("testdata: not enuf memory\n");
+      error("testdata: not enough memory\n");
    }
    rsc = 9 * PI / 16;
    vsc = sqrt(1.0 / rsc);
@@ -413,7 +529,7 @@ testdata()
       while (r > 9.0) {
 	 rejects++;
 	 r = 1 / sqrt(pow(xrand(0.0, MFRAC), -2.0/3.0) - 1);
-      }        
+      }
       pickshell(Pos(p), rsc * r);
       ADDV(cmr, cmr, Pos(p));
       do {
@@ -436,11 +552,11 @@ testdata()
 
       cp = p - halfnbody;
       for (i = 0; i < NDIM; i++){
-	 Pos(p)[i] = Pos(cp)[i] + offset; 
-	 ADDV(cmr, cmr, Pos(p));
+	 Pos(p)[i] = Pos(cp)[i] + offset;
 	 Vel(p)[i] = Vel(cp)[i];
-	 ADDV(cmv, cmv, Vel(p));
       }
+      ADDV(cmr, cmr, Pos(p));
+      ADDV(cmv, cmv, Vel(p));
    }
 
    DIVVS(cmr, cmr, (real) nbody);
@@ -456,12 +572,10 @@ testdata()
  * PICKSHELL: pick a random point on a sphere of specified radius.
  */
 
-pickshell(vec, rad)
-   real vec[];                     /* coordinate vector chosen */
-   real rad;                       /* radius of chosen point */
+void pickshell(real vec[], real rad)
 {
-   register int k;
-   double rsq, xrand(), sqrt(), rsc;
+   register long k;
+   double rsq, rsc;
 
    do {
       for (k = 0; k < NDIM; k++) {
@@ -474,13 +588,12 @@ pickshell(vec, rad)
    MULVS(vec, vec, rsc);
 }
 
-
 
-int intpow(i,j)
-  int i,j;
-{   
-    int k;
-    int temp = 1;
+
+long intpow(long i, long j)
+{
+    long k;
+    long temp = 1;
 
     for (k = 0; k < j; k++)
         temp = temp*i;
@@ -492,20 +605,16 @@ int intpow(i,j)
  * STEPSYSTEM: advance N-body system one time-step.
  */
 
-void
-stepsystem (ProcessId)
-   unsigned int ProcessId;
+void stepsystem(long ProcessId)
 {
-    int i;
+    long i;
     real Cavg;
     bodyptr p,*pp;
-    vector acc1, dacc, dvel, vel1, dpos;
-    int intpow();
-    unsigned int time;
-    unsigned int trackstart, trackend;
-    unsigned int partitionstart, partitionend;
-    unsigned int treebuildstart, treebuildend;
-    unsigned int forcecalcstart, forcecalcend;
+    vector dvel, vel1, dpos;
+    long trackstart, trackend;
+    long partitionstart, partitionend;
+    long treebuildstart, treebuildend;
+    long forcecalcstart, forcecalcend;
 
     if (Local[ProcessId].nstep == 2) {
 /* POSSIBLE ENHANCEMENT:  Here is where one might reset the
@@ -517,7 +626,7 @@ stepsystem (ProcessId)
     }
 
     if (ProcessId == 0) {
-       init_root(ProcessId);
+       init_root();
     }
     else {
        Local[ProcessId].mynumcell = 0;
@@ -526,7 +635,7 @@ stepsystem (ProcessId)
 
 
     /* start at same time */
-    BARRIER(Global->Barstart,NPROC);
+    BARRIER(Global->Barrier,NPROC);
 
     if ((ProcessId == 0) && (Local[ProcessId].nstep >= 2)) {
         CLOCK(treebuildstart);
@@ -534,7 +643,6 @@ stepsystem (ProcessId)
 
     /* load bodies into tree   */
     maketree(ProcessId);
-
     if ((ProcessId == 0) && (Local[ProcessId].nstep >= 2)) {
         CLOCK(treebuildend);
         Global->treebuildtime += treebuildend - treebuildstart;
@@ -543,8 +651,8 @@ stepsystem (ProcessId)
     Housekeep(ProcessId);
 
     Cavg = (real) Cost(Global->G_root) / (real)NPROC ;
-    Local[ProcessId].workMin = (int) (Cavg * ProcessId);
-    Local[ProcessId].workMax = (int) (Cavg * (ProcessId + 1)
+    Local[ProcessId].workMin = (long) (Cavg * ProcessId);
+    Local[ProcessId].workMax = (long) (Cavg * (ProcessId + 1)
 				      + (ProcessId == (NPROC - 1)));
 
     if ((ProcessId == 0) && (Local[ProcessId].nstep >= 2)) {
@@ -575,12 +683,12 @@ stepsystem (ProcessId)
     for (pp = Local[ProcessId].mybodytab;
 	 pp < Local[ProcessId].mybodytab+Local[ProcessId].mynbody; pp++) {
        p = *pp;
-       MULVS(dvel, Acc(p), dthf);              
-       ADDV(vel1, Vel(p), dvel);               
-       MULVS(dpos, vel1, dtime);               
-       ADDV(Pos(p), Pos(p), dpos);             
-       ADDV(Vel(p), vel1, dvel);               
-        
+       MULVS(dvel, Acc(p), dthf);
+       ADDV(vel1, Vel(p), dvel);
+       MULVS(dpos, vel1, dtime);
+       ADDV(Pos(p), Pos(p), dpos);
+       ADDV(Vel(p), vel1, dvel);
+
        for (i = 0; i < NDIM; i++) {
           if (Pos(p)[i]<Local[ProcessId].min[i]) {
 	     Local[ProcessId].min[i]=Pos(p)[i];
@@ -604,7 +712,7 @@ stepsystem (ProcessId)
     /* bar needed to make sure that every process has computed its min */
     /* and max coordinates, and has accumulated them into the global   */
     /* min and max, before the new dimensions are computed	       */
-    BARRIER(Global->Barpos,NPROC);
+    BARRIER(Global->Barrier,NPROC);
 
     if ((ProcessId == 0) && (Local[ProcessId].nstep >= 2)) {
         CLOCK(trackend);
@@ -627,22 +735,20 @@ stepsystem (ProcessId)
     Local[ProcessId].tnow = Local[ProcessId].tnow + dtime;
 }
 
-
 
-void
-ComputeForces (ProcessId)
-   unsigned int ProcessId;
+
+void ComputeForces(long ProcessId)
 {
    bodyptr p,*pp;
-   vector acc1, dacc, dvel, vel1, dpos;
+   vector acc1, dacc, dvel;
 
    for (pp = Local[ProcessId].mybodytab;
-	pp < Local[ProcessId].mybodytab+Local[ProcessId].mynbody;pp++) {  
+	pp < Local[ProcessId].mybodytab+Local[ProcessId].mynbody;pp++) {
       p = *pp;
       SETV(acc1, Acc(p));
       Cost(p)=0;
       hackgrav(p,ProcessId);
-      Local[ProcessId].myn2bcalc += Local[ProcessId].myn2bterm; 
+      Local[ProcessId].myn2bcalc += Local[ProcessId].myn2bterm;
       Local[ProcessId].mynbccalc += Local[ProcessId].mynbcterm;
       if (!Local[ProcessId].skipself) {       /*   did we miss self-int?  */
 	 Local[ProcessId].myselfint++;        /*   count another goofup   */
@@ -656,45 +762,35 @@ ComputeForces (ProcessId)
    }
 }
 
-/* 
- * FIND_MY_INITIAL_BODIES: puts into mybodytab the initial list of bodies 
- * assigned to the processor.  
+/*
+ * FIND_MY_INITIAL_BODIES: puts into mybodytab the initial list of bodies
+ * assigned to the processor.
  */
 
-find_my_initial_bodies(btab, nbody, ProcessId)
-bodyptr btab;
-int nbody;
-unsigned int ProcessId;
+void find_my_initial_bodies(bodyptr btab, long nbody, long ProcessId)
 {
-  int Myindex;
-  int intpow();
-  int equalbodies;
-  int extra,offset,i;
+  long extra,offset,i;
 
   Local[ProcessId].mynbody = nbody / NPROC;
   extra = nbody % NPROC;
   if (ProcessId < extra) {
-    Local[ProcessId].mynbody++;    
+    Local[ProcessId].mynbody++;
     offset = Local[ProcessId].mynbody * ProcessId;
   }
   if (ProcessId >= extra) {
-    offset = (Local[ProcessId].mynbody+1) * extra + (ProcessId - extra) 
-       * Local[ProcessId].mynbody; 
+    offset = (Local[ProcessId].mynbody+1) * extra + (ProcessId - extra)
+       * Local[ProcessId].mynbody;
   }
   for (i=0; i < Local[ProcessId].mynbody; i++) {
      Local[ProcessId].mybodytab[i] = &(btab[offset+i]);
   }
-  BARRIER(Global->Barstart,NPROC);
+  BARRIER(Global->Barrier,NPROC);
 }
 
 
-find_my_bodies(mycell, work, direction, ProcessId)
-  nodeptr mycell;
-  int work;
-  int direction;
-  unsigned ProcessId;
+void find_my_bodies(nodeptr mycell, long work, long direction, long ProcessId)
 {
-   int i;
+   long i;
    leafptr l;
    nodeptr qptr;
 
@@ -703,9 +799,9 @@ find_my_bodies(mycell, work, direction, ProcessId)
       for (i = 0; i < l->num_bodies; i++) {
 	 if (work >= Local[ProcessId].workMin - .1) {
 	    if((Local[ProcessId].mynbody+2) > maxmybody) {
-	       error("find_my_bodies: Processor %d needs more than %d bodies; increase fleaves\n",ProcessId, maxmybody); 
+	       error("find_my_bodies: Processor %ld needs more than %ld bodies; increase fleaves\n", ProcessId, maxmybody);
 	    }
-	    Local[ProcessId].mybodytab[Local[ProcessId].mynbody++] = 
+	    Local[ProcessId].mybodytab[Local[ProcessId].mynbody++] =
 	       Bodyp(l)[i];
 	 }
 	 work += Cost(Bodyp(l)[i]);
@@ -733,10 +829,9 @@ find_my_bodies(mycell, work, direction, ProcessId)
  * variables) between each time step.
  */
 
-Housekeep(ProcessId)
-unsigned ProcessId;
+void Housekeep(long ProcessId)
 {
-   Local[ProcessId].myn2bcalc = Local[ProcessId].mynbccalc 
+   Local[ProcessId].myn2bcalc = Local[ProcessId].mynbccalc
       = Local[ProcessId].myselfint = 0;
    SETVS(Local[ProcessId].min,1E99);
    SETVS(Local[ProcessId].max,-1E99);
@@ -746,9 +841,9 @@ unsigned ProcessId;
  * SETBOUND: Compute the initial size of the root of the tree; only done
  * before first time step, and only processor 0 does it
  */
-setbound()
+void setbound()
 {
-   int i;
+   long i;
    real side ;
    bodyptr p;
 
@@ -762,7 +857,7 @@ setbound()
 	 if (Pos(p)[i]>Local[0].max[i])  Local[0].max[i]=Pos(p)[i] ;
       }
    }
-    
+
    SUBV(Local[0].max,Local[0].max,Local[0].min);
    for (i=0; i<NDIM;i++) if (side<Local[0].max[i]) side=Local[0].max[i];
    ADDVS(Global->rmin,Local[0].min,-side/100000.0);
@@ -771,8 +866,7 @@ setbound()
    SETVS(Global->min,1E99);
 }
 
-void
-Help () 
+void Help()
 {
    printf("There are a total of twelve parameters, and all of them have default values.\n");
    printf("\n");

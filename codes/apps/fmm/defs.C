@@ -20,10 +20,10 @@
 #include "defs.h"
 #include "memory.h"
 
-int Number_Of_Processors;
+long Number_Of_Processors;
 double Timestep_Dur;
 real Softening_Param;
-int Expansion_Terms;
+long Expansion_Terms;
 
 
 real
@@ -31,7 +31,7 @@ RoundReal (real val)
 {
    double shifter;
    double frac;
-   int exp;
+   long exp;
    double shifted_frac;
    double new_frac;
    double temp;
@@ -65,14 +65,14 @@ PrintVector (vector *v)
 
 
 void
-LockedPrint (char *format, ...)
+LockedPrint (char *format_str, ...)
 {
    va_list ap;
 
-   va_start(ap, format);
+   va_start(ap, format_str);
    LOCK(G_Memory->io_lock);
    fflush(stdout);
-   vfprintf(stdout, format, ap);
+   vfprintf(stdout, format_str, ap);
    fflush(stdout);
    UNLOCK(G_Memory->io_lock);
    va_end(ap);

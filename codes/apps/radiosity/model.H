@@ -59,15 +59,17 @@ typedef Model_Triangle Model_Rectangle ;
 
 
 typedef struct {
-    int type ;
+    long type ;
     Model model ;
 } ModelDataBase ;
 
+/*
+ * modelman.C
+ */
+void init_modeling_tasks(long process_id);
+void process_model(Model *model, long type, long process_id);
 
-
-extern int model_selector ;
-extern void process_model() ;
-extern void init_modeling_tasks() ;
+extern long model_selector ;
 
 #endif
 

@@ -20,7 +20,7 @@
  *                                                                             *
  ******************************************************************************/
 
-#include "incl.h" 
+#include "incl.h"
 
 #define XAXIS		1	/* Positive X-axis points rightwards  */
 #define YAXIS		2	/* Positive Y-axis points upwards     */
@@ -32,16 +32,16 @@ float out_invvertex[2][2][2][NM]; /* Image and object space centers          */
 float uout_invvertex[2][2][2][NM];/* Image and object space vertices         */
 /*   of output map unit voxel              */
 
-short frust_len;		/* Size of clipping frustum                  */
+long frust_len;		/* Size of clipping frustum                  */
 /*   (mins will be 0 in this program,        */
 /*    {x,y}len will be <= IK{X,Y}SIZE)       */
 float out_diag_len[NM];   	/* Per-axis lengths and combined length of   */
 float out_diag_length;	        /*   diagonal of input map in image space    */
 float depth_cueing[MAX_OUTLEN];	/* Pre-computed table of depth cueing        */
-int image_zlen;			/*   number of samples along viewing ray     */
+long image_zlen;			/*   number of samples along viewing ray     */
 float in_max[NM];               /* Pre-computed clipping aids                */
-int opc_xlen,opc_xylen;
-int norm_xlen,norm_xylen;
+long opc_xlen,opc_xylen;
+long norm_xlen,norm_xylen;
 
 float invmatrix[4][4];		/* Inverse of viewing matrix:                */
 /* 4 x 4 viewing transformation matrix       */
@@ -49,11 +49,11 @@ float invmatrix[4][4];		/* Inverse of viewing matrix:                */
 /*    matrix[][3] = 0, matrix[3][3] = 1)     */
 
 EXTERN_ENV
-    
-    Compute_Pre_View()
-{ 
-    int i, outz;
-    
+
+void Compute_Pre_View()
+{
+    long i, outz;
+
     for (i=0; i<NM; i++)
         out_diag_len[i] = opc_len[i]-1;
     out_diag_length = out_diag_len[X]*out_diag_len[X] +
@@ -62,7 +62,7 @@ EXTERN_ENV
     out_diag_length = sqrt(out_diag_length);
     frust_len = NINT(out_diag_length)+1;
     image_zlen = frust_len - 1;
-    
+
     /* Pre-compute table of depth cueing attenuation fractions as        */
     /* exponential falloff from intensity of depth_hither*full at        */
     /* hither (outz=0) to depth_yon*full at yon (frust_len-1).           */
@@ -77,12 +77,12 @@ EXTERN_ENV
                 (depth_hither - depth_yon);
         depth_cueing[outz] = MIN(MAX(depth_cueing[outz],0.0),1.0);
     }
-    
+
     /* Pre-compute clipping aids                                         */
     in_max[X] = (float)(opc_len[X]-1)-SMALL-1.0/(float)MAX_PIXEL;
     in_max[Y] = (float)(opc_len[Y]-1)-SMALL-1.0/(float)MAX_PIXEL;
     in_max[Z] = (float)(opc_len[Z]-1)-SMALL-1.0/(float)MAX_PIXEL;
-    
+
     /* Pre-compute subscripting aids                                     */
     opc_xlen = opc_len[X] + 1;
     opc_xylen = opc_len[X] * opc_len[Y] + 1;
@@ -92,13 +92,13 @@ EXTERN_ENV
 }
 
 
-Select_View(delta_angle, axis)
+void Select_View(delta_angle, axis)
   float delta_angle;
-  int axis;
-  
+  long axis;
+
 {
     Load_Identity_Matrix(invmatrix);
-    
+
     /* Moves input map from all-positive octant to center of     */
     /* coordinate system so subsequent rotations spin object     */
     /* in place.  Must be first after initialization to work.    */
@@ -106,10 +106,10 @@ Select_View(delta_angle, axis)
                                     (float)(out_diag_len[X])/2.0,
                                     (float)(out_diag_len[Y])/2.0,
                                     (float)(out_diag_len[Z])/2.0);
-    
+
     /* scale dataset size in Z-direction for 256x256x113 dataset */
     Inverse_Concatenate_Scaling(invmatrix,1.0,1.0,1.0/(float)ZSCALE);
-    
+
     /* rotation about axis by angle */
     if (frame != 0)
         angle[axis] = angle[axis] + delta_angle;
@@ -117,7 +117,7 @@ Select_View(delta_angle, axis)
     Inverse_Concatenate_Rotation(invmatrix,YAXIS,-angle[Y]);
     /*  Inverse_Concatenate_Rotation(invmatrix,ZAXIS,-angle[Z]);*/
     Inverse_Concatenate_Rotation(invmatrix,XAXIS,30.0);
-    
+
     /* Moves input map from center of coordinate system back     */
     /* to within all-positive octant such that any rotation      */
     /* (e.g. by using pre-matrix, rotations, and anpost-matrix)  */
@@ -128,7 +128,7 @@ Select_View(delta_angle, axis)
                                     -out_diag_length/2.0,
                                     -out_diag_length/2.0,
                                     -out_diag_length/2.0);
-    
+
     /* Insures that frustum entirely encloses any rotation of    */
     /* map assuming they fall within the all-positive octant     */
     /* (e.g. by using pre-matrix, rotations, and anpost-matrix), */
@@ -138,43 +138,43 @@ Select_View(delta_angle, axis)
 }
 
 
-Compute_Input_Dimensions()
+void Compute_Input_Dimensions()
 {
-    int x,y,z,i;
+    long x,y,z;
     float in_invvertex[2][2][2][NM];	/* Image and object space centers    */
-    
+
     in_invvertex[0][0][0][X] = 0;
     in_invvertex[0][0][0][Y] = 0;
     in_invvertex[0][0][0][Z] = 0;
-    
+
     in_invvertex[0][0][1][X] = frust_len-1;
     in_invvertex[0][0][1][Y] = 0;
     in_invvertex[0][0][1][Z] = 0;
-    
+
     in_invvertex[0][1][0][X] = 0;
     in_invvertex[0][1][0][Y] = frust_len-1;
     in_invvertex[0][1][0][Z] = 0;
-    
+
     in_invvertex[0][1][1][X] = frust_len-1;
     in_invvertex[0][1][1][Y] = frust_len-1;
     in_invvertex[0][1][1][Z] = 0;
-    
+
     in_invvertex[1][0][0][X] = 0;
     in_invvertex[1][0][0][Y] = 0;
     in_invvertex[1][0][0][Z] = frust_len-1;
-    
+
     in_invvertex[1][0][1][X] = frust_len-1;
     in_invvertex[1][0][1][Y] = 0;
     in_invvertex[1][0][1][Z] = frust_len-1;
-    
+
     in_invvertex[1][1][0][X] = 0;
     in_invvertex[1][1][0][Y] = frust_len-1;
     in_invvertex[1][1][0][Z] = frust_len-1;
-    
+
     in_invvertex[1][1][1][X] = frust_len-1;
     in_invvertex[1][1][1][Y] = frust_len-1;
     in_invvertex[1][1][1][Z] = frust_len-1;
-    
+
     for (z=0; z<2; z++) {
         for (y=0; y<2; y++) {
             for (x=0; x<2; x++) {
@@ -190,43 +190,43 @@ Compute_Input_Dimensions()
 }
 
 
-Compute_Input_Unit_Vector()
+void Compute_Input_Unit_Vector()
 {
-    int x,y,z,i;
-    float uin_invvertex[2][2][2][NM];    
-    
+    long x,y,z;
+    float uin_invvertex[2][2][2][NM];
+
     uin_invvertex[0][0][0][X] = 0;
     uin_invvertex[0][0][0][Y] = 0;
     uin_invvertex[0][0][0][Z] = 0;
-    
+
     uin_invvertex[0][0][1][X] = 1.0;
     uin_invvertex[0][0][1][Y] = 0;
     uin_invvertex[0][0][1][Z] = 0;
-    
+
     uin_invvertex[0][1][0][X] = 0;
     uin_invvertex[0][1][0][Y] = 1.0;
     uin_invvertex[0][1][0][Z] = 0;
-    
+
     uin_invvertex[0][1][1][X] = 1.0;
     uin_invvertex[0][1][1][Y] = 1.0;
     uin_invvertex[0][1][1][Z] = 0;
-    
+
     uin_invvertex[1][0][0][X] = 0;
     uin_invvertex[1][0][0][Y] = 0;
     uin_invvertex[1][0][0][Z] = 1.0;
-    
+
     uin_invvertex[1][0][1][X] = 1.0;
     uin_invvertex[1][0][1][Y] = 0;
     uin_invvertex[1][0][1][Z] = 1.0;
-    
+
     uin_invvertex[1][1][0][X] = 0;
     uin_invvertex[1][1][0][Y] = 1.0;
     uin_invvertex[1][1][0][Z] = 1.0;
-    
+
     uin_invvertex[1][1][1][X] = 1.0;
     uin_invvertex[1][1][1][Y] = 1.0;
     uin_invvertex[1][1][1][Z] = 1.0;
-    
+
     for (z=0; z<2; z++) {
         for (y=0; y<2; y++) {
             for (x=0; x<2; x++) {
@@ -242,14 +242,14 @@ Compute_Input_Unit_Vector()
 }
 
 
-Load_Transformation_Matrix(matrix)
+void Load_Transformation_Matrix(matrix)
   float matrix[4][4];
 {
 	Copy_Matrix(matrix,transformation_matrix);
 }
 
 
-Transform_Point(xold,yold,zold,xnew,ynew,znew)
+void Transform_Point(xold,yold,zold,xnew,ynew,znew)
   float xold,yold,zold;
   float *xnew,*ynew,*znew;
 {
@@ -258,13 +258,13 @@ Transform_Point(xold,yold,zold,xnew,ynew,znew)
             yold * transformation_matrix[1][0] +
                 zold * transformation_matrix[2][0] +
                     transformation_matrix[3][0];
-    
+
 	*ynew =
 	    xold * transformation_matrix[0][1] +
             yold * transformation_matrix[1][1] +
                 zold * transformation_matrix[2][1] +
                     transformation_matrix[3][1];
-    
+
 	*znew =
 	    xold * transformation_matrix[0][2] +
             yold * transformation_matrix[1][2] +
@@ -273,7 +273,7 @@ Transform_Point(xold,yold,zold,xnew,ynew,znew)
 }
 
 
-Inverse_Concatenate_Translation(matrix,xoffset,yoffset,zoffset)
+void Inverse_Concatenate_Translation(matrix,xoffset,yoffset,zoffset)
   float matrix[4][4],xoffset,yoffset,zoffset;
 {
 	float translation_matrix[4][4];
@@ -282,7 +282,7 @@ Inverse_Concatenate_Translation(matrix,xoffset,yoffset,zoffset)
 }
 
 
-Inverse_Concatenate_Scaling(matrix,xscale,yscale,zscale)
+void Inverse_Concatenate_Scaling(matrix,xscale,yscale,zscale)
   float matrix[4][4],xscale,yscale,zscale;
 {
 	float scaling_matrix[4][4];
@@ -291,9 +291,9 @@ Inverse_Concatenate_Scaling(matrix,xscale,yscale,zscale)
 }
 
 
-Inverse_Concatenate_Rotation(matrix,axis,angle)
+void Inverse_Concatenate_Rotation(matrix,axis,angle)
   float matrix[4][4],angle;
-  int axis;
+  long axis;
 {
 	float rotation_matrix[4][4];
 	Load_Rotation_Matrix(rotation_matrix,axis,angle);
@@ -301,10 +301,10 @@ Inverse_Concatenate_Rotation(matrix,axis,angle)
 }
 
 
-Load_Identity_Matrix(matrix)
+void Load_Identity_Matrix(matrix)
   float matrix[4][4];
 {
-	int i,j;
+	long i,j;
 	for (i=0; i<4; i++) {
 		for (j=0; j<4; j++) {
 			matrix[i][j] = 0;
@@ -313,7 +313,7 @@ Load_Identity_Matrix(matrix)
 	}
 }
 
-Load_Translation_Matrix(matrix,xoffset,yoffset,zoffset)
+void Load_Translation_Matrix(matrix,xoffset,yoffset,zoffset)
   float matrix[4][4],xoffset,yoffset,zoffset;
 {
 	Load_Identity_Matrix(matrix);
@@ -323,7 +323,7 @@ Load_Translation_Matrix(matrix,xoffset,yoffset,zoffset)
 }
 
 
-Load_Scaling_Matrix(matrix,xscale,yscale,zscale)
+void Load_Scaling_Matrix(matrix,xscale,yscale,zscale)
   float matrix[4][4],xscale,yscale,zscale;
 {
 	Load_Identity_Matrix(matrix);
@@ -333,9 +333,9 @@ Load_Scaling_Matrix(matrix,xscale,yscale,zscale)
 }
 
 
-Load_Rotation_Matrix(matrix,axis,angle)
+void Load_Rotation_Matrix(matrix,axis,angle)
   float matrix[4][4],angle;
-  int axis;
+  long axis;
 {
 	Load_Identity_Matrix(matrix);
 	if (axis == XAXIS) {
@@ -359,7 +359,7 @@ Load_Rotation_Matrix(matrix,axis,angle)
 }
 
 
-Concatenate_Transform(composite_matrix,transformation_matrix)
+void Concatenate_Transform(composite_matrix,transformation_matrix)
   float composite_matrix[][4],transformation_matrix[][4];
 {
 	float temp_matrix[4][4];
@@ -367,7 +367,7 @@ Concatenate_Transform(composite_matrix,transformation_matrix)
 	Copy_Matrix(temp_matrix,composite_matrix);
 }
 
-Inverse_Concatenate_Transform(composite_matrix,transformation_matrix)
+void Inverse_Concatenate_Transform(composite_matrix,transformation_matrix)
   float composite_matrix[][4],transformation_matrix[][4];
 {
 	float temp_matrix[4][4];
@@ -376,10 +376,10 @@ Inverse_Concatenate_Transform(composite_matrix,transformation_matrix)
 }
 
 
-Multiply_Matrices(input_matrix1,input_matrix2,output_matrix)
+void Multiply_Matrices(input_matrix1,input_matrix2,output_matrix)
   float input_matrix1[][4],input_matrix2[][4],output_matrix[][4];
 {
-	int i,j;
+	long i,j;
 	for (i=0; i<4; i++) {
 		for (j=0; j<4; j++) {
 			output_matrix[i][j] =
@@ -396,15 +396,13 @@ Multiply_Matrices(input_matrix1,input_matrix2,output_matrix)
 }
 
 
-Copy_Matrix(input_matrix,output_matrix)
+void Copy_Matrix(input_matrix,output_matrix)
 float input_matrix[][4],output_matrix[][4];
 {
-	int i,j;
+	long i,j;
 	for (i=0; i<4; i++) {
 		for (j=0; j<4; j++) {
 			output_matrix[i][j] = input_matrix[i][j];
 		}
 	}
 }
-
-

@@ -15,8 +15,8 @@
 /*************************************************************************/
 
 #define INPROCS        16
-#define IMAX          258 
-#define JMAX          258 
+#define IMAX          258
+#define JMAX          258
 #define MAX_LEVELS      9
 #define MASTER          0
 #define RED_ITER        0
@@ -25,87 +25,88 @@
 
 EXTERN_ENV
 
-extern struct global_struct {
-   int id;
-   int starttime;
-   int trackstart;
+struct global_struct {
+   long id;
+   long starttime;
+   long trackstart;
    double psiai;
    double psibi;
-} *global;
+};
 
-extern struct fields_struct {
+struct fields_struct {
    double psi[2][IMAX][JMAX];
    double psim[2][IMAX][JMAX];
-} *fields;
-  
-extern struct fields2_struct {
+};
+
+struct fields2_struct {
    double psium[IMAX][JMAX];
    double psilm[IMAX][JMAX];
-} *fields2;
+};
 
-extern struct wrk1_struct {
+struct wrk1_struct {
    double psib[IMAX][JMAX];
    double ga[IMAX][JMAX];
    double gb[IMAX][JMAX];
-} *wrk1;
+};
 
-extern struct wrk3_struct {
+struct wrk3_struct {
    double work1[2][IMAX][JMAX];
    double work2[IMAX][JMAX];
-} *wrk3;
+};
 
-extern struct wrk2_struct {
+struct wrk2_struct {
    double work3[IMAX][JMAX];
    double f[IMAX];
-} *wrk2;
+};
 
-extern struct wrk4_struct {
+struct wrk4_struct {
    double work4[2][IMAX][JMAX];
    double work5[2][IMAX][JMAX];
-} *wrk4;
+};
 
-extern struct wrk6_struct {
+struct wrk6_struct {
    double work6[IMAX][JMAX];
-} *wrk6;
+};
 
-extern struct wrk5_struct {
+struct wrk5_struct {
    double work7[2][IMAX][JMAX];
    double temparray[2][IMAX][JMAX];
-} *wrk5;
+};
 
-extern struct frcng_struct {
+struct frcng_struct {
    double tauz[IMAX][JMAX];
-} *frcng;
+};
 
-extern struct iter_struct {
-   int notdone;
+struct iter_struct {
+   long notdone;
    double work8[IMAX][JMAX];
    double work9[IMAX][JMAX];
-} *iter;
+};
 
-extern struct guess_struct {
+struct guess_struct {
    double oldga[IMAX][JMAX];
    double oldgb[IMAX][JMAX];
-} *guess;
+};
 
-extern struct multi_struct {
+struct multi_struct {
    double q_multi[MAX_LEVELS][IMAX][JMAX];
    double rhs_multi[MAX_LEVELS][IMAX][JMAX];
    double err_multi;
-   int numspin;
-   int spinflag[INPROCS];
-} *multi;
+   long numspin;
+   long spinflag[INPROCS];
+};
 
-extern struct locks_struct {
+struct locks_struct {
    LOCKDEC(idlock)
    LOCKDEC(psiailock)
    LOCKDEC(psibilock)
    LOCKDEC(donelock)
    LOCKDEC(error_lock)
    LOCKDEC(bar_lock)
-} *locks;
- 
-extern struct bars_struct {
+};
+
+struct bars_struct {
+#if defined(MULTIPLE_BARRIERS)
    BARDEC(iteration)
    BARDEC(gsudn)
    BARDEC(p_setup)
@@ -126,31 +127,50 @@ extern struct bars_struct {
    BARDEC(sl_phase_9)
    BARDEC(sl_phase_10)
    BARDEC(error_barrier)
-} *bars;
+#else
+   BARDEC(barrier)
+#endif
+};
+
+extern struct global_struct *global;
+extern struct fields_struct *fields;
+extern struct fields2_struct *fields2;
+extern struct wrk1_struct *wrk1;
+extern struct wrk3_struct *wrk3;
+extern struct wrk2_struct *wrk2;
+extern struct wrk4_struct *wrk4;
+extern struct wrk6_struct *wrk6;
+extern struct wrk5_struct *wrk5;
+extern struct frcng_struct *frcng;
+extern struct iter_struct *iter;
+extern struct guess_struct *guess;
+extern struct multi_struct *multi;
+extern struct locks_struct *locks;
+extern struct bars_struct *bars;
 
 extern double eig2;
 extern double ysca;
-extern int jmm1;
+extern long jmm1;
 extern double pi;
 extern double t0;
 
-extern int *procmap;
-extern int xprocs;
-extern int yprocs;
+extern long *procmap;
+extern long xprocs;
+extern long yprocs;
 
-extern int numlev;
-extern int imx[MAX_LEVELS];
-extern int jmx[MAX_LEVELS];
+extern long numlev;
+extern long imx[MAX_LEVELS];
+extern long jmx[MAX_LEVELS];
 extern double lev_res[MAX_LEVELS];
 extern double lev_tol[MAX_LEVELS];
 extern double maxwork;
-extern int minlevel;
+extern long minlevel;
 extern double outday0;
 extern double outday1;
 extern double outday2;
 extern double outday3;
 
-extern int nprocs;
+extern long nprocs;
 
 extern double h1;
 extern double h3;
@@ -161,46 +181,82 @@ extern double dtau;
 extern double f0;
 extern double beta;
 extern double gpr;
-extern int im;
-extern int jm;
-extern int do_stats;
-extern int do_output;
-extern int *multi_times;
-extern int *total_times;
+extern long im;
+extern long jm;
+extern long do_stats;
+extern long do_output;
+extern long *multi_times;
+extern long *total_times;
 extern double factjacob;
 extern double factlap;
 
-extern struct Global_Private {
+struct Global_Private {
   char pad[PAGE_SIZE];
   double multi_time;
   double total_time;
-  int rel_start_x[MAX_LEVELS];
-  int rel_start_y[MAX_LEVELS];
-  int rel_num_x[MAX_LEVELS];
-  int rel_num_y[MAX_LEVELS];
-  int eist[MAX_LEVELS];
-  int ejst[MAX_LEVELS];
-  int oist[MAX_LEVELS];
-  int ojst[MAX_LEVELS];
-  int eiest[MAX_LEVELS];
-  int ejest[MAX_LEVELS];
-  int oiest[MAX_LEVELS];
-  int ojest[MAX_LEVELS];
-  int rlist[MAX_LEVELS];
-  int rljst[MAX_LEVELS];
-  int rlien[MAX_LEVELS];
-  int rljen[MAX_LEVELS];
-  int iist[MAX_LEVELS];
-  int ijst[MAX_LEVELS];
-  int iien[MAX_LEVELS];
-  int ijen[MAX_LEVELS];
-  int pist[MAX_LEVELS];
-  int pjst[MAX_LEVELS];
-  int pien[MAX_LEVELS];
-  int pjen[MAX_LEVELS];
-} *gp;
+  long rel_start_x[MAX_LEVELS];
+  long rel_start_y[MAX_LEVELS];
+  long rel_num_x[MAX_LEVELS];
+  long rel_num_y[MAX_LEVELS];
+  long eist[MAX_LEVELS];
+  long ejst[MAX_LEVELS];
+  long oist[MAX_LEVELS];
+  long ojst[MAX_LEVELS];
+  long eiest[MAX_LEVELS];
+  long ejest[MAX_LEVELS];
+  long oiest[MAX_LEVELS];
+  long ojest[MAX_LEVELS];
+  long rlist[MAX_LEVELS];
+  long rljst[MAX_LEVELS];
+  long rlien[MAX_LEVELS];
+  long rljen[MAX_LEVELS];
+  long iist[MAX_LEVELS];
+  long ijst[MAX_LEVELS];
+  long iien[MAX_LEVELS];
+  long ijen[MAX_LEVELS];
+  long pist[MAX_LEVELS];
+  long pjst[MAX_LEVELS];
+  long pien[MAX_LEVELS];
+  long pjen[MAX_LEVELS];
+};
+
+extern struct Global_Private *gp;
 
 extern double i_int_coeff[MAX_LEVELS];
 extern double j_int_coeff[MAX_LEVELS];
-extern int minlev;
+extern long minlev;
 
+/*
+ * jacobcalc.C
+ */
+void jacobcalc(double x[IMAX][JMAX], double y[IMAX][JMAX], double z[IMAX][JMAX], long pid, long firstrow, long lastrow, long firstcol, long lastcol, long numrows, long numcols);
+
+/*
+ * laplacalc.C
+ */
+void laplacalc(double x[IMAX][JMAX], double z[IMAX][JMAX], long firstrow, long lastrow, long firstcol, long lastcol, long numrows, long numcols);
+
+/*
+ * main.C
+ */
+long log_2(long number);
+void printerr(char *s);
+
+/*
+ * multi.C
+ */
+void multig(long my_id);
+void relax(long k, double *err, long color, long my_num);
+void rescal(long kf, long my_num);
+void intadd(long kc, long my_num);
+void putz(long k, long my_num);
+
+/*
+ * slave1.C
+ */
+void slave(void);
+
+/*
+ * slave2.C
+ */
+void slave2(long procid, long firstrow, long lastrow, long numrows, long firstcol, long lastcol, long numcols);

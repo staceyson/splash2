@@ -14,6 +14,19 @@
 #ifndef _PSLIB_H
 #define _PSLIB_H
 
+#include "../structs.H"
+
+#define M_PI           3.14159265358979323846
+
+typedef struct
+{
+	float v[4] ;                   /* x, y, z, and w */
+} Vertex2;
+
+typedef struct
+{
+	float m[4][4] ;                /* m[row][column], row vector assumed */
+} Matrix;
 
 /****************************************
 *
@@ -21,16 +34,14 @@
 *
 *****************************************/
 
-extern void ps_open() ;
-extern void ps_close() ;
-extern void ps_linewidth() ;
-extern void ps_line() ;
-extern void ps_polygonedge() ;
-extern void ps_polygon() ;
-extern void ps_spolygon() ;
-extern void ps_clear() ;
-extern void ps_setup_view() ;
-
-
+long ps_open(char *file);
+void ps_close(void);
+void ps_linewidth(float w);
+void ps_line(Vertex *p1, Vertex *p2);
+void ps_polygonedge(long n, Vertex *p_list);
+void ps_polygon(long n, Vertex *p_list);
+void ps_spolygon(long n, Vertex *p_list, Rgb *c_list);
+void ps_clear(void);
+void ps_setup_view(float rot_x, float rot_y, float dist, float zoom);
 
 #endif

@@ -17,56 +17,55 @@
 /*    ****************
       subroutine slave
       ****************  */
-     
+
 EXTERN_ENV
 
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <stdlib.h>
 #include "decs.h"
 
-void slave() 
-
+void slave()
 {
-   int i;
-   int j;
-   int nstep;
-   int iindex;
-   int iday;
+   long i;
+   long j;
+   long nstep;
+   long iindex;
+   long iday;
    double ysca1;
    double y;
    double factor;
    double sintemp;
    double curlt;
    double ressqr;
-   int istart; 
-   int iend; 
-   int jstart; 
-   int jend;
-   int ist; 
-   int ien; 
-   int jst; 
-   int jen;
+   long istart;
+   long iend;
+   long jstart;
+   long jend;
+   long ist;
+   long ien;
+   long jst;
+   long jen;
    double fac;
-   int dayflag=0;
-   int dhourflag=0;
-   int endflag=0;
-   int firstrow;
-   int lastrow;
-   int numrows;
-   int firstcol;
-   int lastcol;
-   int numcols;
-   int psiindex;
+   long dayflag=0;
+   long dhourflag=0;
+   long endflag=0;
+   long firstrow;
+   long lastrow;
+   long numrows;
+   long firstcol;
+   long lastcol;
+   long numcols;
+   long psiindex;
    double psibipriv;
    double ttime;
    double dhour;
    double day;
-   int procid;
-   int psinum;
-   int i_off = 0;
-   int j_off = 0;
-   unsigned int t1;
+   long procid;
+   long psinum;
+   long j_off = 0;
+   unsigned long t1;
    double **t2a;
    double **t2b;
    double *t1a;
@@ -79,24 +78,27 @@ void slave()
    LOCK(locks->idlock)
      procid = global->id;
      global->id = global->id+1;
-   UNLOCK(locks->idlock)     
+   UNLOCK(locks->idlock)
 
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_prini,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /* POSSIBLE ENHANCEMENT:  Here is where one might pin processes to
    processors to avoid migration. */
 
-/* POSSIBLE ENHANCEMENT:  Here is where one might distribute 
+/* POSSIBLE ENHANCEMENT:  Here is where one might distribute
    data structures across physically distributed memories as
    desired.
-   
+
    One way to do this is as follows.  The function allocate(START,SIZE,I)
-   is assumed to place all addresses x such that 
+   is assumed to place all addresses x such that
    (START <= x < START+SIZE) on node I.
 
-   int d_size;
-   unsigned int g_size;
-   unsigned int mg_size;
+   long d_size;
+   unsigned long g_size;
+   unsigned long mg_size;
 
    if (procid == MASTER) {
      g_size = ((jmx[numlev-1]-2)/xprocs+2)*((imx[numlev-1]-2)/yprocs+2)*siz
@@ -110,53 +112,53 @@ eof(double) +
      }
      for (i= 0;i<nprocs;i++) {
        d_size = 2*sizeof(double **);
-       allocate((unsigned int) psi[i],d_size,i);
-       allocate((unsigned int) psim[i],d_size,i);
-       allocate((unsigned int) work1[i],d_size,i);
-       allocate((unsigned int) work4[i],d_size,i);
-       allocate((unsigned int) work5[i],d_size,i);
-       allocate((unsigned int) work7[i],d_size,i);
-       allocate((unsigned int) temparray[i],d_size,i);
-       allocate((unsigned int) psi[i][0],g_size,i);
-       allocate((unsigned int) psi[i][1],g_size,i);
-       allocate((unsigned int) psim[i][0],g_size,i);
-       allocate((unsigned int) psim[i][1],g_size,i);
-       allocate((unsigned int) psium[i],g_size,i);
-       allocate((unsigned int) psilm[i],g_size,i);
-       allocate((unsigned int) psib[i],g_size,i);
-       allocate((unsigned int) ga[i],g_size,i);
-       allocate((unsigned int) gb[i],g_size,i);
-       allocate((unsigned int) work1[i][0],g_size,i);
-       allocate((unsigned int) work1[i][1],g_size,i);
-       allocate((unsigned int) work2[i],g_size,i);
-       allocate((unsigned int) work3[i],g_size,i);
-       allocate((unsigned int) work4[i][0],g_size,i);
-       allocate((unsigned int) work4[i][1],g_size,i);
-       allocate((unsigned int) work5[i][0],g_size,i);
-       allocate((unsigned int) work5[i][1],g_size,i);
-       allocate((unsigned int) work6[i],g_size,i);
-       allocate((unsigned int) work7[i][0],g_size,i);
-       allocate((unsigned int) work7[i][1],g_size,i);
-       allocate((unsigned int) temparray[i][0],g_size,i);
-       allocate((unsigned int) temparray[i][1],g_size,i);
-       allocate((unsigned int) tauz[i],g_size,i);
-       allocate((unsigned int) oldga[i],g_size,i);
-       allocate((unsigned int) oldgb[i],g_size,i);
-       d_size = numlev * sizeof(int);
-       allocate((unsigned int) gp[i].rel_num_x,d_size,i);
-       allocate((unsigned int) gp[i].rel_num_y,d_size,i);
-       allocate((unsigned int) gp[i].eist,d_size,i);
-       allocate((unsigned int) gp[i].ejst,d_size,i);
-       allocate((unsigned int) gp[i].oist,d_size,i);
-       allocate((unsigned int) gp[i].ojst,d_size,i);
-       allocate((unsigned int) gp[i].rlist,d_size,i);
-       allocate((unsigned int) gp[i].rljst,d_size,i);
-       allocate((unsigned int) gp[i].rlien,d_size,i);
-       allocate((unsigned int) gp[i].rljen,d_size,i);
+       allocate((unsigned long) psi[i],d_size,i);
+       allocate((unsigned long) psim[i],d_size,i);
+       allocate((unsigned long) work1[i],d_size,i);
+       allocate((unsigned long) work4[i],d_size,i);
+       allocate((unsigned long) work5[i],d_size,i);
+       allocate((unsigned long) work7[i],d_size,i);
+       allocate((unsigned long) temparray[i],d_size,i);
+       allocate((unsigned long) psi[i][0],g_size,i);
+       allocate((unsigned long) psi[i][1],g_size,i);
+       allocate((unsigned long) psim[i][0],g_size,i);
+       allocate((unsigned long) psim[i][1],g_size,i);
+       allocate((unsigned long) psium[i],g_size,i);
+       allocate((unsigned long) psilm[i],g_size,i);
+       allocate((unsigned long) psib[i],g_size,i);
+       allocate((unsigned long) ga[i],g_size,i);
+       allocate((unsigned long) gb[i],g_size,i);
+       allocate((unsigned long) work1[i][0],g_size,i);
+       allocate((unsigned long) work1[i][1],g_size,i);
+       allocate((unsigned long) work2[i],g_size,i);
+       allocate((unsigned long) work3[i],g_size,i);
+       allocate((unsigned long) work4[i][0],g_size,i);
+       allocate((unsigned long) work4[i][1],g_size,i);
+       allocate((unsigned long) work5[i][0],g_size,i);
+       allocate((unsigned long) work5[i][1],g_size,i);
+       allocate((unsigned long) work6[i],g_size,i);
+       allocate((unsigned long) work7[i][0],g_size,i);
+       allocate((unsigned long) work7[i][1],g_size,i);
+       allocate((unsigned long) temparray[i][0],g_size,i);
+       allocate((unsigned long) temparray[i][1],g_size,i);
+       allocate((unsigned long) tauz[i],g_size,i);
+       allocate((unsigned long) oldga[i],g_size,i);
+       allocate((unsigned long) oldgb[i],g_size,i);
+       d_size = numlev * sizeof(long);
+       allocate((unsigned long) gp[i].rel_num_x,d_size,i);
+       allocate((unsigned long) gp[i].rel_num_y,d_size,i);
+       allocate((unsigned long) gp[i].eist,d_size,i);
+       allocate((unsigned long) gp[i].ejst,d_size,i);
+       allocate((unsigned long) gp[i].oist,d_size,i);
+       allocate((unsigned long) gp[i].ojst,d_size,i);
+       allocate((unsigned long) gp[i].rlist,d_size,i);
+       allocate((unsigned long) gp[i].rljst,d_size,i);
+       allocate((unsigned long) gp[i].rlien,d_size,i);
+       allocate((unsigned long) gp[i].rljen,d_size,i);
 
-       allocate((unsigned int) q_multi[i],mg_size,i);
-       allocate((unsigned int) rhs_multi[i],mg_size,i);
-       allocate((unsigned int) &(gp[i]),sizeof(struct Global_Private),i);
+       allocate((unsigned long) q_multi[i],mg_size,i);
+       allocate((unsigned long) rhs_multi[i],mg_size,i);
+       allocate((unsigned long) &(gp[i]),sizeof(struct Global_Private),i);
      }
    }
 
@@ -176,7 +178,7 @@ eof(double) +
    firstcol = 1;
    lastcol = firstcol + gp[procid].rel_num_x[numlev-1] - 1;
    firstrow = 1;
-   lastrow = firstrow + gp[procid].rel_num_y[numlev-1] - 1;  
+   lastrow = firstrow + gp[procid].rel_num_y[numlev-1] - 1;
    numcols = gp[procid].rel_num_x[numlev-1];
    numrows = gp[procid].rel_num_y[numlev-1];
    j_off = gp[procid].colnum*numcols;
@@ -206,16 +208,16 @@ eof(double) +
    }
 
    t2a = (double **) psium[procid];
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      t2a[0][0]=0.0;
-   }  
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   }
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      t2a[im-1][0]=0.0;
    }
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      t2a[0][jm-1]=0.0;
    }
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      t2a[im-1][jm-1]=0.0;
    }
    if (gp[procid].neighbors[UP] == -1) {
@@ -240,7 +242,7 @@ eof(double) +
        t2a[j][jm-1] = 0.0;
      }
    }
-   
+
    for(i=firstrow;i<=lastrow;i++) {
      t1a = (double *) t2a[i];
      for(iindex=firstcol;iindex<=lastcol;iindex++) {
@@ -248,16 +250,16 @@ eof(double) +
      }
    }
    t2a = (double **) psilm[procid];
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      t2a[0][0]=0.0;
    }
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      t2a[im-1][0]=0.0;
    }
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      t2a[0][jm-1]=0.0;
    }
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      t2a[im-1][jm-1]=0.0;
    }
    if (gp[procid].neighbors[UP] == -1) {
@@ -290,16 +292,16 @@ eof(double) +
    }
 
    t2a = (double **) psib[procid];
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      t2a[0][0]=1.0;
    }
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      t2a[0][jm-1]=1.0;
    }
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      t2a[im-1][0]=1.0;
    }
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      t2a[im-1][jm-1]=1.0;
    }
    if (gp[procid].neighbors[UP] == -1) {
@@ -332,20 +334,22 @@ eof(double) +
    }
 
 /* wait until all processes have completed the above initialization  */
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_prini,nprocs)
- 
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /* compute psib array (one-time computation) and integrate into psibi */
- 
+
    istart = 1;
    iend = istart + gp[procid].rel_num_y[numlev-1] - 1;
    jstart = 1;
-   jend = jstart + gp[procid].rel_num_x[numlev-1] - 1;    
+   jend = jstart + gp[procid].rel_num_x[numlev-1] - 1;
    ist = istart;
    ien = iend;
    jst = jstart;
-   jen = jend;  
-   
+   jen = jend;
+
    if (gp[procid].neighbors[UP] == -1) {
      istart = 0;
    }
@@ -353,10 +357,10 @@ eof(double) +
      jstart = 0;
    }
    if (gp[procid].neighbors[DOWN] == -1) {
-     iend = im-1;   
+     iend = im-1;
    }
    if (gp[procid].neighbors[RIGHT] == -1) {
-     jend = jm-1;    
+     jend = jm-1;
    }
 
    t2a = (double **) rhs_multi[procid][numlev-1];
@@ -367,7 +371,7 @@ eof(double) +
      for(j=jstart;j<=jend;j++) {
        t1a[j] = t1b[j] * ressqr;
      }
-   }  
+   }
    t2a = (double **) q_multi[procid][numlev-1];
    if (gp[procid].neighbors[UP] == -1) {
      t1a = (double *) t2a[0];
@@ -393,9 +397,11 @@ eof(double) +
        t2a[i][jm-1] = t2b[i][jm-1];
      }
    }
-   
-   BARRIER(bars->sl_psini,nprocs) 
-
+#if defined(MULTIPLE_BARRIERS)
+   BARRIER(bars->sl_psini,nprocs)
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
    t2a = (double **) psib[procid];
    j = gp[procid].neighbors[UP];
    if (j != -1) {
@@ -426,7 +432,7 @@ eof(double) +
      for (i=1;i<im-1;i++) {
        t2a[i][jm-1] = t2b[i][1];
      }
-   }  
+   }
 
    t2a = (double **) q_multi[procid][numlev-1];
    t2b = (double **) psib[procid];
@@ -437,11 +443,11 @@ eof(double) +
      t1c = (double *) t2b[i-1];
      t1d = (double *) t2b[i+1];
      for(j=jst;j<=jen;j++) {
-       t1a[j] = fac * (t1d[j]+t1c[j]+t1b[j+1]+t1b[j-1] - 
+       t1a[j] = fac * (t1d[j]+t1c[j]+t1b[j+1]+t1b[j-1] -
                    ressqr*t1b[j]);
      }
    }
-   
+
    multig(procid);
 
    for(i=istart;i<=iend;i++) {
@@ -451,24 +457,26 @@ eof(double) +
        t1b[j] = t1a[j];
      }
    }
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_prini,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /* update the local running sum psibipriv by summing all the resulting
    values in that process's share of the psib matrix   */
 
    t2a = (double **) psib[procid];
    psibipriv=0.0;
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      psibipriv = psibipriv + 0.25*(t2a[0][0]);
    }
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      psibipriv = psibipriv + 0.25*(t2a[0][jm-1]);
    }
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      psibipriv=psibipriv+0.25*(t2a[im-1][0]);
    }
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      psibipriv=psibipriv+0.25*(t2a[im-1][jm-1]);
    }
    if (gp[procid].neighbors[UP] == -1) {
@@ -498,11 +506,11 @@ eof(double) +
      for(iindex=firstcol;iindex<=lastcol;iindex++) {
        psibipriv = psibipriv + t1a[iindex];
      }
-   } 
+   }
 
 /* update the shared variable psibi by summing all the psibiprivs
    of the individual processes into it.  note that this combined
-   private and shared sum method avoids accessing the shared 
+   private and shared sum method avoids accessing the shared
    variable psibi once for every element of the matrix.  */
 
    LOCK(locks->psibilock)
@@ -510,20 +518,20 @@ eof(double) +
    UNLOCK(locks->psibilock)
 
 /* initialize psim matrices
-   
+
    if there is more than one process, then split the processes
    between the two psim matrices; otherwise, let the single process
    work on one first and then the other   */
 
    for(psiindex=0;psiindex<=1;psiindex++) {
      t2a = (double **) psim[procid][psiindex];
-     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
        t2a[0][0] = 0.0;
      }
-     if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+     if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
        t2a[im-1][0] = 0.0;
      }
-     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
        t2a[0][jm-1] = 0.0;
      }
      if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
@@ -558,18 +566,18 @@ eof(double) +
        }
      }
    }
- 
+
 /* initialize psi matrices the same way  */
 
    for(psiindex=0;psiindex<=1;psiindex++) {
      t2a = (double **) psi[procid][psiindex];
-     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
        t2a[0][0] = 0.0;
      }
-     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
        t2a[0][jm-1] = 0.0;
      }
-     if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+     if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
        t2a[im-1][0] = 0.0;
      }
      if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
@@ -610,18 +618,18 @@ eof(double) +
    t2a = (double **) tauz[procid];
    ysca1 = .5*ysca;
    factor= -t0*pi/ysca1;
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      t2a[0][0] = 0.0;
    }
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
      t2a[im-1][0] = 0.0;
    }
-   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      sintemp = pi*((double) jm-1+j_off)*res/ysca1;
      sintemp = sin(sintemp);
      t2a[0][jm-1] = factor*sintemp;
    }
-   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+   if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
      sintemp = pi*((double) jm-1+j_off)*res/ysca1;
      sintemp = sin(sintemp);
      t2a[im-1][jm-1] = factor*sintemp;
@@ -665,11 +673,13 @@ eof(double) +
        curlt = factor*sintemp;
        t1a[iindex] = curlt;
      }
-   }  
-   
+   }
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_onetime,nprocs)
-   
-   
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
+
 /***************************************************************
  one-time stuff over at this point
  ***************************************************************/
@@ -700,10 +710,10 @@ eof(double) +
        ttime = ttime + dtau;
        nstep = nstep + 1;
        day = ttime/86400.0;
- 
+
        if (day > ((double) outday0)) {
          dayflag = 1;
-         iday = (int) day;
+         iday = (long) day;
          dhour = dhour+dtau;
          if (dhour >= 86400.0) {
 	   dhourflag = 1;
@@ -714,13 +724,13 @@ eof(double) +
 
      t2a = (double **) psium[procid];
      t2b = (double **) psim[procid][0];
-     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
        t2a[0][0] = t2a[0][0]+t2b[0][0];
      }
-     if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+     if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
        t2a[im-1][0] = t2a[im-1][0]+t2b[im-1][0];
      }
-     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
        t2a[0][jm-1] = t2a[0][jm-1]+t2b[0][jm-1];
      }
      if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
@@ -759,18 +769,18 @@ eof(double) +
          t1a[iindex] = t1a[iindex] + t1b[iindex];
        }
      }
-     
+
 /* update values of psilm array to psilm + psim[2]  */
-     
+
      t2a = (double **) psilm[procid];
      t2b = (double **) psim[procid][1];
-     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
        t2a[0][0] = t2a[0][0]+t2b[0][0];
      }
-     if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {  
+     if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[LEFT] == -1)) {
        t2a[im-1][0] = t2a[im-1][0]+t2b[im-1][0];
      }
-     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {  
+     if ((gp[procid].neighbors[UP] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
        t2a[0][jm-1] = t2a[0][jm-1]+t2b[0][jm-1];
      }
      if ((gp[procid].neighbors[DOWN] == -1) && (gp[procid].neighbors[RIGHT] == -1)) {
@@ -808,7 +818,7 @@ eof(double) +
          t1a[iindex] = t1a[iindex] + t1b[iindex];
        }
      }
-     if (iday >= (int) outday3) {
+     if (iday >= (long) outday3) {
        endflag = 1;
      }
   }

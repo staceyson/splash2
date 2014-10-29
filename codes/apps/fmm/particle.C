@@ -15,6 +15,8 @@
 /*************************************************************************/
 
 #include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include "defs.h"
 #include "memory.h"
 #include "particle.h"
@@ -23,10 +25,14 @@
 #define MAX_FRAC 0.999
 #define RANDOM_SIZE 256
 
+#if !defined(M_PI)
+#define M_PI           3.14159265358979323846
+#endif
+
 /* How many particles can fit on one line */
 #define PARTICLES_PER_LINE 8
 
-int Total_Particles;
+long Total_Particles;
 
 /* Used to keep track of all the particles. Array in is order of inc id. */
 static particle **Particle_List;
@@ -40,23 +46,22 @@ void
 CreateDistribution (cluster_type cluster, model_type model)
 {
    particle *particle_array;
-   int global_num_particles;
+   long global_num_particles;
    particle *new_particle;
-   char particle_state[RANDOM_SIZE];
+//   char particle_state[RANDOM_SIZE];
    real charge;
    real r_scale;
    real v_scale;
    vector r_sum;
    vector v_sum;
-   int end_limit;
-   int i;
-   int j;
+   long end_limit = 0;
+   long i;
    real temp_r;
-   real radius;
+   real radius = 0.0;
    real x_vel;
    real y_vel;
    real vel;
-   real offset;
+   real offset = 0.0;
    particle *twin_particle;
 
    particle_array = (particle *) G_MALLOC(Total_Particles * sizeof(particle));
@@ -71,20 +76,18 @@ CreateDistribution (cluster_type cluster, model_type model)
    r_sum.y = (real) 0.0;
    v_sum.x = (real) 0.0;
    v_sum.y = (real) 0.0;
-   initstate(0, particle_state, RANDOM_SIZE);
-  
+//   initstate(0, particle_state, RANDOM_SIZE);
+
    switch (cluster) {
     case ONE_CLUSTER:
       end_limit = Total_Particles;
       switch (model) {
        case UNIFORM:
-	 printf("Creating a one cluster, uniform distribution for %d ",
-		Total_Particles);
+	 printf("Creating a one cluster, uniform distribution for %ld ", Total_Particles);
 	 printf("particles\n");
 	 break;
        case PLUMMER:
-	 printf("Creating a one cluster, non uniform distribution for %d ",
-		Total_Particles);
+	 printf("Creating a one cluster, non uniform distribution for %ld ", Total_Particles);
 	 printf("particles\n");
 	 break;
       }
@@ -93,19 +96,17 @@ CreateDistribution (cluster_type cluster, model_type model)
       end_limit = (Total_Particles / 2) + (Total_Particles & 0x1);
       switch (model) {
        case UNIFORM:
-	 printf("Creating a two cluster, uniform distribution for %d ",
-		Total_Particles);
+	 printf("Creating a two cluster, uniform distribution for %ld ", Total_Particles);
 	 printf("particles\n");
 	 break;
        case PLUMMER:
-	 printf("Creating a two cluster, non uniform distribution for %d ",
-		Total_Particles);
+	 printf("Creating a two cluster, non uniform distribution for %ld ", Total_Particles);
 	 printf("particles\n");
 	 break;
       }
       break;
    }
-   setstate(particle_state);
+//   setstate(particle_state);
    global_num_particles = 0;
    charge = 1.0 / Total_Particles;
    charge /= Total_Particles;
@@ -117,7 +118,7 @@ CreateDistribution (cluster_type cluster, model_type model)
 	    new_particle->pos.x = XRand(-1.0, 1.0);
 	    new_particle->pos.y = XRand(-1.0, 1.0);
 	    temp_r = DOT_PRODUCT((new_particle->pos), (new_particle->pos));
-	 } 
+	 }
 	 while (temp_r > (real) 1.0);
 	 radius = sqrt(temp_r);
 	 break;
@@ -173,12 +174,10 @@ CreateDistribution (cluster_type cluster, model_type model)
 
 
 void
-CreateParticleList (int my_id, int length)
+CreateParticleList (long my_id, long length)
 {
-   int cluster_no;
-   
    LOCK(G_Memory->mal_lock);
-   Local[my_id].Particles = (particle **) G_MALLOC(length 
+   Local[my_id].Particles = (particle **) G_MALLOC(length
 						   * sizeof(particle *));
 
 /* POSSIBLE ENHANCEMENT:  Here is where one might distribute the
@@ -205,10 +204,10 @@ CreateParticleList (int my_id, int length)
 
 
 void
-InitParticleList (int my_id, int num_assigned, int starting_id)
+InitParticleList (long my_id, long num_assigned, long starting_id)
 {
-   int i;
-   
+   long i;
+
    for (i = 0; i < num_assigned; i++)
       Local[my_id].Particles[i] = Particle_List[i + starting_id];
    Local[my_id].Num_Particles = num_assigned;
@@ -229,7 +228,7 @@ void
 PrintParticle (particle *p)
 {
    if (p != NULL) {
-      printf("P %6d :", p->id);
+      printf("P %6ld :", p->id);
       printf("  Pos    = ");
       PrintVector(&(p->pos));
    }
@@ -241,7 +240,7 @@ PrintParticle (particle *p)
 void
 PrintAllParticles ()
 {
-   int i;
+   long i;
 
    fflush(stdout);
    printf("                                   PARTICLE POSITIONS\n\n");
@@ -253,11 +252,11 @@ PrintAllParticles ()
 
 
 void
-PrintParticleArrayIds (particle **p_array, int num_particles) 
+PrintParticleArrayIds (particle **p_array, long num_particles)
 {
-   int tab_count = PARTICLES_PER_LINE;
-   int i = 0;
-    
+   long tab_count = PARTICLES_PER_LINE;
+   long i = 0;
+
    if (num_particles == 0)
       printf("NONE\n");
    else {
@@ -266,7 +265,7 @@ PrintParticleArrayIds (particle **p_array, int num_particles)
 	    tab_count = PARTICLES_PER_LINE;
 	    printf("\n");
 	 }
-	 printf("\tP%d", p_array[i]->id);
+	 printf("\tP%ld", p_array[i]->id);
 	 tab_count -= 1;
       }
       printf("\n");
@@ -275,7 +274,7 @@ PrintParticleArrayIds (particle **p_array, int num_particles)
 
 
 /*
- *  InitParticle (int my_id, real x_pos, real y_pos, real charge)
+ *  InitParticle (long my_id, real x_pos, real y_pos, real charge)
  *
  *  Args : the x_pos, y_pos, and charge (in eV) of the particle.
  *
@@ -289,7 +288,7 @@ particle *
 InitParticle (real charge, real mass)
 {
    particle *p;
-   static int particle_id = 0;
+   static long particle_id = 0;
 
    p = Particle_List[particle_id];
    p->id = particle_id++;
@@ -314,7 +313,7 @@ PickShell (vector *v, real radius)
 {
    real temp_r;
    real r_scale;
-    
+
    do {
       v->x = XRand(-1.0, 1.0);
       v->y = XRand(-1.0, 1.0);
@@ -331,7 +330,7 @@ XRand (real low, real high)
 {
    real ret_val;
 
-   ret_val = low  + (high - low) * ((real) random() / 2147483647.0);
+   ret_val = low  + (high - low) * ((real) rand/*om*/() / 2147483647.0);
    return ret_val;
 }
 

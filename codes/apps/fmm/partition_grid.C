@@ -27,24 +27,24 @@
 typedef struct _Id_Info id_info;
 struct _Id_Info
 {
-   int id;
-   int num;
+   long id;
+   long num;
 };
 
 typedef struct _Cost_Info cost_info;
 struct _Cost_Info
 {
-   int cost;
-   int num;
+   long cost;
+   long num;
 };
 
-int CheckBox(int my_id, box *b, int partition_level);
+long CheckBox(long my_id, box *b, long partition_level);
 
 void
-InitPartition (int my_id)
+InitPartition (long my_id)
 {
-   int i;
-  
+   long i;
+
    Local[my_id].Childless_Partition = NULL;
    for (i = 0; i < MAX_LEVEL; i++) {
       Local[my_id].Parent_Partition[i] = NULL;
@@ -54,11 +54,11 @@ InitPartition (int my_id)
 
 
 void
-PartitionIterate (int my_id, partition_function function,
+PartitionIterate (long my_id, partition_function function,
 		  partition_start position)
 {
    box *b;
-   int i;
+   long i;
 
    if (position == CHILDREN) {
       b = Local[my_id].Childless_Partition;
@@ -101,10 +101,10 @@ PartitionIterate (int my_id, partition_function function,
 
 
 void
-InsertBoxInPartition (int my_id, box *b)
+InsertBoxInPartition (long my_id, box *b)
 {
    box *level_list;
-  
+
    if (b->type == CHILDLESS) {
       b->prev = NULL;
       if (Local[my_id].Childless_Partition != NULL)
@@ -124,10 +124,10 @@ InsertBoxInPartition (int my_id, box *b)
       }
    }
 }
-      
+
 
 void
-RemoveBoxFromPartition (int my_id, box *b)
+RemoveBoxFromPartition (long my_id, box *b)
 {
    if (b->type == CHILDLESS) {
       if (b->prev != NULL)
@@ -144,7 +144,7 @@ RemoveBoxFromPartition (int my_id, box *b)
 	 Local[my_id].Parent_Partition[b->level] = b->next;
       if (b->next != NULL)
 	 b->next->prev = b->prev;
-      if ((b->level == Local[my_id].Max_Parent_Level) && 
+      if ((b->level == Local[my_id].Max_Parent_Level) &&
 	  (Local[my_id].Parent_Partition[b->level] == NULL)) {
 	 while (Local[my_id].Parent_Partition[Local[my_id].Max_Parent_Level]
 		== NULL)
@@ -155,25 +155,25 @@ RemoveBoxFromPartition (int my_id, box *b)
 
 
 void
-ComputeCostOfBox (int my_id, box *b)
+ComputeCostOfBox (box *b)
 {
-   int different_costs;
-   int i;
-   int j;
-   int new_cost;
+   long different_costs;
+   long i;
+   long j;
+   long new_cost;
    cost_info cost_list[MAX_PARTICLES_PER_BOX];
    cost_info winner;
-   int winner_index;
-   int cost_index[MAX_PARTICLES_PER_BOX];
+   long winner_index;
+   long cost_index[MAX_PARTICLES_PER_BOX];
 
    if (b->type == PARENT)
-      b->cost = ((b->num_v_list * V_LIST_COST(Expansion_Terms)) 
+      b->cost = ((b->num_v_list * V_LIST_COST(Expansion_Terms))
 		 / DIVISOR(Expansion_Terms)) + 1;
    else {
       different_costs = 0;
       for (i = 0; i < b->num_particles; i++) {
 	 new_cost = b->particles[i]->cost;
-	 for (j = 0; j < different_costs; j++) {        
+	 for (j = 0; j < different_costs; j++) {
 	    if (new_cost == cost_list[j].cost)
 	       break;
 	 }
@@ -217,15 +217,15 @@ ComputeCostOfBox (int my_id, box *b)
 
 
 void
-CheckPartition (int my_id)
+CheckPartition (long my_id)
 {
-   int i;
+   long i;
    box *b;
-   int NE, NoP, CB, PB;
-   int Q1, Q2, Q3, Q4;
-   int PC, CC;
+   long NE, NoP, CB, PB;
+   long Q1, Q2, Q3, Q4;
+   long PC, CC;
    real xpos, ypos;
-      
+
    NE = NoP = CB = PB = Q1 = Q2 = Q3 = Q4 = PC = CC = 0;
    for (i = 0; i <= Local[my_id].Max_Parent_Level; i++) {
       b = Local[my_id].Parent_Partition[i];
@@ -263,34 +263,30 @@ CheckPartition (int my_id)
 }
 
 
-int
-CheckBox (int my_id, box *b, int partition_level)
+long
+CheckBox (long my_id, box *b, long partition_level)
 {
-   int num_errors;
-   int i;
+   long num_errors;
 
    num_errors = 0;
    if (b->type == CHILDLESS) {
       if (partition_level != -1) {
 	 LOCK(G_Memory->io_lock);
-	 printf("ERROR : CHILDLESS box in parent partition (B%f P%d %d)\n",
-		b->id, my_id, b->proc);
+	 printf("ERROR : CHILDLESS box in parent partition (B%f P%ld %ld)\n", b->id, my_id, b->proc);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
 	 num_errors += 1;
       }
       if (b->num_children != 0) {
 	 LOCK(G_Memory->io_lock);
-	 printf("ERROR : CHILDLESS box has children (B%f P%d)\n",
-		b->id, my_id);
+	 printf("ERROR : CHILDLESS box has children (B%f P%ld)\n", b->id, my_id);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
 	 num_errors += 1;
       }
       if (b->num_particles == 0) {
 	 LOCK(G_Memory->io_lock);
-	 printf("ERROR : CHILDLESS box has no particles (B%f P%d)\n",
-		b->id, my_id);
+	 printf("ERROR : CHILDLESS box has no particles (B%f P%ld)\n", b->id, my_id);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
 	 num_errors += 1;
@@ -298,7 +294,7 @@ CheckBox (int my_id, box *b, int partition_level)
       if (b->particles[b->num_particles - 1] == NULL) {
 	 LOCK(G_Memory->io_lock);
 	 printf("ERROR : CHILDLESS box has fewer particles than expected ");
-	 printf("(B%f P%d)\n", b->id, my_id);
+	 printf("(B%f P%ld)\n", b->id, my_id);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
 	 num_errors += 1;
@@ -306,7 +302,7 @@ CheckBox (int my_id, box *b, int partition_level)
       if (b->particles[b->num_particles] != NULL) {
 	 LOCK(G_Memory->io_lock);
 	 printf("ERROR : CHILDLESS box has more particles than expected ");
-	 printf("(B%f P%d)\n", b->id, my_id);
+	 printf("(B%f P%ld)\n", b->id, my_id);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
 	 num_errors += 1;
@@ -315,7 +311,7 @@ CheckBox (int my_id, box *b, int partition_level)
    else {
       if (partition_level == -1) {
 	 LOCK(G_Memory->io_lock);
-	 printf("ERROR : PARENT box in childless partition (B%f P%d %d)\n", 
+	 printf("ERROR : PARENT box in childless partition (B%f P%ld %ld)\n",
 		b->id, my_id, b->proc);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
@@ -325,8 +321,7 @@ CheckBox (int my_id, box *b, int partition_level)
 	 if (partition_level != b->level) {
 	    LOCK(G_Memory->io_lock);
 	    printf("ERROR : PARENT box in wrong partition level ");
-	    printf("(%d vs %d) (B%f P%d)\n", b->level, partition_level,
-		   b->id, my_id);
+	    printf("(%ld vs %ld) (B%f P%ld)\n", b->level, partition_level, b->id, my_id);
 	    fflush(stdout);
 	    UNLOCK(G_Memory->io_lock);
 	    num_errors += 1;
@@ -334,16 +329,14 @@ CheckBox (int my_id, box *b, int partition_level)
       }
       if (b->num_children == 0) {
 	 LOCK(G_Memory->io_lock);
-	 printf("ERROR : PARENT box has no children (B%f P%d)\n",
-		b->id, my_id);
+	 printf("ERROR : PARENT box has no children (B%f P%ld)\n", b->id, my_id);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
 	 num_errors += 1;
       }
       if (b->num_particles != 0) {
 	 LOCK(G_Memory->io_lock);
-	 printf("ERROR : PARENT box has particles (B%f P%d)\n",
-		b->id, my_id);
+	 printf("ERROR : PARENT box has particles (B%f P%ld)\n", b->id, my_id);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
 	 num_errors += 1;
@@ -353,11 +346,9 @@ CheckBox (int my_id, box *b, int partition_level)
       if (b != Grid) {
 	 LOCK(G_Memory->io_lock);
 	 if (b->type == CHILDLESS)
-	    printf("ERROR : Extra CHILDLESS box in partition (B%f P%d)\n", 
-		   b->id, my_id);
+	    printf("ERROR : Extra CHILDLESS box in partition (B%f P%ld)\n", b->id, my_id);
 	 else
-	    printf("ERROR : Extra PARENT box in partition (B%f P%d)\n", 
-		   b->id, my_id);
+	    printf("ERROR : Extra PARENT box in partition (B%f P%ld)\n", b->id, my_id);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
 	 num_errors += 1;
@@ -367,11 +358,9 @@ CheckBox (int my_id, box *b, int partition_level)
       if (b->parent->children[b->child_num] != b) {
 	 LOCK(G_Memory->io_lock);
 	 if (b->type == CHILDLESS)
-	    printf("ERROR : Extra CHILDLESS box in partition (B%f P%d)\n", 
-		   b->id, my_id);
+	    printf("ERROR : Extra CHILDLESS box in partition (B%f P%ld)\n", b->id, my_id);
 	 else
-	    printf("ERROR : Extra PARENT box in partition (B%f P%d)\n", 
-		   b->id, my_id);
+	    printf("ERROR : Extra PARENT box in partition (B%f P%ld)\n", b->id, my_id);
 	 fflush(stdout);
 	 UNLOCK(G_Memory->io_lock);
 	 num_errors += 1;

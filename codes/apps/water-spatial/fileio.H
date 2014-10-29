@@ -14,9 +14,9 @@
 /*                                                                       */
 /*************************************************************************/
 
-  
-  /* sets up files for i/o to match the device numbers used
-  in the original FORTRAN program from the PERFECT Club */
-  
-  extern FILE *six;
-  
+
+/* sets up files for i/o to match the device numbers used
+in the original FORTRAN program from the PERFECT Club */
+
+extern FILE *six;
+

@@ -14,9 +14,9 @@
 /*                                                                       */
 /*************************************************************************/
 
-  /* some variable declarations */
-  
-  extern double  TEMP,RHO,TSTEP,BOXL,BOXH,CUTOFF,CUT2;
-  extern double  BOX_LENGTH;
-  extern int    NMOL,NORDER,NATMO,NATMO3,NMOL1;
-  extern int    BOX_PER_SIDE, BPS_SQRD;
+/* some variable declarations */
+
+extern double  TEMP,RHO,TSTEP,BOXL,BOXH,CUTOFF,CUT2;
+extern double  BOX_LENGTH;
+extern long    NMOL,NORDER,NATMO,NATMO3,NMOL1;
+extern long    BOX_PER_SIDE, BPS_SQRD;

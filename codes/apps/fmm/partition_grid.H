@@ -21,17 +21,17 @@
 #include "box.h"
 
 /* Void function type */
-typedef void (*partition_function)(int my_id, box *b);
+typedef void (*partition_function)(long my_id, box *b);
 
 typedef enum { TOP, BOTTOM, CHILDREN } partition_start;
 typedef enum { ORB, COST_ZONES } partition_alg;
 
-extern void InitPartition(int my_id);
-extern void PartitionIterate(int my_id, partition_function function,
+extern void InitPartition(long my_id);
+extern void PartitionIterate(long my_id, partition_function function,
 			     partition_start position);
-extern void InsertBoxInPartition(int my_id, box *b);
-extern void RemoveBoxFromPartition(int my_id, box *b);
-extern void ComputeCostOfBox(int my_id, box *b);
-extern void CheckPartition(int my_id);
+extern void InsertBoxInPartition(long my_id, box *b);
+extern void RemoveBoxFromPartition(long my_id, box *b);
+extern void ComputeCostOfBox(box *b);
+extern void CheckPartition(long my_id);
 
 #endif /* _Partition_H */

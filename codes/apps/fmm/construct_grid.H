@@ -17,9 +17,9 @@
 #ifndef _Construct_Grid_H
 #define _Construct_Grid_H 1
 
-extern void ConstructGrid(int my_id, time_info *local_time, int time_all);
-extern void ConstructLists(int my_id, time_info *local_time, int time_all);
-extern void DestroyGrid(int my_id, time_info *local_time, int time_all);
-extern void PrintGrid(int my_id);
+extern void ConstructGrid(long my_id, time_info *local_time, long time_all);
+extern void ConstructLists(long my_id, time_info *local_time, long time_all);
+extern void DestroyGrid(long my_id, time_info *local_time, long time_all);
+extern void PrintGrid(long my_id);
 
 #endif /* _Construct_Grid_H */

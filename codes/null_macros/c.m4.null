@@ -2,39 +2,43 @@ divert(-1)
 define(NEWPROC,) dnl
 
 define(BARRIER, `{;}')
-define(BARDEC, `int ($1);')
+define(BARDEC, `long ($1);')
 define(BARINIT, `{;}')
 
-define(GSDEC, `int ($1);')
+define(BAREXCLUDE, `{;}')
+
+define(BARINCLUDE, `{;}')
+
+define(GSDEC, `long ($1);')
 define(GSINIT, `{ ($1) = 0; }')
-define(GETSUB, `{ 
-  if (($1)<=($3)) 
-    ($2) = ($1)++; 
-  else { 
-    ($2) = -1; 
-    ($1) = 0; 
+define(GETSUB, `{
+  if (($1)<=($3))
+    ($2) = ($1)++;
+  else {
+    ($2) = -1;
+    ($1) = 0;
   }
 }')
 
-define(NU_GSDEC, `int ($1);')
+define(NU_GSDEC, `long ($1);')
 define(NU_GSINIT, `{ ($1) = 0; }')
 define(NU_GETSUB, `GETSUB($1,$2,$3,$4)')
 
-define(ADEC, `int ($1);')
+define(ADEC, `long ($1);')
 define(AINIT, `{;}')
 define(PROBEND, `{;}')
 
-define(LOCKDEC, `int ($1);')
+define(LOCKDEC, `long ($1);')
 define(LOCKINIT, `{;}')
 define(LOCK, `{;}')
 define(UNLOCK, `{;}')
 
-define(NLOCKDEC, `int ($1);')
+define(NLOCKDEC, `long ($1);')
 define(NLOCKINIT, `{;}')
 define(NLOCK, `{;}')
 define(NUNLOCK, `{;}')
 
-define(ALOCKDEC, `int ($1);')
+define(ALOCKDEC, `long ($1);')
 define(ALOCKINIT, `{;}')
 define(ALOCK, `{;}')
 define(AULOCK, `{;}')

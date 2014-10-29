@@ -14,6 +14,7 @@
 /*                                                                       */
 /*************************************************************************/
 
+#include <float.h>
 #include "defs.h"
 #include "memory.h"
 
@@ -35,12 +36,9 @@ local_memory Local[MAX_PROCS];
 void
 InitGlobalMemory ()
 {
-   int i;
-
    G_Memory = (g_mem *) G_MALLOC(sizeof(g_mem));
-   G_Memory->i_array = (int *) G_MALLOC(Number_Of_Processors * sizeof(int));
-   G_Memory->d_array = (double *) G_MALLOC(Number_Of_Processors
-					 * sizeof(double));
+   G_Memory->i_array = (long *) G_MALLOC(Number_Of_Processors * sizeof(long));
+   G_Memory->d_array = (double *) G_MALLOC(Number_Of_Processors * sizeof(double));
    if (G_Memory == NULL) {
       printf("Ran out of global memory in InitGlobalMemory\n");
       exit(-1);
@@ -52,7 +50,7 @@ InitGlobalMemory ()
    LOCKINIT(G_Memory->single_lock);
    LOCKINIT(G_Memory->count_lock);
    ALOCKINIT(G_Memory->lock_array, MAX_LOCKS);
-   BARINIT(G_Memory->synch);
+   BARINIT(G_Memory->synch, Number_Of_Processors);
    G_Memory->max_x = -MAX_REAL;
    G_Memory->min_x = MAX_REAL;
    G_Memory->max_y = -MAX_REAL;

@@ -27,21 +27,25 @@
 #define DOWNRIGHT         7
 #define PAGE_SIZE      4096
 
-extern struct multi_struct {
+struct multi_struct {
    double err_multi;
-} *multi;
+};
 
-extern struct global_struct {
-   int id;
-   int starttime;
-   int trackstart;
+extern struct multi_struct *multi;
+
+struct global_struct {
+   long id;
+   long starttime;
+   long trackstart;
    double psiai;
    double psibi;
-} *global;
+};
+
+extern struct global_struct *global;
 
 extern double eig2;
 extern double ysca;
-extern int jmm1;
+extern long jmm1;
 extern double pi;
 extern double t0;
 
@@ -67,16 +71,19 @@ extern double *f;
 extern double ****q_multi;
 extern double ****rhs_multi;
 
-extern struct locks_struct {
+struct locks_struct {
    LOCKDEC(idlock)
    LOCKDEC(psiailock)
    LOCKDEC(psibilock)
    LOCKDEC(donelock)
    LOCKDEC(error_lock)
    LOCKDEC(bar_lock)
-} *locks;
- 
-extern struct bars_struct {
+};
+
+extern struct locks_struct *locks;
+
+struct bars_struct {
+#if defined(MULTIPLE_BARRIERS)
    BARDEC(iteration)
    BARDEC(gsudn)
    BARDEC(p_setup)
@@ -97,50 +104,57 @@ extern struct bars_struct {
    BARDEC(sl_phase_9)
    BARDEC(sl_phase_10)
    BARDEC(error_barrier)
-} *bars;
+#else
+   BARDEC(barrier)
+#endif
+};
+
+extern struct bars_struct *bars;
 
 extern double factjacob;
 extern double factlap;
 
-extern struct Global_Private {
+struct Global_Private {
   char pad[PAGE_SIZE];
-  int *rel_num_x;
-  int *rel_num_y;
-  int *eist;
-  int *ejst;
-  int *oist;
-  int *ojst;
-  int *rlist;
-  int *rljst;
-  int *rlien;
-  int *rljen;
-  int rownum;
-  int colnum;
-  int neighbors[8];
+  long *rel_num_x;
+  long *rel_num_y;
+  long *eist;
+  long *ejst;
+  long *oist;
+  long *ojst;
+  long *rlist;
+  long *rljst;
+  long *rlien;
+  long *rljen;
+  long rownum;
+  long colnum;
+  long neighbors[8];
   double multi_time;
   double total_time;
-} *gp;
+};
+
+extern struct Global_Private *gp;
 
 extern double *i_int_coeff;
 extern double *j_int_coeff;
-extern int xprocs;
-extern int yprocs;
+extern long xprocs;
+extern long yprocs;
 
-extern int numlev;
-extern int *imx;
-extern int *jmx;
+extern long numlev;
+extern long *imx;
+extern long *jmx;
 extern double *lev_res;
 extern double *lev_tol;
 extern double maxwork;
-extern int *xpts_per_proc;
-extern int *ypts_per_proc;
-extern int minlevel;
+extern long *xpts_per_proc;
+extern long *ypts_per_proc;
+extern long minlevel;
 extern double outday0;
 extern double outday1;
 extern double outday2;
 extern double outday3;
 
-extern int nprocs;
+extern long nprocs;
 extern double h1;
 extern double h3;
 extern double h;
@@ -150,9 +164,65 @@ extern double dtau;
 extern double f0;
 extern double beta;
 extern double gpr;
-extern int im;
-extern int jm;
-extern int do_stats;
-extern int do_output;
-extern int *multi_times;
-extern int *total_times;
+extern long im;
+extern long jm;
+extern long do_stats;
+extern long do_output;
+extern long *multi_times;
+extern long *total_times;
+
+/*
+ * jacobcalc.C
+ */
+void jacobcalc(double ***x, double ***y, double ***z, long pid, long firstrow, long lastrow, long firstcol, long lastcol);
+
+/*
+ * jacobcalc2.C
+ */
+void jacobcalc2(double ****x, double ****y, double ****z, long psiindex, long pid, long firstrow, long lastrow, long firstcol, long lastcol);
+
+/*
+ * laplacalc.C
+ */
+void laplacalc(long procid, double ****x, double ****z, long psiindex, long firstrow, long lastrow, long firstcol, long lastcol);
+
+/*
+ * linkup.C
+ */
+void link_all(void);
+void linkup(double **row_ptr);
+void link_multi(void);
+
+/*
+ * main.C
+ */
+long log_2(long number);
+void printerr(char *s);
+
+/*
+ * multi.C
+ */
+void multig(long my_id);
+void relax(long k, double *err, long color, long my_num);
+void rescal(long kf, long my_num);
+void intadd(long kc, long my_num);
+void putz(long k, long my_num);
+void copy_borders(long k, long pid);
+void copy_rhs_borders(long k, long procid);
+void copy_red(long k, long procid);
+void copy_black(long k, long procid);
+
+/*
+ * slave1.C
+ */
+void slave(void);
+
+/*
+ * slave2.C
+ */
+void slave2(long procid, long firstrow, long lastrow, long numrows, long firstcol, long lastcol, long numcols);
+
+/*
+ * subblock.C
+ */
+void subblock(void);

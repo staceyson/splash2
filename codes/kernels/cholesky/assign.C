@@ -25,15 +25,14 @@ EXTERN_ENV
 #define TIME(ops,misses) (ops+(misses)*MISS_COST)/(1.0+MISS_COST/BS)
 
 extern BMatrix LB;
-extern int P;
-extern int BS;
+extern long P;
+extern long BS;
 double *opStats = NULL;
 double seq_time, seq_ops, seq_misses;
 
-PDIV(src_col, src_nz, ops, misses, runtime)
-double *ops, *misses, *runtime;
+void PDIV(long src_col, long src_nz, double *ops, double *misses, double *runtime)
 {
-  int super_size, passes;
+  long super_size, passes;
   double this_ops, this_misses;
 
   super_size = src_col*src_nz - src_col*(src_col-1)/2;
@@ -49,10 +48,9 @@ double *ops, *misses, *runtime;
 }
 
 
-PMOD(src_col, dest_col, dest_nz, ops, misses, runtime)
-double *ops, *misses, *runtime;
+void PMOD(long src_col, long dest_col, long dest_nz, double *ops, double *misses, double *runtime)
 {
-  int update_size, passes_src, passes_dest;
+  long update_size, passes_src, passes_dest;
   double this_ops, this_misses;
 
   update_size = dest_col*dest_nz - dest_col*(dest_col-1)/2;
@@ -71,8 +69,7 @@ double *ops, *misses, *runtime;
   *runtime += TIME(this_ops, this_misses);
 }
 
-PADD(cols, rows, misses, runtime)
-double *misses, *runtime;
+void PADD(long cols, long rows, double *misses, double *runtime)
 {
   double this_misses;
 
@@ -83,9 +80,9 @@ double *misses, *runtime;
 }
 
 
-AssignBlocksNow(distribute)
+void AssignBlocksNow()
 {
-  int i, j, which;
+  long i, j;
 
   if (P == 1) {
     for (j=0; j<LB.n; j+=LB.partition_size[j])
@@ -93,15 +90,15 @@ AssignBlocksNow(distribute)
 	for (i=LB.col[j]; i<LB.col[j+1]; i++)
 	  BLOCK(i)->owner = 0;
   } else {
-    EmbedBlocks(P);
+    EmbedBlocks();
   }
 }
 
 
-EmbedBlocks(P)
+void EmbedBlocks()
 {
-  int j, block;
-  extern int scatter_decomposition;
+  long j, block;
+  extern long scatter_decomposition;
 
   /* number the block partitions */
 

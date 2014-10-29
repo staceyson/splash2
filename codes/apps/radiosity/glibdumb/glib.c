@@ -15,17 +15,6 @@
 *************************************************************************/
 
 #include "glib.h"
-/*** Data structure used in radiosity algorithm ***/
-
-typedef struct {
-      float x, y, z ;
-} Point ;
-
-typedef struct {
-      float r, g, b ;
-} Rgb ;
-
-
 
 /**************************************************
 *
@@ -41,10 +30,7 @@ typedef struct {
 *
 ***************************************************/
 
-void g_init( ac, av )
-
-    int ac ;
-    char *av[] ;
+void g_init(int ac, char *av[])
 {
 }
 
@@ -56,13 +42,7 @@ void g_init( ac, av )
 *
 ***************************************************/
 
-void g_start( mouse_func, n_sliders, slider_def, n_choices, choice_def )
-
-    void (*mouse_func)() ;
-    int n_sliders ;
-    slider *slider_def ;
-    int n_choices ;
-    choice *choice_def ;
+void g_start(void (*mouse_func)(), long n_sliders, slider *slider_def, long n_choices, choice *choice_def)
 {
 }
 
@@ -73,9 +53,7 @@ void g_start( mouse_func, n_sliders, slider_def, n_choices, choice_def )
 *
 ***************************************************/
 
-void g_color( color )
-
-    int color ;
+void g_color(long color)
 {
 }
 
@@ -92,9 +70,7 @@ void g_rgb( color )
 *
 ***************************************************/
 
-void g_line( p1, p2 )
-
-    Point *p1, *p2 ;
+void g_line(Vertex *p1, Vertex *p2)
 {
 }
 
@@ -105,10 +81,7 @@ void g_line( p1, p2 )
 *
 ***************************************************/
 
-void g_polygon( n, p_list )
-
-    int n ;
-    Point *p_list ;
+void g_polygon(long n, Vertex *p_list)
 {
 }
 
@@ -119,11 +92,7 @@ void g_polygon( n, p_list )
 *
 ***************************************************/
 
-void g_spolygon( n, p_list, c_list )
-
-    int n ;
-    Point *p_list ;
-    Rgb   *c_list ;
+void g_spolygon(long n, Vertex *p_list, Rgb *c_list)
 {
 }
 
@@ -146,9 +115,7 @@ void g_clear()
 *
 ***************************************************/
 
-void g_setup_view( rot_x, rot_y, dist, zoom )
-
-    float rot_x, rot_y, dist, zoom ;
+void g_setup_view(float rot_x, float rot_y, float dist, float zoom)
 {
 }
 
@@ -160,9 +127,7 @@ void g_setup_view( rot_x, rot_y, dist, zoom )
 *
 ***************************************************/
 
-void g_get_screen_size( u, v )
-
-    int *u, *v ;
+void g_get_screen_size(long *u, long *v)
 {
 }
 
@@ -176,5 +141,4 @@ void g_get_screen_size( u, v )
 void g_flush()
 {
 }
-
 

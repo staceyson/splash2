@@ -23,16 +23,14 @@ EXTERN_ENV
 void subblock()
 
 {
-   double procsqrt;
-   int i;
-   int j;
-   int k;
-   int xportion;
-   int xextra;
-   int yportion;
-   int yextra;
-   int lower;
-   int my_num;
+   long i;
+   long j;
+   long k;
+   long xportion;
+   long xextra;
+   long yportion;
+   long yextra;
+   long my_num;
 
 /* Determine starting coord and number of points to process in     */
 /* each direction                                                  */

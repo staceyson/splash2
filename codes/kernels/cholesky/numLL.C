@@ -19,28 +19,26 @@ EXTERN_ENV
 #include "matrix.h"
 #include <math.h>
 
-#define AddMember(set, new) { int s, n; s = set; n = new; \
+#define AddMember(set, new) { long s, n; s = set; n = new; \
 			       lc->link[n] = lc->link[s]; lc->link[s] = n; }
 
 extern BMatrix LB;
 extern struct GlobalMemory *Global;
-extern int *node; /* global */
+extern long *node; /* global */
 
 
-FactorLLDomain(which_domain, MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void FactorLLDomain(long which_domain, long MyNum, struct LocalCopies *lc)
 {
-  int i, start, root;
-  int j, j_last, j_len, dest_super;
-  int k, k_length, update_size;
-  int theFirst, theLast;
-  int *relative, *indices;
+  long i, start, root;
+  long j, j_last, j_len, dest_super;
+  long k, k_length, update_size;
+  long theFirst, theLast;
+  long *relative, *indices;
   double *domain_update;
-  extern int *firstchild, *child;
+  extern long *firstchild, *child;
 
-  relative = (int *) MyMalloc(LB.n*sizeof(int), MyNum);
-  indices = (int *) MyMalloc(LB.n*sizeof(int), MyNum);
+  relative = (long *) MyMalloc(LB.n*sizeof(long), MyNum);
+  indices = (long *) MyMalloc(LB.n*sizeof(long), MyNum);
 
   root = LB.domains[which_domain];
 
@@ -172,9 +170,9 @@ struct LocalCopies *lc;
 }
 
 
-CompleteSupernodeB(super)
+void CompleteSupernodeB(long super)
 {
-  int i, length, fits, first, last;
+  long i, length, fits, first, last;
 
   if (node[super] == 1) {
     CompleteColumnB(super);
@@ -226,7 +224,7 @@ CompleteSupernodeB(super)
 
 
 
-CompleteColumnB(j)
+void CompleteColumnB(long j)
 {
   double recip, diag, *theNZ, *last;
 
@@ -235,7 +233,7 @@ CompleteColumnB(j)
 
   diag = *theNZ;
   if (diag <= 0.0) {
-    printf("Negative pivot, d[%d] = %f\n", j, diag);
+    printf("Negative pivot, d[%ld] = %f\n", j, diag);
     exit(0);
   }
   diag = sqrt(diag);
@@ -251,11 +249,9 @@ CompleteColumnB(j)
    and assuming that global 'indices' contains structure of dest,
    find relative indices */
 
-FindRelativeIndicesLeft(src_structure, rows_in_update, offset,
-			indices, relative)
-int *src_structure, *indices, *relative;
+void FindRelativeIndicesLeft(long *src_structure, long rows_in_update, long offset, long *indices, long *relative)
 {
-  int i, *leftRow, *last;
+  long i, *leftRow, *last;
 
   leftRow = src_structure;
   last = &src_structure[rows_in_update];
@@ -270,12 +266,9 @@ int *src_structure, *indices, *relative;
 /* given a panel update 'update' with given size and relative indices,
    scatter into into dest_nz */
 
-ScatterSuperUpdate(update, cols_in_update, rows_in_update,
-	dest_nz, dest_len, relative)
-double *update, *dest_nz;
-int *relative;
+void ScatterSuperUpdate(double *update, long cols_in_update, long rows_in_update, double *dest_nz, long dest_len, long *relative)
 {
-  int i, dest, *last, *leftRow;
+  long i, dest, *last, *leftRow;
   double *theTmp, *rightNZ;
 
   theTmp = update;
@@ -297,12 +290,9 @@ int *relative;
 /* given a panel update 'update' with given size and relative indices,
    scatter into into dest_nz */
 
-ModifySuperByColumn(src_nz, cols_in_update, rows_in_update,
-		    dest_nz, dest_len, relative)
-double *src_nz, *dest_nz;
-int *relative;
+void ModifySuperByColumn(double *src_nz, long cols_in_update, long rows_in_update, double *dest_nz, long dest_len, long *relative)
 {
-  int i, dest, *last, *leftRow;
+  long i, dest, *last, *leftRow;
   double ljk, *theTmp, *rightNZ;
 
   for (i=0; i<cols_in_update; i++) {
@@ -320,10 +310,9 @@ int *relative;
 }
 
 
-SetDestIndices(super, indices)
-int *indices;
+void SetDestIndices(long super, long *indices)
 {
-  int i, *rightRow, *lastRow;
+  long i, *rightRow, *lastRow;
 
   rightRow = &LB.row[LB.col[super]];
   lastRow = rightRow + (LB.col[super+1]-
@@ -334,10 +323,9 @@ int *indices;
 }
 
 
-SetDomainIndices(super, indices)
-int *indices;
+void SetDomainIndices(long super, long *indices)
 {
-  int i, *rightRow, *lastRow;
+  long i, *rightRow, *lastRow;
 
   rightRow = &LB.row[LB.col[super]+1];
   lastRow = rightRow-1 + (LB.col[super+1]-LB.col[super]);
@@ -347,12 +335,11 @@ int *indices;
 }
 
 
-ModifySuperBySuper(src, theFirst, theLast, length, dest)
-double *dest;
+void ModifySuperBySuper(long src, long theFirst, long theLast, long length, double *dest)
 {
-  int i, fits;
-  int first, last, lastcol;
-  int this_length;
+  long i, fits;
+  long first, last, lastcol;
+  long this_length;
   double *destination;
 
   fits = FitsInCache/length;
@@ -387,11 +374,9 @@ double *dest;
 }
 
 
-ModifyTwoBySupernodeB(super, lastcol, theFirst,
-		      destination0, destination1)
-double *destination0, *destination1;
+void ModifyTwoBySupernodeB(long super, long lastcol, long theFirst, double *destination0, double *destination1)
 {
-  int col, increment;
+  long col, increment;
   double ljk0_0, ljk0_1, ljk1_0, ljk1_1, ljk2_0, ljk2_1, ljk3_0, ljk3_1;
   double ljk4_0, ljk4_1, ljk5_0, ljk5_1, ljk6_0, ljk6_1, ljk7_0, ljk7_1;
   double d0, d1, tmp0, tmp1;
@@ -528,14 +513,13 @@ double *destination0, *destination1;
 }
 
 
-ModifyBySupernodeB(super, lastcol, theFirst, destination)
-double *destination;
+void ModifyBySupernodeB(long super, long lastcol, long theFirst, double *destination)
 {
   double t0, ljk0, ljk1, ljk2, ljk3, ljk4, ljk5, ljk6, ljk7;
-  int increment;
+  long increment;
   double *dest, *last;
   double *theNZ0, *theNZ1, *theNZ2, *theNZ3, *theNZ4, *theNZ5, *theNZ6,*theNZ7;
-  int j, col;
+  long j, col;
 
   j = LB.row[LB.col[super]+theFirst];
 

@@ -32,20 +32,6 @@
 
 
 /*
- *	Define sphere data structure.
- */
-
-typedef struct	sphere
-	{
-	POINT	center; 		/* Center of sphere.		     */
-	REAL	rad;			/* Radius of sphere.		     */
-	REAL	rad2;			/* Radius squared of sphere.	     */
-	}
-	SPHERE;
-
-
-
-/*
  * NAME
  *	SphName - return the object name
  *
@@ -75,8 +61,7 @@ CHAR	*SphName()
  *	Nothing.
  */
 
-VOID	SphPrint(po)
-OBJECT	*po;
+VOID	SphPrint(OBJECT *po)
 	{
 	INT	i;
 	SPHERE	*ps;			/* Ptr to sphere data.		     */
@@ -109,9 +94,7 @@ OBJECT	*po;
  *	Nothing.
  */
 
-VOID	SphElementBoundBox(pe, ps)
-ELEMENT *pe;
-SPHERE	*ps;
+VOID	SphElementBoundBox(ELEMENT *pe, SPHERE *ps)
 	{
 	BBOX	*pbb;			/* Ptr to bounding box. 	     */
 
@@ -140,8 +123,7 @@ SPHERE	*ps;
  *	Nothing.
  */
 
-VOID	SphBoundBox(po)
-OBJECT	*po;
+VOID	SphBoundBox(OBJECT *po)
 	{
 	INT	i;
 	SPHERE	*ps;			/* Ptr to sphere data.		     */
@@ -202,10 +184,7 @@ OBJECT	*po;
  *	Nothing.
  */
 
-VOID	SphNormal(hit, Pi, Ni)
-IRECORD *hit;
-POINT	Pi;
-POINT	Ni;
+VOID	SphNormal(IRECORD *hit, POINT Pi, POINT Ni)
 	{
 	ELEMENT *pe;
 	SPHERE	*ps;			/* Ptr to sphere data.		     */
@@ -236,9 +215,7 @@ POINT	Ni;
  *	Nothing.
  */
 
-VOID	SphDataNormalize(po, normMat)
-OBJECT	*po;
-MATRIX	normMat;
+VOID	SphDataNormalize(OBJECT *po, MATRIX normMat)
 	{
 	INT	i;
 	SPHERE	*ps;			/* Ptr to sphere data.		     */
@@ -309,10 +286,7 @@ MATRIX	normMat;
  *	The number of intersection points.
  */
 
-INT	SphPeIntersect(pr, pe, hit)
-RAY	*pr;
-ELEMENT *pe;
-IRECORD *hit;
+INT	SphPeIntersect(RAY *pr, ELEMENT *pe, IRECORD *hit)
 	{
 	INT	nhits;				/* Number of hits.	     */
 	REAL	b, disc, t1, t2, vsq;		/* Formula variables.	     */
@@ -371,10 +345,7 @@ IRECORD *hit;
  *	The number of intersections found.
  */
 
-INT	SphIntersect(pr, po, hit)
-RAY	*pr;
-OBJECT	*po;
-IRECORD *hit;
+INT	SphIntersect(RAY *pr, OBJECT *po, IRECORD *hit)
 	{
 	INT	i;
 	INT	nhits;			/* # hits in sphere.		     */
@@ -418,10 +389,7 @@ IRECORD *hit;
  *	Nothing.
  */
 
-VOID	SphTransform(po, xtrans, xinvT)
-OBJECT	*po;
-MATRIX	xtrans;
-MATRIX	xinvT;
+VOID	SphTransform(OBJECT *po, MATRIX xtrans, MATRIX xinvT)
 	{
 	INT	i;
 	INT	numelems;		/* Number of object elements.	  */
@@ -488,9 +456,7 @@ MATRIX	xinvT;
  *	Nothing.
  */
 
-VOID	SphRead(po, pf)
-OBJECT	*po;
-FILE	*pf;
+VOID	SphRead(OBJECT *po, FILE *pf)
 	{
 	INT	i;
 	INT	instat; 		/* Input counter		     */

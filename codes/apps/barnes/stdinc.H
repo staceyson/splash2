@@ -21,12 +21,14 @@
 #ifndef _STDINC_H_
 #define _STDINC_H_
 
-/*
- * If not already loaded, include stdio.h.
- */
-
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <sys/times.h>
 
+#define error(msg, ...)	printf(msg, ##__VA_ARGS__);
 /*
  * STREAM: a replacement for FILE *.
  */
@@ -34,18 +36,10 @@
 typedef FILE *stream;
 
 /*
- * NULL: denotes a pointer to no object.
- */
-
-#ifndef NULL
-#define NULL 0
-#endif
-
-/*
  * BOOL, TRUE and FALSE: standard names for logical values.
  */
 
-typedef int bool;
+typedef long bool;
 
 #ifndef TRUE
 
@@ -58,7 +52,7 @@ typedef int bool;
  * BYTE: a short name for a handy chunk of bits.
  */
 
-typedef unsigned char byte;
+typedef char byte;
 
 /*
  * STRING: for null-terminated strings which are not taken apart.
@@ -78,7 +72,7 @@ typedef  double  real, *realptr;
  */
 
 typedef void (*proced)();
-typedef int (*iproc)();
+typedef long (*iproc)();
 typedef real (*rproc)();
 
 /*
@@ -112,5 +106,14 @@ typedef real (*rproc)();
  */
 
 #define   ABS(x)       (((x) < 0) ? -(x) : (x))
+
+#include "vectmath.h"
+#include "defs.h"
+#include "code.h"
+#include "util.h"
+#include "load.h"
+#include "code_io.h"
+#include "grav.h"
+#include "getparam.h"
 
 #endif

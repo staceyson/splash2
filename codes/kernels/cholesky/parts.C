@@ -21,29 +21,29 @@ EXTERN_ENV
 
 
 struct Chunk {
-	int first, last, assign;
+	long first, last, assign;
 	struct Chunk *next;
 	} *chunks_head = NULL, *chunks_tail = NULL;
 
-int tolerance = 20;
+long tolerance = 20;
 
 double domain_ops;
 
 double *divide_lo=NULL, *divide_hi;
 
 extern double *work_tree;
-extern int *firstchild, *child;
+extern long *firstchild, *child;
 
+long Divide(struct Chunk *root);
+void AddInOrder(struct Chunk *t);
 
-Partition(M, parts, T, assigned_ops, domain, domains, proc_domains, distribute)
-SMatrix M;
-int *T, *assigned_ops, *domain, *domains, *proc_domains;
+void Partition(SMatrix M, long parts, long *T, long *assigned_ops, long *domain, long *domains, long *proc_domains)
 {
-  int i, p, start, minm, maxm, ops, change;
-  int which=0;
-  int *depth;
+  long i, p, start, minm, maxm, ops, change;
+  long which=0;
+  long *depth;
   double ave, maxo=0.0, maxd;
-  struct Chunk *t, *GetChunk(), *NewChunk();
+  struct Chunk *t;
 
   start = 0;
   for (i=0; i<M.n; i++)
@@ -98,7 +98,7 @@ int *T, *assigned_ops, *domain, *domains, *proc_domains;
     free(t);
   }
 
-  depth = (int *) malloc(proc_domains[parts]*sizeof(int));
+  depth = (long *) malloc(proc_domains[parts]*sizeof(long));
   for (p=0; p<parts; p++)
     for (i=proc_domains[p]; i<proc_domains[p+1]; i++)
       depth[i] = 1000000*p-BlDepth(domains[i]);
@@ -126,17 +126,16 @@ int *T, *assigned_ops, *domain, *domains, *proc_domains;
   }
   ave = domain_ops/(double) parts;
 
-  printf("Divide for %d P, %d domains, ", parts, proc_domains[parts]);
+  printf("Divide for %ld P, %ld domains, ", parts, proc_domains[parts]);
   printf("%.2f of work static, ", domain_ops/work_tree[M.n]);
   printf("%.2f eff, (%.2f overall)\n", ave/maxd, work_tree[M.n]/maxo/parts);
 }
 
 
-MarkSubtreeAsDomain(domain, root)
-int *domain;
+void MarkSubtreeAsDomain(long *domain, long root)
 {
-  int i, first, root_super;
-  extern int *node;
+  long i, first, root_super;
+  extern long *node;
 
   first = root;
   while (firstchild[first] != firstchild[first+1])
@@ -155,10 +154,9 @@ int *domain;
 }
 
 
-NumberPartition(parts, assigned_ops, distribute)
-int *assigned_ops;
+void NumberPartition(long parts, long *assigned_ops, long distribute)
 {
-  int i, minm;
+  long i, minm;
   struct Chunk *t, *old_t;
 
   for (i=0; i<parts; i++)
@@ -176,12 +174,11 @@ int *assigned_ops;
   }
 }
 
-Divide(root)
-struct Chunk *root;
+long Divide(struct Chunk *root)
 {
-  int i, first, first_in_super;
-  int change = 1;
-  struct Chunk *t2, *NewChunk();
+  long i, first, first_in_super;
+  long change = 1;
+  struct Chunk *t2;
 
   first_in_super = root->last-1;
   while (firstchild[first_in_super]+1 ==
@@ -203,10 +200,9 @@ struct Chunk *root;
 }
 
 
-MaxBucket(assigned_ops, parts)
-int *assigned_ops;
+long MaxBucket(long *assigned_ops, long parts)
 {
-	int i, maxm, ind;
+	long i, maxm, ind;
 
 	maxm = assigned_ops[0]; ind = 0;
 	for (i=1; i<parts; i++)
@@ -217,10 +213,9 @@ int *assigned_ops;
 	return(ind);
 }
 
-MinBucket(assigned_ops, parts)
-int *assigned_ops;
+long MinBucket(long *assigned_ops, long parts)
 {
-	int i, minm, ind;
+	long i, minm, ind;
 
 	minm = assigned_ops[0]; ind = 0;
 	for (i=1; i<parts; i++)
@@ -243,11 +238,10 @@ struct Chunk *NewChunk()
 
 
 
-AddInOrder(t)
-struct Chunk *t;
+void AddInOrder(struct Chunk *t)
 {
 	struct Chunk *current;
-	int work;
+	long work;
 
 	work = work_tree[t->last-1];
 	current = chunks_head;

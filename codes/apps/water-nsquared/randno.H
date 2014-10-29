@@ -15,6 +15,6 @@
 /*************************************************************************/
 
   /* variable declarations needed for random numbers */
-  
-  extern double R3[128],R1;
-  extern int I2;
+
+extern double R3[128],R1;
+extern long I2;

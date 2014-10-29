@@ -45,9 +45,7 @@
  *	TRUE if ray intersects an object, FALSE otherwise.
  */
 
-BOOL	Intersect(pr, hit)
-RAY	*pr;
-IRECORD *hit;
+BOOL	Intersect(RAY *pr, IRECORD *hit)
 	{
 	OBJECT	*po;				/* Ptr to the object.	     */
 	IRECORD newhit; 			/* New intersection.	     */
@@ -90,10 +88,7 @@ IRECORD *hit;
  *	1.0 -> Fully visible.
  */
 
-REAL	ShadowIntersect(pr, lightdist, pe)
-RAY	*pr;
-REAL	lightdist;
-ELEMENT *pe;
+REAL	ShadowIntersect(RAY *pr, REAL lightdist, ELEMENT *pe)
 	{
 	REAL	trans;				/* Transparency factor.      */
 	OBJECT	*po;				/* Ptr to the object.	     */

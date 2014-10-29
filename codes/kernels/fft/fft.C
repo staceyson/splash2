@@ -54,75 +54,82 @@
 
 MAIN_ENV
 
-#define SWAP(a,b) {double tmp; tmp=a; a=b; b=tmp;}
+#define SWAP_VALS(a,b) {double tmp; tmp=a; a=b; b=tmp;}
 
 struct GlobalMemory {
-  int id;
+  long id;
   LOCKDEC(idlock)
   BARDEC(start)
-  int *transtimes;
-  int *totaltimes;
-  int starttime;
-  int finishtime;
-  int initdonetime;
+  long *transtimes;
+  long *totaltimes;
+  unsigned long starttime;
+  unsigned long finishtime;
+  unsigned long initdonetime;
 } *Global;
 
 
-int P = DEFAULT_P;
-int M = DEFAULT_M;
-int N;                  /* N = 2^M                                */
-int rootN;              /* rootN = N^1/2                          */
+long P = DEFAULT_P;
+long M = DEFAULT_M;
+long N;                  /* N = 2^M                                */
+long rootN;              /* rootN = N^1/2                          */
 double *x;              /* x is the original time-domain data     */
 double *trans;          /* trans is used as scratch space         */
 double *umain;          /* umain is roots of unity for 1D FFTs    */
 double *umain2;         /* umain2 is entire roots of unity matrix */
-int test_result = 0;
-int doprint = 0;
-int dostats = 0;
-int transtime = 0;
-int transtime2 = 0;
-int avgtranstime = 0;
-int avgcomptime = 0;
-unsigned int transstart = 0;
-unsigned int transend = 0;
-int maxtotal=0;
-int mintotal=0;
+long test_result = 0;
+long doprint = 0;
+long dostats = 0;
+long transtime = 0;
+long transtime2 = 0;
+long avgtranstime = 0;
+long avgcomptime = 0;
+unsigned long transstart = 0;
+unsigned long transend = 0;
+long maxtotal=0;
+long mintotal=0;
 double maxfrac=0;
 double minfrac=0;
 double avgfractime=0;
-int orig_num_lines = NUM_CACHE_LINES;     /* number of cache lines */
-int num_cache_lines = NUM_CACHE_LINES;    /* number of cache lines */
-int log2_line_size = LOG2_LINE_SIZE;
-int line_size;
-int rowsperproc;
+long orig_num_lines = NUM_CACHE_LINES;     /* number of cache lines */
+long num_cache_lines = NUM_CACHE_LINES;    /* number of cache lines */
+long log2_line_size = LOG2_LINE_SIZE;
+long line_size;
+long rowsperproc;
 double ck1;
 double ck3;                        /* checksums for testing answer */
-int pad_length;
+long pad_length;
 
-void SlaveStart();
-double TouchArray(double *,double *,double *,double *,int,int,int,int);
-void FFT1D(int,int,int,double *,double *,double *,double *,int,int *,int,
-	   int,int,int,int,int,int,struct GlobalMemory *);
-double CheckSum();
-double drand48();
-int log_2(int);
-void printerr(char *);
+void SlaveStart(void);
+double TouchArray(double *x, double *scratch, double *u, double *upriv, long MyFirst, long MyLast);
+double CheckSum(double *x);
+void InitX(double *x);
+void InitU(long N, double *u);
+void InitU2(long N, double *u, long n1);
+long BitReverse(long M, long k);
+void FFT1D(long direction, long M, long N, double *x, double *scratch, double *upriv, double *umain2,
+	   long MyNum, long *l_transtime, long MyFirst, long MyLast, long pad_length, long test_result, long dostats);
+void TwiddleOneCol(long direction, long n1, long j, double *u, double *x, long pad_length);
+void Scale(long n1, long N, double *x);
+void Transpose(long n1, double *src, double *dest, long MyNum, long MyFirst, long MyLast, long pad_length);
+void CopyColumn(long n1, double *src, double *dest);
+void Reverse(long N, long M, double *x);
+void FFT1DOnce(long direction, long M, long N, double *u, double *x);
+void PrintArray(long N, double *x);
+void printerr(char *s);
+long log_2(long number);
 
+void srand48(long int seedval);
+double drand48(void);
 
-main(argc, argv)
-
-int argc;
-char *argv;
-
+int main(int argc, char *argv[])
 {
-  int i; 
-  int j; 
-  int c;
+  long i; 
+  long c;
   extern char *optarg;
-  int m1;
-  int factor;
-  int pages;
-  unsigned int start;
+  long m1;
+  long factor;
+  long pages;
+  unsigned long start;
 
   CLOCK(start);
 
@@ -195,7 +202,7 @@ char *argv;
 
   line_size = 1 << log2_line_size;
   if (line_size < 2*sizeof(double)) {
-    printf("WARNING: Each element is a complex double (%d bytes)\n",2*sizeof(double));
+    printf("WARNING: Each element is a complex double (%ld bytes)\n",2*sizeof(double));
     printf("  => Less than one element per cache line\n");
     printf("     Computing transpose blocking factor\n");
     factor = (2*sizeof(double)) / line_size;
@@ -230,8 +237,8 @@ char *argv;
   umain = (double *) G_MALLOC(2*rootN*sizeof(double));  
   umain2 = (double *) G_MALLOC(2*(N+rootN*pad_length)*sizeof(double)+PAGE_SIZE);
 
-  Global->transtimes = (int *) G_MALLOC(P*sizeof(int));  
-  Global->totaltimes = (int *) G_MALLOC(P*sizeof(int));  
+  Global->transtimes = (long *) G_MALLOC(P*sizeof(long));  
+  Global->totaltimes = (long *) G_MALLOC(P*sizeof(long));  
   if (Global == NULL) {
     printerr("Could not malloc memory for Global\n");
     exit(-1);
@@ -249,9 +256,9 @@ char *argv;
     exit(-1);
   }
 
-  x = (double *) (((unsigned) x) + PAGE_SIZE - ((unsigned) x) % PAGE_SIZE);
-  trans = (double *) (((unsigned) trans) + PAGE_SIZE - ((unsigned) trans) % PAGE_SIZE);
-  umain2 = (double *) (((unsigned) umain2) + PAGE_SIZE - ((unsigned) umain2) % PAGE_SIZE);
+  x = (double *) (((unsigned long) x) + PAGE_SIZE - ((unsigned long) x) % PAGE_SIZE);
+  trans = (double *) (((unsigned long) trans) + PAGE_SIZE - ((unsigned long) trans) % PAGE_SIZE);
+  umain2 = (double *) (((unsigned long) umain2) + PAGE_SIZE - ((unsigned long) umain2) % PAGE_SIZE);
 
 /* In order to optimize data distribution, the data structures x, trans, 
    and umain2 have been aligned so that each begins on a page boundary. 
@@ -267,7 +274,7 @@ char *argv;
    One way to place data is as follows:
 
    double *base;
-   int i;
+   long i;
 
    i = ((N/P)+(rootN/P)*pad_length)*2;
    base = &(x[0]);
@@ -282,25 +289,25 @@ char *argv;
 
   printf("\n");
   printf("FFT with Blocking Transpose\n");
-  printf("   %d Complex Doubles\n",N);
-  printf("   %d Processors\n",P);
+  printf("   %ld Complex Doubles\n",N);
+  printf("   %ld Processors\n",P);
   if (num_cache_lines != orig_num_lines) {
-    printf("   %d Cache lines\n",orig_num_lines);
-    printf("   %d Cache lines for blocking transpose\n",num_cache_lines);
+    printf("   %ld Cache lines\n",orig_num_lines);
+    printf("   %ld Cache lines for blocking transpose\n",num_cache_lines);
   } else {
-    printf("   %d Cache lines\n",num_cache_lines);
+    printf("   %ld Cache lines\n",num_cache_lines);
   }
   printf("   %d Byte line size\n",(1 << log2_line_size));
   printf("   %d Bytes per page\n",PAGE_SIZE);
   printf("\n");
 
-  BARINIT(Global->start);
+  BARINIT(Global->start, P);
   LOCKINIT(Global->idlock);
   Global->id = 0;
-  InitX(N, x);                  /* place random values in x */
+  InitX(x);                  /* place random values in x */
 
   if (test_result) {
-    ck1 = CheckSum(N, x);
+    ck1 = CheckSum(x);
   }
   if (doprint) {
     printf("Original data values:\n");
@@ -311,12 +318,9 @@ char *argv;
   InitU2(N,umain2,rootN);
 
   /* fire off P processes */
-  for (i=1; i<P; i++) {
-    CREATE(SlaveStart);
-  }
-  SlaveStart();
 
-  WAIT_FOR_END(P-1)
+  CREATE(SlaveStart, P);
+  WAIT_FOR_END(P);
 
   if (doprint) {
     if (test_result) {
@@ -332,7 +336,7 @@ char *argv;
   printf("                 PROCESS STATISTICS\n");
   printf("            Computation      Transpose     Transpose\n");
   printf(" Proc          Time            Time        Fraction\n");
-  printf("    0        %10d     %10d      %8.5f\n",
+  printf("    0        %10ld     %10ld      %8.5f\n",
          Global->totaltimes[0],Global->transtimes[0],
          ((double)Global->transtimes[0])/Global->totaltimes[0]);
   if (dostats) {
@@ -363,7 +367,7 @@ char *argv;
       if (((double)Global->transtimes[i])/Global->totaltimes[i] < minfrac) {
         minfrac = ((double)Global->transtimes[i])/Global->totaltimes[i];
       }
-      printf("  %3d        %10d     %10d      %8.5f\n",
+      printf("  %3ld        %10ld     %10ld      %8.5f\n",
              i,Global->totaltimes[i],Global->transtimes[i],
              ((double)Global->transtimes[i])/Global->totaltimes[i]);
       avgtranstime += Global->transtimes[i];
@@ -372,32 +376,32 @@ char *argv;
     }
     printf("  Avg        %10.0f     %10.0f      %8.5f\n",
            ((double) avgcomptime)/P,((double) avgtranstime)/P,avgfractime/P);
-    printf("  Max        %10d     %10d      %8.5f\n",
+    printf("  Max        %10ld     %10ld      %8.5f\n",
 	   maxtotal,transtime,maxfrac);
-    printf("  Min        %10d     %10d      %8.5f\n",
+    printf("  Min        %10ld     %10ld      %8.5f\n",
 	   mintotal,transtime2,minfrac);
   }
   Global->starttime = start;
   printf("\n");
   printf("                 TIMING INFORMATION\n");
-  printf("Start time                        : %16d\n",
+  printf("Start time                        : %16lu\n",
 	  Global->starttime);
-  printf("Initialization finish time        : %16d\n",
+  printf("Initialization finish time        : %16lu\n",
 	  Global->initdonetime);
-  printf("Overall finish time               : %16d\n",
+  printf("Overall finish time               : %16lu\n",
 	  Global->finishtime);
-  printf("Total time with initialization    : %16d\n",
+  printf("Total time with initialization    : %16lu\n",
 	  Global->finishtime-Global->starttime);
-  printf("Total time without initialization : %16d\n",
+  printf("Total time without initialization : %16lu\n",
 	  Global->finishtime-Global->initdonetime);
-  printf("Overall transpose time            : %16d\n",
+  printf("Overall transpose time            : %16ld\n",
          transtime);
   printf("Overall transpose fraction        : %16.5f\n",
          ((double) transtime)/(Global->finishtime-Global->initdonetime));
   printf("\n");
 
   if (test_result) {
-    ck3 = CheckSum(N, x);
+    ck3 = CheckSum(x);
     printf("              INVERSE FFT TEST RESULTS\n");
     printf("Checksum difference is %.3f (%.3f, %.3f)\n",
 	   ck1-ck3, ck1, ck3);
@@ -414,21 +418,21 @@ char *argv;
 
 void SlaveStart()
 {
-  int i;
-  int j;
-  int MyNum;
-  double error;
+  long i;
+  long MyNum;
   double *upriv;
-  int initdone; 
-  int finish; 
-  int l_transtime=0;
-  int MyFirst; 
-  int MyLast;
+  long initdone; 
+  long finish; 
+  long l_transtime=0;
+  long MyFirst; 
+  long MyLast;
 
   LOCK(Global->idlock);
     MyNum = Global->id;
     Global->id++;
   UNLOCK(Global->idlock); 
+
+  BARINCLUDE(Global->start);
 
 /* POSSIBLE ENHANCEMENT:  Here is where one might pin processes to
    processors to avoid migration */
@@ -437,7 +441,7 @@ void SlaveStart()
 
   upriv = (double *) malloc(2*(rootN-1)*sizeof(double));  
   if (upriv == NULL) {
-    fprintf(stderr,"Proc %d could not malloc memory for upriv\n",MyNum);
+    fprintf(stderr,"Proc %ld could not malloc memory for upriv\n",MyNum);
     exit(-1);
   }
   for (i=0;i<2*(rootN-1);i++) {
@@ -447,7 +451,7 @@ void SlaveStart()
   MyFirst = rootN*MyNum/P;
   MyLast = rootN*(MyNum+1)/P;
 
-  TouchArray(x, trans, umain2, upriv, N, MyNum, MyFirst, MyLast);
+  TouchArray(x, trans, umain2, upriv, MyFirst, MyLast);
 
   BARRIER(Global->start, P);
 
@@ -460,12 +464,12 @@ void SlaveStart()
 
   /* perform forward FFT */
   FFT1D(1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
-	MyLast, pad_length, P, test_result, doprint, dostats, Global);
+	MyLast, pad_length, test_result, dostats);
 
   /* perform backward FFT */
   if (test_result) {
     FFT1D(-1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
-	  MyLast, pad_length, P, test_result, doprint, dostats, Global);
+	  MyLast, pad_length, test_result, dostats);
   }  
 
   if ((MyNum == 0) || (dostats)) {
@@ -480,19 +484,9 @@ void SlaveStart()
 }
 
 
-double TouchArray(x, scratch, u, upriv, N, MyNum, MyFirst, MyLast)
-
-double *x; 
-double *scratch; 
-double *u; 
-double *upriv;
-int N; 
-int MyNum;
-int MyFirst;
-int MyLast;
-
+double TouchArray(double *x, double *scratch, double *u, double *upriv, long MyFirst, long MyLast)
 {
-  int i,j,k;
+  long i,j,k;
   double tot = 0.0;
 
   /* touch my data */
@@ -511,13 +505,9 @@ int MyLast;
 }
 
 
-double CheckSum(N, x)
-
-int N;
-double *x;
-
+double CheckSum(double *x)
 {
-  int i,j,k;
+  long i,j,k;
   double cks;
 
   cks = 0.0;
@@ -532,13 +522,9 @@ double *x;
 }
 
 
-InitX(N, x)
-
-int N;
-double *x;
-
+void InitX(double *x)
 {
-  int i,j,k;
+  long i,j,k;
 
   srand48(0);
   for (j=0; j<rootN; j++) {
@@ -551,16 +537,12 @@ double *x;
 }
 
 
-InitU(N, u)
-
-int N;
-double *u;
-
+void InitU(long N, double *u)
 {
-  int q; 
-  int j; 
-  int base; 
-  int n1;
+  long q; 
+  long j; 
+  long base; 
+  long n1;
 
   for (q=0; 1<<q<N; q++) {  
     n1 = 1<<q;
@@ -576,15 +558,9 @@ double *u;
 }
 
 
-InitU2(N, u, n1)
-
-int N;
-double *u;
-int n1;
-
+void InitU2(long N, double *u, long n1)
 {
-  int i,j,k; 
-  int base;
+  long i,j,k; 
 
   for (j=0; j<n1; j++) {  
     k = j*(rootN+pad_length);
@@ -596,15 +572,11 @@ int n1;
 }
 
 
-BitReverse(M, k)
-
-int M; 
-int k;
-
+long BitReverse(long M, long k)
 {
-  int i; 
-  int j; 
-  int tmp;
+  long i; 
+  long j; 
+  long tmp;
 
   j = 0;
   tmp = k;
@@ -616,35 +588,14 @@ int k;
 }
 
 
-void FFT1D(direction, M, N, x, scratch, upriv, umain2, MyNum, l_transtime, 
-           MyFirst, MyLast, pad_length, P, test_result, doprint, dostats, 
-	   Global)
-
-int direction; 
-int M; 
-int N; 
-int *l_transtime;
-double *x; 
-double *upriv; 
-double *scratch;
-double *umain2; 
-int MyFirst;
-int MyLast;
-int pad_length;
-int P;
-int test_result;
-int doprint;
-int dostats;
-struct GlobalMemory *Global;
-
+void FFT1D(long direction, long M, long N, double *x, double *scratch, double *upriv, double *umain2,
+           long MyNum, long *l_transtime, long MyFirst, long MyLast, long pad_length, long test_result, long dostats)
 {
-  int i; 
-  int j;
-  int m1; 
-  int n1;
-  int flag = 0;
-  unsigned int clocktime1;
-  unsigned int clocktime2;
+  long j;
+  long m1; 
+  long n1;
+  unsigned long clocktime1;
+  unsigned long clocktime2;
 
   m1 = M/2;
   n1 = 1<<m1;
@@ -666,8 +617,7 @@ struct GlobalMemory *Global;
   /* do n1 1D FFTs on columns */
   for (j=MyFirst; j<MyLast; j++) {
     FFT1DOnce(direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
-    TwiddleOneCol(direction, n1, N, j, umain2, &scratch[2*j*(n1+pad_length)],
-		  pad_length);
+    TwiddleOneCol(direction, n1, j, umain2, &scratch[2*j*(n1+pad_length)], pad_length);
   }  
 
   BARRIER(Global->start, P);
@@ -717,26 +667,13 @@ struct GlobalMemory *Global;
 }
 
 
-TwiddleOneCol(direction, n1, N, j, u, x, pad_length)
-
-int direction; 
-int n1;
-int N;
-int j;
-double *u;
-double *x;
-int pad_length;
-
+void TwiddleOneCol(long direction, long n1, long j, double *u, double *x, long pad_length)
 {
-  int i;
+  long i;
   double omega_r; 
   double omega_c; 
   double x_r; 
   double x_c;
-  double r1;
-  double c1;
-  double r2;
-  double c2;
 
   for (i=0; i<n1; i++) {
     omega_r = u[2*(j*(n1+pad_length)+i)];
@@ -749,14 +686,9 @@ int pad_length;
 }
 
 
-Scale(n1, N, x)
-
-int n1; 
-int N;
-double *x;
-
+void Scale(long n1, long N, double *x)
 {
-  int i;
+  long i;
 
   for (i=0; i<n1; i++) {
     x[2*i] /= N;
@@ -765,31 +697,22 @@ double *x;
 }
 
 
-Transpose(n1, src, dest, MyNum, MyFirst, MyLast, pad_length)
-
-int n1;
-double *src; 
-double *dest;
-int MyNum;
-int MyFirst;
-int MyLast;
-int pad_length;
-
+void Transpose(long n1, double *src, double *dest, long MyNum, long MyFirst, long MyLast, long pad_length)
 {
-  int i; 
-  int j; 
-  int k; 
-  int l; 
-  int m;
-  int blksize;
-  int numblks;
-  int firstfirst;
-  int h_off;
-  int v_off;
-  int v;
-  int h;
-  int n1p;
-  int row_count;
+  long i; 
+  long j; 
+  long k; 
+  long l; 
+  long m;
+  long blksize;
+  long numblks;
+  long firstfirst;
+  long h_off;
+  long v_off;
+  long v;
+  long h;
+  long n1p;
+  long row_count;
 
   blksize = MyLast-MyFirst;
   numblks = (2*blksize)/num_cache_lines;
@@ -857,14 +780,9 @@ int pad_length;
 }
 
 
-CopyColumn(n1, src, dest)
-
-int n1;
-double *src; 
-double *dest;
-
+void CopyColumn(long n1, double *src, double *dest)
 {
-  int i;
+  long i;
 
   for (i=0; i<n1; i++) {
     dest[2*i] = src[2*i];
@@ -873,40 +791,28 @@ double *dest;
 }
 
 
-Reverse(N, M, x)
-
-int N; 
-int M;
-double *x;
-
+void Reverse(long N, long M, double *x)
 {
-  int j, k;
+  long j, k;
 
   for (k=0; k<N; k++) {
     j = BitReverse(M, k);
     if (j > k) {
-      SWAP(x[2*j], x[2*k]);
-      SWAP(x[2*j+1], x[2*k+1]);
+      SWAP_VALS(x[2*j], x[2*k]);
+      SWAP_VALS(x[2*j+1], x[2*k+1]);
     }
   }
 }
 
 
-FFT1DOnce(direction, M, N, u, x)
-
-int direction; 
-int M; 
-int N;
-double *u; 
-double *x;
-
+void FFT1DOnce(long direction, long M, long N, double *u, double *x)
 {
-  int j; 
-  int k; 
-  int q; 
-  int L; 
-  int r; 
-  int Lstar;
+  long j; 
+  long k; 
+  long q; 
+  long L; 
+  long r; 
+  long Lstar;
   double *u1; 
   double *x1; 
   double *x2;
@@ -944,13 +850,9 @@ double *x;
 }
 
 
-PrintArray(N, x)
-
-int N;
-double *x;
-
+void PrintArray(long N, double *x)
 {
-  int i, j, k;
+  long i, j, k;
 
   for (i=0; i<rootN; i++) {
     k = i*(rootN+pad_length);
@@ -969,23 +871,15 @@ double *x;
 }
 
 
-void printerr(s)
-
-char *s;
-
+void printerr(char *s)
 {
   fprintf(stderr,"ERROR: %s\n",s);
 }
 
 
-int log_2(number)
-
-int number;
-
+long log_2(long number)
 {
-  int cumulative = 1;
-  int out = 0;
-  int done = 0;
+  long cumulative = 1, out = 0, done = 0;
 
   while ((cumulative < number) && (!done) && (out < 50)) {
     if (cumulative == number) {

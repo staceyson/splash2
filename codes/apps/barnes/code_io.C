@@ -15,30 +15,26 @@
 /*************************************************************************/
 
 /*
- * CODE_IO.C: 
+ * CODE_IO.C:
  */
 EXTERN_ENV
 #define global extern
-    
-#include "code.h"
 
-void in_int (), in_real (), in_vector ();
-void out_int (), out_real (), out_vector ();
-void diagnostics (unsigned int ProcessId);
-    
+#include "stdinc.h"
+
 /*
  * INPUTDATA: read initial conditions from input file.
  */
-    
-inputdata ()
+
+void inputdata ()
 {
    stream instr;
    permanent char headbuf[128];
-   int ndim,counter=0;
+   long ndim;
    real tnow;
    bodyptr p;
-   int i;
-    
+   long i;
+
    fprintf(stderr,"reading input file : %s\n",infile);
    fflush(stderr);
    instr = fopen(infile, "r");
@@ -48,10 +44,10 @@ inputdata ()
    headline = headbuf;
    in_int(instr, &nbody);
    if (nbody < 1)
-      error("inputdata: nbody = %d is absurd\n", nbody);
+      error("inputdata: nbody = %ld is absurd\n", nbody);
    in_int(instr, &ndim);
    if (ndim != NDIM)
-      error("inputdata: NDIM = %d ndim = %d is absurd\n", NDIM,ndim);
+      error("inputdata: NDIM = %ld ndim = %ld is absurd\n", NDIM, ndim);
    in_real(instr, &tnow);
    for (i = 0; i < MAX_PROC; i++) {
       Local[i].tnow = tnow;
@@ -64,7 +60,7 @@ inputdata ()
       Cost(p) = 1;
       Phi(p) = 0.0;
       CLRV(Acc(p));
-   } 
+   }
    for (p = bodytab; p < bodytab+nbody; p++)
       in_real(instr, &Mass(p));
    for (p = bodytab; p < bodytab+nbody; p++)
@@ -73,18 +69,18 @@ inputdata ()
       in_vector(instr, Vel(p));
    fclose(instr);
 }
-
+
 /*
  * INITOUTPUT: initialize output routines.
  */
 
 
-initoutput()
+void initoutput()
 {
    printf("\n\t\t%s\n\n", headline);
    printf("%10s%10s%10s%10s%10s%10s%10s%10s\n",
 	  "nbody", "dtime", "eps", "tol", "dtout", "tstop","fcells","NPROC");
-   printf("%10d%10.5f%10.4f%10.2f%10.3f%10.3f%10.2f%10d\n\n",
+   printf("%10ld%10.5f%10.4f%10.2f%10.3f%10.3f%10.2f%10ld\n\n",
 	  nbody, dtime, eps, tol, dtout, tstop, fcells, NPROC);
 }
 
@@ -92,18 +88,14 @@ initoutput()
  * STOPOUTPUT: finish up after a run.
  */
 
-
+
 /*
  * OUTPUT: compute diagnostics and output data.
  */
 
-void
-output (ProcessId)
-   unsigned int ProcessId;
+void output(long ProcessId)
 {
-   int nttot, nbavg, ncavg,k;
-   double cputime();
-   bodyptr p, *pp;
+   long nttot, nbavg, ncavg,k;
    vector tempv1,tempv2;
 
    if ((Local[ProcessId].tout - 0.01 * dtime) <= Local[ProcessId].tnow) {
@@ -121,12 +113,12 @@ output (ProcessId)
       ADDM(Global->peten, Global-> peten, Local[ProcessId].mypeten);
       for (k=0;k<3;k++) Global->etot[k] +=  Local[ProcessId].myetot[k];
       ADDV(Global->amvec, Global-> amvec, Local[ProcessId].myamvec);
-        
+
       MULVS(tempv1, Global->cmphase[0],Global->mtot);
       MULVS(tempv2, Local[ProcessId].mycmphase[0], Local[ProcessId].mymtot);
       ADDV(tempv1, tempv1, tempv2);
-      DIVVS(Global->cmphase[0], tempv1, Global->mtot+Local[ProcessId].mymtot); 
-        
+      DIVVS(Global->cmphase[0], tempv1, Global->mtot+Local[ProcessId].mymtot);
+
       MULVS(tempv1, Global->cmphase[1],Global->mtot);
       MULVS(tempv2, Local[ProcessId].mycmphase[1], Local[ProcessId].mymtot);
       ADDV(tempv1, tempv1, tempv2);
@@ -134,25 +126,23 @@ output (ProcessId)
       Global->mtot +=Local[ProcessId].mymtot;
       UNLOCK(Global->CountLock);
    }
-    
-   BARRIER(Global->Baraccel,NPROC);
-    
+
+   BARRIER(Global->Barrier,NPROC);
+
    if (ProcessId==0) {
       nttot = Global->n2bcalc + Global->nbccalc;
-      nbavg = (int) ((real) Global->n2bcalc / (real) nbody);
-      ncavg = (int) ((real) Global->nbccalc / (real) nbody);
+      nbavg = (long) ((real) Global->n2bcalc / (real) nbody);
+      ncavg = (long) ((real) Global->nbccalc / (real) nbody);
    }
 }
 
 
-
+
 /*
  * DIAGNOSTICS: compute set of dynamical diagnostics.
  */
 
-void
-diagnostics (ProcessId)
-   unsigned int ProcessId;
+void diagnostics(long ProcessId)
 {
    register bodyptr p,*pp;
    real velsq;
@@ -166,8 +156,8 @@ diagnostics (ProcessId)
    CLRV(Local[ProcessId].mycmphase[0]);
    CLRV(Local[ProcessId].mycmphase[1]);
    CLRV(Local[ProcessId].myamvec);
-   for (pp = Local[ProcessId].mybodytab+Local[ProcessId].mynbody -1; 
-	pp >= Local[ProcessId].mybodytab; pp--) { 
+   for (pp = Local[ProcessId].mybodytab+Local[ProcessId].mynbody -1;
+	pp >= Local[ProcessId].mybodytab; pp--) {
       p= *pp;
       Local[ProcessId].mymtot += Mass(p);
       DOTVP(velsq, Vel(p), Vel(p));
@@ -187,70 +177,59 @@ diagnostics (ProcessId)
       MULVS(tmpv, tmpv, Mass(p));
       ADDV(Local[ProcessId].myamvec, Local[ProcessId].myamvec, tmpv);
    }
-   Local[ProcessId].myetot[0] = Local[ProcessId].myetot[1] 
+   Local[ProcessId].myetot[0] = Local[ProcessId].myetot[1]
       + Local[ProcessId].myetot[2];
    if (Local[ProcessId].mymtot!=0){
-      DIVVS(Local[ProcessId].mycmphase[0], Local[ProcessId].mycmphase[0], 
+      DIVVS(Local[ProcessId].mycmphase[0], Local[ProcessId].mycmphase[0],
 	    Local[ProcessId].mymtot);
-      DIVVS(Local[ProcessId].mycmphase[1], Local[ProcessId].mycmphase[1], 
+      DIVVS(Local[ProcessId].mycmphase[1], Local[ProcessId].mycmphase[1],
 	    Local[ProcessId].mymtot);
    }
 }
 
-
+
 
 /*
  * Low-level input and output operations.
  */
 
-void in_int(str, iptr)
-  stream str;
-  int *iptr;
+void in_int(stream str, long *iptr)
 {
-   if (fscanf(str, "%d", iptr) != 1)
-      error("in_int: input conversion error\n");
+   if (fscanf(str, "%ld", iptr) != 1)
+      error("in_int: input conversion print_error\n");
 }
 
-void in_real(str, rptr)
-  stream str;
-  real *rptr;
+void in_real(stream str, real *rptr)
 {
    double tmp;
 
    if (fscanf(str, "%lf", &tmp) != 1)
-      error("in_real: input conversion error\n");
+      error("in_real: input conversion print_error\n");
    *rptr = tmp;
 }
 
-void in_vector(str, vec)
-  stream str;
-  vector vec;
+void in_vector(stream str, vector vec)
 {
    double tmpx, tmpy, tmpz;
 
    if (fscanf(str, "%lf%lf%lf", &tmpx, &tmpy, &tmpz) != 3)
-      error("in_vector: input conversion error\n");
+      error("in_vector: input conversion print_error\n");
    vec[0] = tmpx;    vec[1] = tmpy;    vec[2] = tmpz;
 }
 
-void out_int(str, ival)
-  stream str;
-  int ival;
+void out_int(stream str, long ival)
 {
-   fprintf(str, "  %d\n", ival);
+   fprintf(str, "  %ld\n", ival);
 }
 
-void out_real(str, rval)
-  stream str;
-  real rval;
+void out_real(stream str, real rval)
 {
    fprintf(str, " %21.14E\n", rval);
 }
 
-void out_vector(str, vec)
-  stream str;
-  vector vec;
+void out_vector(stream str, vector vec)
 {
    fprintf(str, " %21.14E %21.14E", vec[0], vec[1]);
    fprintf(str, " %21.14E\n",vec[2]);
 }
+

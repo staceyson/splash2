@@ -23,11 +23,14 @@
 /*                                                                       */
 /*************************************************************************/
 
-MAIN_ENV
-
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <stdlib.h>
+#include "decs.h"
+
+MAIN_ENV
+
 #define DEFAULT_N      258
 #define DEFAULT_P        1
 #define DEFAULT_E        1e-7
@@ -39,117 +42,25 @@ MAIN_ENV
 #define MAX_LEVELS       9
 #define PAGE_SIZE     4096
 
-struct global_struct {
-   int id;
-   int starttime;
-   int trackstart;
-   double psiai;
-   double psibi;
-} *global;
+struct global_struct *global;
+struct fields_struct *fields;
+struct fields2_struct *fields2;
+struct wrk1_struct *wrk1;
+struct wrk3_struct *wrk3;
+struct wrk2_struct *wrk2;
+struct wrk4_struct *wrk4;
+struct wrk6_struct *wrk6;
+struct wrk5_struct *wrk5;
+struct frcng_struct *frcng;
+struct iter_struct *iter;
+struct guess_struct *guess;
+struct multi_struct *multi;
+struct locks_struct *locks;
+struct bars_struct *bars;
 
-struct fields_struct {
-   double psi[2][IMAX][JMAX];
-   double psim[2][IMAX][JMAX];
-} *fields;
-  
-struct fields2_struct {
-   double psium[IMAX][JMAX];
-   double psilm[IMAX][JMAX];
-} *fields2;
-
-struct wrk1_struct {
-   double psib[IMAX][JMAX];
-   double ga[IMAX][JMAX];
-   double gb[IMAX][JMAX];
-} *wrk1;
-
-struct wrk3_struct {
-   double work1[2][IMAX][JMAX];
-   double work2[IMAX][JMAX];
-} *wrk3;
-
-struct wrk2_struct {
-   double work3[IMAX][JMAX];
-   double f[IMAX];
-} *wrk2;
-
-struct wrk4_struct {
-   double work4[2][IMAX][JMAX];
-   double work5[2][IMAX][JMAX];
-} *wrk4;
-
-struct wrk6_struct {
-   double work6[IMAX][JMAX];
-} *wrk6;
-
-struct wrk5_struct {
-   double work7[2][IMAX][JMAX];
-   double temparray[2][IMAX][JMAX];
-} *wrk5;
-
-struct frcng_struct {
-   double tauz[IMAX][JMAX];
-} *frcng;
-
-struct iter_struct {
-   int notdone;
-   double work8[IMAX][JMAX];
-   double work9[IMAX][JMAX];
-} *iter;
-
-struct guess_struct {
-   double oldga[IMAX][JMAX];
-   double oldgb[IMAX][JMAX];
-} *guess;
-
-struct multi_struct {
-   double q_multi[MAX_LEVELS][IMAX][JMAX];
-   double rhs_multi[MAX_LEVELS][IMAX][JMAX];
-   double err_multi;
-   int numspin;
-   int spinflag[INPROCS];
-} *multi;
-
-struct locks_struct {
-   LOCKDEC(idlock)
-   LOCKDEC(psiailock)
-   LOCKDEC(psibilock)
-   LOCKDEC(donelock)
-   LOCKDEC(error_lock)
-   LOCKDEC(bar_lock)
-} *locks;
-
-struct bars_struct {
-   BARDEC(iteration)
-   BARDEC(gsudn)
-   BARDEC(p_setup) 
-   BARDEC(p_redph) 
-   BARDEC(p_soln) 
-   BARDEC(p_subph) 
-   BARDEC(sl_prini)
-   BARDEC(sl_psini)
-   BARDEC(sl_onetime)
-   BARDEC(sl_phase_1)
-   BARDEC(sl_phase_2)
-   BARDEC(sl_phase_3)
-   BARDEC(sl_phase_4)
-   BARDEC(sl_phase_5)
-   BARDEC(sl_phase_6)
-   BARDEC(sl_phase_7)
-   BARDEC(sl_phase_8)
-   BARDEC(sl_phase_9)
-   BARDEC(sl_phase_10)
-   BARDEC(error_barrier)
-} *bars;
-
-void subblock();
-void slave();
-int log_2(int);
-void printerr(char *);
-
-int startcol[2][INPROCS];
-int nprocs = DEFAULT_P;
-int startrow[2][INPROCS];
+long startcol[2][INPROCS];
+long nprocs = DEFAULT_P;
+long startrow[2][INPROCS];
 double h1 = 1000.0;
 double h3 = 4000.0;
 double h = 5000.0;
@@ -160,12 +71,12 @@ double dtau = DEFAULT_T;
 double f0 = 8.3e-5;
 double beta = 2.0e-11;
 double gpr = 0.02;
-int im = DEFAULT_N;
-int jm;
+long im = DEFAULT_N;
+long jm;
 double tolerance = DEFAULT_E;
 double eig2;
 double ysca;
-int jmm1;
+long jmm1;
 double pi;
 double t0 = 0.5e-4 ;
 double outday0 = 1.0;
@@ -174,72 +85,37 @@ double outday2 = 2.0;
 double outday3 = 2.0;
 double factjacob;
 double factlap;
-int numlev;
-int minlev;
-int imx[MAX_LEVELS];
-int jmx[MAX_LEVELS];
+long numlev;
+long minlev;
+long imx[MAX_LEVELS];
+long jmx[MAX_LEVELS];
 double lev_res[MAX_LEVELS];
 double lev_tol[MAX_LEVELS];
 double maxwork = 10000.0;
 
-struct Global_Private {
-  char pad[PAGE_SIZE];
-  double multi_time;
-  double total_time;
-  int rel_start_x[MAX_LEVELS];
-  int rel_start_y[MAX_LEVELS];
-  int rel_num_x[MAX_LEVELS];
-  int rel_num_y[MAX_LEVELS];
-  int eist[MAX_LEVELS];
-  int ejst[MAX_LEVELS];
-  int oist[MAX_LEVELS];
-  int ojst[MAX_LEVELS];
-  int eiest[MAX_LEVELS];
-  int ejest[MAX_LEVELS];
-  int oiest[MAX_LEVELS];
-  int ojest[MAX_LEVELS];
-  int rlist[MAX_LEVELS];
-  int rljst[MAX_LEVELS];
-  int rlien[MAX_LEVELS];
-  int rljen[MAX_LEVELS];
-  int iist[MAX_LEVELS];
-  int ijst[MAX_LEVELS];
-  int iien[MAX_LEVELS];
-  int ijen[MAX_LEVELS];
-  int pist[MAX_LEVELS];
-  int pjst[MAX_LEVELS];
-  int pien[MAX_LEVELS];
-  int pjen[MAX_LEVELS];
-} *gp;
+struct Global_Private *gp;
 
 double i_int_coeff[MAX_LEVELS];
 double j_int_coeff[MAX_LEVELS];
-int xprocs;
-int yprocs;
-int do_stats = 0;
-int do_output = 0;
+long xprocs;
+long yprocs;
+long do_stats = 0;
+long do_output = 0;
 
-void main(argc, argv)
-
-int argc;
-char *argv[];
-
+int main(int argc, char *argv[])
 {
-   double s;
-   double st2;
-   int i;
-   int j;
-   int xextra;
-   int xportion;
-   int yextra;
-   int yportion;
-   int lower;
+   long i;
+   long j;
+   long xextra;
+   long xportion;
+   long yextra;
+   long yportion;
+   long lower;
    double procsqrt;
-   int k;
-   int logtest;
-   double work_multi;
-   int my_num;
-   unsigned int computeend;
+   long k;
+   long logtest;
+   long my_num;
+   unsigned long computeend;
    double min_total;
    double max_total;
    double avg_total;
@@ -250,8 +126,8 @@ char *argv[];
    double max_frac;
    double avg_frac;
    extern char *optarg;
-   int ch;
-   unsigned int start;
+   long ch;
+   unsigned long start;
 
    CLOCK(start)
 
@@ -320,8 +196,8 @@ char *argv[];
    jm = im;
    printf("\n");
    printf("Ocean simulation with W-cycle multigrid solver\n");
-   printf("    Processors                         : %1d\n",nprocs);
-   printf("    Grid size                          : %1d x %1d\n",im,jm);
+   printf("    Processors                         : %1ld\n",nprocs);
+   printf("    Grid size                          : %1ld x %1ld\n",im,jm);
    printf("    Grid resolution (meters)           : %0.2f\n",res);
    printf("    Time between relaxations (seconds) : %0.0f\n",dtau);
    printf("    Error tolerance                    : %0.7g\n",tolerance);
@@ -355,26 +231,30 @@ char *argv[];
    LOCKINIT(locks->error_lock)
    LOCKINIT(locks->bar_lock)
 
-   BARINIT(bars->iteration)
-   BARINIT(bars->gsudn)
-   BARINIT(bars->p_setup) 
-   BARINIT(bars->p_redph) 
-   BARINIT(bars->p_soln) 
-   BARINIT(bars->p_subph) 
-   BARINIT(bars->sl_prini)
-   BARINIT(bars->sl_psini)
-   BARINIT(bars->sl_onetime)
-   BARINIT(bars->sl_phase_1)
-   BARINIT(bars->sl_phase_2)
-   BARINIT(bars->sl_phase_3)
-   BARINIT(bars->sl_phase_4)
-   BARINIT(bars->sl_phase_5)
-   BARINIT(bars->sl_phase_6)
-   BARINIT(bars->sl_phase_7)
-   BARINIT(bars->sl_phase_8)
-   BARINIT(bars->sl_phase_9)
-   BARINIT(bars->sl_phase_10)
-   BARINIT(bars->error_barrier)
+#if defined(MULTIPLE_BARRIERS)
+   BARINIT(bars->iteration, nprocs)
+   BARINIT(bars->gsudn, nprocs)
+   BARINIT(bars->p_setup, nprocs)
+   BARINIT(bars->p_redph, nprocs)
+   BARINIT(bars->p_soln, nprocs)
+   BARINIT(bars->p_subph, nprocs)
+   BARINIT(bars->sl_prini, nprocs)
+   BARINIT(bars->sl_psini, nprocs)
+   BARINIT(bars->sl_onetime, nprocs)
+   BARINIT(bars->sl_phase_1, nprocs)
+   BARINIT(bars->sl_phase_2, nprocs)
+   BARINIT(bars->sl_phase_3, nprocs)
+   BARINIT(bars->sl_phase_4, nprocs)
+   BARINIT(bars->sl_phase_5, nprocs)
+   BARINIT(bars->sl_phase_6, nprocs)
+   BARINIT(bars->sl_phase_7, nprocs)
+   BARINIT(bars->sl_phase_8, nprocs)
+   BARINIT(bars->sl_phase_9, nprocs)
+   BARINIT(bars->sl_phase_10, nprocs)
+   BARINIT(bars->error_barrier, nprocs)
+#else
+   BARINIT(bars->barrier, nprocs)
+#endif
 
    imx[numlev-1] = im;
    jmx[numlev-1] = jm;
@@ -395,7 +275,7 @@ char *argv[];
    xprocs = 0;
    yprocs = 0;
    procsqrt = sqrt((double) nprocs);
-   j = (int) procsqrt;
+   j = (long) procsqrt;
    while ((xprocs == 0) && (j > 0)) {
      k = nprocs / j;
      if (k * j == nprocs) {
@@ -487,7 +367,7 @@ char *argv[];
        gp[my_num].pjst[i] = gp[my_num].rel_start_x[i];
        gp[my_num].pien[i] = gp[my_num].pist[i] + gp[my_num].rel_num_y[i] - 1;
        gp[my_num].pjen[i] = gp[my_num].pjst[i] + gp[my_num].rel_num_x[i] - 1;
-  
+
        if (gp[my_num].pist[i] == 1) {
          gp[my_num].pist[i] = 0;
        }
@@ -560,25 +440,19 @@ char *argv[];
      }
    }
 
-   for (i=1;i<nprocs;i++) {
-     CREATE(slave)
-   }
-
    if (do_output) {
      printf("                       MULTIGRID OUTPUTS\n");
    }
 
-   slave();
-   WAIT_FOR_END(nprocs-1)
+   CREATE(slave, nprocs);
+   WAIT_FOR_END(nprocs);
    CLOCK(computeend)
 
    printf("\n");
    printf("                       PROCESS STATISTICS\n");
    printf("                  Total          Multigrid         Multigrid\n");
    printf(" Proc             Time             Time            Fraction\n");
-   printf("    0   %15.0f    %15.0f        %10.3f\n",
-          gp[0].total_time,gp[0].multi_time,
-          gp[0].multi_time/gp[0].total_time);
+   printf("    0   %15.0f    %15.0f        %10.3f\n", gp[0].total_time,gp[0].multi_time, gp[0].multi_time/gp[0].total_time);
 
    if (do_stats) {
      min_total = max_total = avg_total = gp[0].total_time;
@@ -611,45 +485,32 @@ char *argv[];
      avg_multi = avg_multi / nprocs;
      avg_frac = avg_frac / nprocs;
      for (i=1;i<nprocs;i++) {
-       printf("  %3d   %15.0f    %15.0f        %10.3f\n",
-              i,gp[i].total_time,gp[i].multi_time,
-              gp[i].multi_time/gp[i].total_time);
+       printf("  %3ld   %15.0f    %15.0f        %10.3f\n", i, gp[i].total_time, gp[i].multi_time, gp[i].multi_time/gp[i].total_time);
      }
-     printf("  Avg   %15.0f    %15.0f        %10.3f\n",
-            avg_total,avg_multi,avg_frac);
-     printf("  Min   %15.0f    %15.0f        %10.3f\n",
-            min_total,min_multi,min_frac);
-     printf("  Max   %15.0f    %15.0f        %10.3f\n",
-            max_total,max_multi,max_frac);
+     printf("  Avg   %15.0f    %15.0f        %10.3f\n", avg_total,avg_multi,avg_frac);
+     printf("  Min   %15.0f    %15.0f        %10.3f\n", min_total,min_multi,min_frac);
+     printf("  Max   %15.0f    %15.0f        %10.3f\n", max_total,max_multi,max_frac);
    }
    printf("\n");
 
    global->starttime = start;
    printf("                       TIMING INFORMATION\n");
-   printf("Start time                        : %16d\n",
-           global->starttime);
-   printf("Initialization finish time        : %16d\n",
-           global->trackstart);
-   printf("Overall finish time               : %16d\n",
-           computeend);
-   printf("Total time with initialization    : %16d\n",
-           computeend-global->starttime);
-   printf("Total time without initialization : %16d\n",
-           computeend-global->trackstart);
+   printf("Start time                        : %16lu\n", global->starttime);
+   printf("Initialization finish time        : %16lu\n", global->trackstart);
+   printf("Overall finish time               : %16lu\n", computeend);
+   printf("Total time with initialization    : %16lu\n", computeend-global->starttime);
+   printf("Total time without initialization : %16lu\n", computeend-global->trackstart);
    printf("    (excludes first timestep)\n");
    printf("\n");
 
    MAIN_END
 }
 
-int log_2(number)
-
-int number;
-
+long log_2(long number)
 {
-  int cumulative = 1;
-  int out = 0;
-  int done = 0;
+  long cumulative = 1;
+  long out = 0;
+  long done = 0;
 
   while ((cumulative < number) && (!done) && (out < 50)) {
     if (cumulative == number) {
@@ -667,11 +528,7 @@ int number;
   }
 }
 
-void printerr(s)
-
-char *s;
-
+void printerr(char *s)
 {
   fprintf(stderr,"ERROR: %s\n",s);
 }
-

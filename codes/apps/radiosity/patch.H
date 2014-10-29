@@ -18,6 +18,7 @@
 #ifndef _PATCH_H
 #define _PATCH_H
 
+#include "structs.H"
 
 /************************************************************************
 *
@@ -26,7 +27,7 @@
 *************************************************************************/
 
 #define F_COPLANAR  (5.0e-2)     /* H(P) < F_COPLANAR then P is on the plane */
-#define N_VISIBILITY_TEST_RAYS  (10)	/* number of "random", "magic" rays fired 
+#define N_VISIBILITY_TEST_RAYS  (10)	/* number of "random", "magic" rays fired
 between patches to test visibility */
 
 #define FF_GEOMETRY_ERROR (1.0)		/* FF relative error due to Fdf approx
@@ -73,10 +74,6 @@ and cosine approx of angle */
 covers about 95% of the total cache hits, so using
 more doesn't help too much. */
 
-extern float visibility() ;
-extern void  compute_visibility_values() ;
-extern void  visibility_task() ;
-
 /************************************************************************
 *
 *     Refinement Advice
@@ -98,43 +95,6 @@ extern void  visibility_task() ;
 
 /************************************************************************
 *
-*     Vertex    -  3D coordinate
-*
-*************************************************************************/
-
-typedef struct {
-    float x, y, z ;
-} Vertex ;
-
-
-extern float vector_length() ;
-extern float distance() ;
-extern float normalize_vector() ;
-extern float inner_product() ;
-extern void cross_product() ;
-extern float plane_normal() ;
-extern void center_point(), four_center_points() ;
-extern void print_point() ;
-
-
-/************************************************************************
-*
-*     Color (R,G,B)
-*
-*************************************************************************/
-
-typedef struct {
-    float r, g, b ;
-} Rgb ;
-
-
-
-extern void print_rgb() ;
-
-
-
-/************************************************************************
-*
 *     Element Vertex
 *
 *     ElementVertex represents a vertex of an element. A vertex structure
@@ -152,10 +112,6 @@ typedef struct _elemvertex {
 
 
 #define N_ELEMVERTEX_ALLOCATE (16)
-extern ElemVertex *get_elemvertex() ;
-extern ElemVertex *create_elemvertex() ; /* Constructor */
-extern void         init_elemvertex() ;	  /* Initialize free buffer */
-
 
 /************************************************************************
 *
@@ -179,11 +135,6 @@ typedef struct _edge {
 
 
 #define N_EDGE_ALLOCATE (16)
-extern Edge *get_edge() ;
-extern Edge *create_edge() ;		  /* Constructor */
-extern void subdivide_edge() ;
-extern void init_edge() ;		  /* Initialize free buffer */
-extern void foreach_leaf_edge() ;
 
 #define _LEAF_EDGE(e) ((e)->ea == 0)
 #define EDGE_REVERSE(e,a,b) ((e)->pa == (b))
@@ -208,21 +159,14 @@ typedef struct {
 } PlaneEqu ;
 
 
-extern float plane_equ() ;
-extern float comp_plane_equ() ;
-extern int point_intersection() ;
-extern int patch_intersection() ;
-extern void print_plane_equ() ;
-
-
 /************************************************************************
 *
 *     Patch (also a node of the BSP tree)
 *
-*     The Patch represents a triangular patch (input polygon) of the given 
-*     geometric model (i.e., room scene). The Patch contains 'per-patch' 
-*     information such as the plane equation, area, and color. The Patch also 
-*     serves as a node of the BSP tree which is used to test patch-patch 
+*     The Patch represents a triangular patch (input polygon) of the given
+*     geometric model (i.e., room scene). The Patch contains 'per-patch'
+*     information such as the plane equation, area, and color. The Patch also
+*     serves as a node of the BSP tree which is used to test patch-patch
 *     visibility. The Patch points to the root level of the element quad-tree.
 *     Geometrically speaking, the Patch and the root represent the same
 *     triangle.
@@ -249,31 +193,23 @@ typedef struct _patch {
     Rgb      color ;			  /* Diffuse color of the patch */
     /*       (reflectance) */
     Rgb      emittance ;	          /* Radiant emmitence */
-    
+
     struct _patch  *bsp_positive ;	  /* BSP tree H(x,y,z) >= 0 */
     struct _patch  *bsp_negative ;	  /*          H(x,y,z) <  0 */
     struct _patch  *bsp_parent ;        /* BSP backpointer to the parent*/
-    
-    struct _element *el_root ;	  /* Root of the element tree */
-    int      seq_no ;		          /* Patch sequence number */
-} Patch ;
 
-extern void foreach_patch_in_bsp(), foreach_depth_sorted_patch() ;
-extern void define_patch() ;
-extern void refine_newpatch() ;
-extern Patch *get_patch() ;
-extern void init_patchlist() ;
-extern void print_patch() ;
-extern void print_bsp_tree() ;
+    struct _element *el_root ;	  /* Root of the element tree */
+    long      seq_no ;		          /* Patch sequence number */
+} Patch ;
 
 
 typedef struct {
     Patch    *patch ;
     Shared_Lock *cost_lock ;		  /* Cost variable lock */
-    int      n_bsp_node ;	          /* Number of BSP nodes visited */
-    int      n_total_inter ;	          /* Total number of interactions */
-    int      cost_estimate ;            /* Cost estimate */
-    int      cost_history[11] ;	  /* Cost history */
+    long      n_bsp_node ;	          /* Number of BSP nodes visited */
+    long      n_total_inter ;	          /* Total number of interactions */
+    long      cost_estimate ;            /* Cost estimate */
+    long      cost_history[11] ;	  /* Cost history */
 } Patch_Cost ;
 
 /* Patch cost:
@@ -290,7 +226,7 @@ Gathering ray per interaction: 50 cyc (overall avg) */
 *
 *     Element
 *
-*     The Element represents each node of the quad-tree generated by the 
+*     The Element represents each node of the quad-tree generated by the
 *     hierarchical subdivision. The Element structure consists of:
 *      - pointers to maintain the tree structure
 *      - a linear list of interacting elements
@@ -307,39 +243,30 @@ struct _interact ;
 typedef struct _element {
     Shared_Lock *elem_lock ;	          /* Element lock variable (seg 1) */
     Patch *patch ;			  /* Original patch of the element */
-    
+
     struct _element *parent ;		  /* Quad tree (parent)          */
     struct _element *center ;		  /*           (center triangle) */
     struct _element *top ;		  /*           (top)             */
     struct _element *left ;		  /*           (left)            */
     struct _element *right ;		  /*           (right)           */
-    
+
     struct _interact *interactions ;	  /* Top of light interaction list */
-    int  n_interactions ;		  /* Total # of interactions */
+    long  n_interactions ;		  /* Total # of interactions */
     struct _interact *vis_undef_inter ; /* Top of visibility undef list */
-    int  n_vis_undef_inter ;		  /* # of interactions whose visibility
+    long  n_vis_undef_inter ;		  /* # of interactions whose visibility
     is not yet calculated */
     Rgb  rad ;			  /* Radiosity of this element
     (new guess of B) */
     Rgb  rad_in ;			  /* Sum of anscestor's radiosity */
     Rgb  rad_subtree ;		  /* Area weighted sum of subtree's
     radiosity (includes this elem) */
-    int  join_counter ;		  /* # of unfinished subprocesses */
-    
+    long  join_counter ;		  /* # of unfinished subprocesses */
+
     ElemVertex *ev1, *ev2, *ev3 ;	  /* Vertices of the element */
     Edge       *e12, *e23, *e31 ;	  /* Edges of the element */
     float area ;		          /* Area of the element */
 } Element ;
 
-
-extern void foreach_element_in_patch(), foreach_leaf_element_in_patch() ;
-extern void ff_refine_elements() ;
-extern void subdivide_element() ;
-extern int  element_completely_invisible() ;
-extern void process_rays() ;
-extern Element *get_element() ;
-extern void init_elemlist() ;
-extern void print_element() ;
 
 #define _LEAF_ELEMENT(e) ((e)->center == 0)
 
@@ -348,7 +275,7 @@ extern void print_element() ;
 #endif
 
 #if (MEM_CONSISTENCY_RELEASE || MEM_CONSISTENCY_WEAK)
-extern int leaf_element() ;
+extern long leaf_element() ;
 #define LEAF_ELEMENT(e) (leaf_element((e)))
 #endif
 
@@ -369,13 +296,21 @@ typedef struct _interact {
 } Interaction ;
 
 
-extern void foreach_interaction_in_element() ;
-extern void compute_interaction(), compute_formfactor() ;
-extern void insert_interaction(), delete_interaction() ;
-extern void insert_vis_undef_interaction(), delete_vis_undef_interaction() ;
-extern void init_interactionlist() ;
-extern Interaction *get_interaction() ;
-extern void free_interaction() ;
-extern void print_interaction() ;
+void foreach_patch_in_bsp(void (*func)(), long arg1, long process_id);
+void foreach_depth_sorted_patch(Vertex *sort_vec, void (*func)(), long arg1, long process_id);
+void define_patch(Patch *patch, Patch *root, long process_id);
+void split_patch(Patch *patch, Patch *node, long xing_code, long process_id);
+void attach_element(Patch *patch, long process_id);
+void refine_newpatch(Patch *patch, long newpatch, long process_id);
+Patch *get_patch(long process_id);
+void init_patchlist(long process_id);
+void print_patch(Patch *patch, long process_id);
+void print_bsp_tree(long process_id);
+void _pr_patch(Patch *patch, long dummy, long process_id);
+float plane_equ(PlaneEqu *plane, Vertex *point, long process_id);
+float comp_plane_equ(PlaneEqu *pln, Vertex *p1, Vertex *p2, Vertex *p3, long process_id);
+long point_intersection(PlaneEqu *plane, Vertex *point, long process_id);
+long patch_intersection(PlaneEqu *plane, Vertex *p1, Vertex *p2, Vertex *p3, long process_id);
+void print_plane_equ(PlaneEqu *peq, long process_id);
 
 #endif

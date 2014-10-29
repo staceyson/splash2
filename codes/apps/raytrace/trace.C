@@ -75,9 +75,7 @@ REAL	frand()
  *	See above.
  */
 
-BOOL	GetRayJobFromBundle(job, x, y)
-RAYJOB	*job;
-INT	*x, *y;
+BOOL	GetRayJobFromBundle(RAYJOB *job, INT *x, INT *y)
 	{
 	*x = job->xcurr;			/* Set pixel address first.  */
 	*y = job->ycurr;
@@ -125,9 +123,7 @@ INT	*x, *y;
  *	Nothing.
  */
 
-VOID	ConvertPrimRayJobToRayMsg(ray, x, y)
-RAY	*ray;
-REAL	x, y;
+VOID	ConvertPrimRayJobToRayMsg(RAY *ray, REAL x, REAL y)
 	{
 	VEC4	dir;
 	VEC4	origin;
@@ -220,10 +216,9 @@ REAL	x, y;
  *	Nothing.
  */
 
-VOID	RayTrace(pid)
-INT	pid;
+VOID	RayTrace(INT pid)
 	{
-	INT	i, j;
+	INT	j;
 	INT	x, y;			/* Pixel address.		     */
 	REAL	xx, yy;
 	VEC3	N;			/* Normal at intersection.	     */

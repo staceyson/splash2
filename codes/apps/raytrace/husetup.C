@@ -68,18 +68,10 @@ VOID	Huniform_defaults()
 
 VOID	BuildHierarchy_Uniform()
 	{
-	INT	i;
-	INT	num;
 	INT	num_pe;
-	INT	status;
-	REAL	den;
 	GRID	*g;
-	GRID	*gr;
 	GRID	*ng;
-	GRID	testgrid;
 	VOXEL	*v;
-	RAY	r;
-	RAYINFO *rinfo;
 	ELEMENT **pepa;
 
 	init_masks();
@@ -116,12 +108,7 @@ VOID	BuildHierarchy_Uniform()
  *
  */
 
-VOID	IntersectHuniformPrimlist(intersectPrim, hit, v, r, pid)
-INT *intersectPrim;
-IRECORD *hit;
-VOXEL *v;
-RAY	*r;
-INT	pid;
+VOID	IntersectHuniformPrimlist(INT *intersectPrim, IRECORD *hit, VOXEL *v, RAY *r, INT pid)
 	{
 	ELEMENT **pptr; 		/* Primitive element list ptr.	     */
 	OBJECT	*peParent;		/* Ptr to parent object.	     */
@@ -169,11 +156,7 @@ INT	pid;
  *
  */
 
-REAL	HuniformShadowIntersect(r, lightlength, pe, pid)
-RAY	*r;
-REAL	lightlength;
-ELEMENT *pe;
-INT	pid;
+REAL	HuniformShadowIntersect(RAY *r, REAL lightlength, ELEMENT *pe, INT pid)
 	{
 	INT	status;
 	INT	hitcode,i;
@@ -242,10 +225,7 @@ INT	pid;
  *
  */
 
-BOOL	TraverseHierarchyUniform(r, hit, pid)
-RAY	*r;
-IRECORD *hit;
-INT	pid;
+BOOL	TraverseHierarchyUniform(RAY *r, IRECORD *hit, INT pid)
 	{
 	INT	status;
 	INT	intersectPrim;

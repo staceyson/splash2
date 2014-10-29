@@ -17,52 +17,53 @@
 /*    ****************
       subroutine slave
       ****************  */
-     
+
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <stdlib.h>
+
 #include "decs.h"
 
-void slave() 
-
+void slave()
 {
-   int i;
-   int j;
-   int nstep;
-   int iindex;
-   int iday;
+   long i;
+   long j;
+   long nstep;
+   long iindex;
+   long iday;
    double ysca1;
    double y;
    double factor;
    double sintemp;
    double curlt;
    double ressqr;
-   int istart; 
-   int iend; 
-   int jstart; 
-   int jend;
-   int ist; 
-   int ien; 
-   int jst; 
-   int jen;
+   long istart;
+   long iend;
+   long jstart;
+   long jend;
+   long ist;
+   long ien;
+   long jst;
+   long jen;
    double fac;
-   int dayflag=0;
-   int dhourflag=0;
-   int endflag=0;
+   long dayflag=0;
+   long dhourflag=0;
+   long endflag=0;
    double ttime;
    double dhour;
    double day;
-   int firstrow;
-   int lastrow;
-   int numrows;
-   int firstcol;
-   int lastcol;
-   int numcols;
-   int psiindex;
+   long firstrow;
+   long lastrow;
+   long numrows;
+   long firstcol;
+   long lastcol;
+   long numcols;
+   long psiindex;
    double psibipriv;
-   int psinum;
-   int procid;
-   unsigned int t1;
+   long psinum;
+   long procid;
+   unsigned long t1;
 
    ressqr = lev_res[numlev-1] * lev_res[numlev-1];
 
@@ -99,7 +100,7 @@ void slave()
    dhour = 0.0;
    nstep = 0 ;
    day = 0.0;
- 
+
    ysca1 = 0.5*ysca;
    if (procid == MASTER) {
      for(iindex = 0;iindex<=jm-1;iindex++) {
@@ -140,7 +141,7 @@ void slave()
        fields2->psium[j][jm-1] = 0.0;
      }
    }
-   
+
    for(i=firstrow;i<=lastrow;i++) {
      for(iindex=firstcol;iindex<=lastcol;iindex++) {
        fields2->psium[i][iindex] = 0.0;
@@ -223,9 +224,11 @@ void slave()
    }
 
 /* wait until all processes have completed the above initialization  */
-
+#if defined(MULTIPLE_BARRIERS)
 BARRIER(bars->sl_prini,nprocs)
-
+#else
+BARRIER(bars->barrier,nprocs)
+#endif
    istart = gp[procid].rel_start_y[numlev-1];
    iend = istart + gp[procid].rel_num_y[numlev-1] - 1;
    jstart = gp[procid].rel_start_x[numlev-1];
@@ -271,17 +274,20 @@ BARRIER(bars->sl_prini,nprocs)
        multi->q_multi[numlev-1][i][jm-1] = wrk1->psib[i][jm-1];
      }
    }
-   
+
    fac = 1.0 / (4.0 - ressqr*eig2);
    for(i=ist;i<=ien;i++) {
      for(j=jst;j<=jen;j++) {
-       multi->q_multi[numlev-1][i][j] = fac * (wrk1->psib[i+1][j] + 
-           wrk1->psib[i-1][j] + wrk1->psib[i][j+1] + wrk1->psib[i][j-1] - 
+       multi->q_multi[numlev-1][i][j] = fac * (wrk1->psib[i+1][j] +
+           wrk1->psib[i-1][j] + wrk1->psib[i][j+1] + wrk1->psib[i][j-1] -
            ressqr*wrk1->psib[i][j]);
      }
    }
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_prini,nprocs)
-   
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
    multig(procid);
 
    for(i=istart;i<=iend;i++) {
@@ -289,9 +295,11 @@ BARRIER(bars->sl_prini,nprocs)
        wrk1->psib[i][j] = multi->q_multi[numlev-1][i][j];
      }
    }
-
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_psini,nprocs)
-
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
 /* update the local running sum psibipriv by summing all the resulting
    values in that process's share of the psib matrix   */
 
@@ -332,11 +340,11 @@ BARRIER(bars->sl_prini,nprocs)
    for(i=firstrow;i<=lastrow;i++) {
        psibipriv = psibipriv + wrk1->psib[i][iindex];
      }
-   } 
+   }
 
 /* update the shared variable psibi by summing all the psibiprivs
    of the individual processes into it.  note that this combined
-   private and shared sum method avoids accessing the shared 
+   private and shared sum method avoids accessing the shared
    variable psibi once for every element of the matrix.  */
 
    LOCK(locks->psibilock)
@@ -382,7 +390,7 @@ BARRIER(bars->sl_prini,nprocs)
        }
      }
    }
- 
+
 /* initialize psi matrices the same way  */
 
    for(psiindex=0;psiindex<=1;psiindex++) {
@@ -482,10 +490,12 @@ BARRIER(bars->sl_prini,nprocs)
        frcng->tauz[i][iindex] = curlt;
      }
    }
-   
+#if defined(MULTIPLE_BARRIERS)
    BARRIER(bars->sl_onetime,nprocs)
-   
-   
+#else
+   BARRIER(bars->barrier,nprocs)
+#endif
+
 /***************************************************************
  one-time stuff over at this point
  ***************************************************************/
@@ -518,7 +528,7 @@ BARRIER(bars->sl_prini,nprocs)
        day = ttime/86400.0;
        if (day > ((double) outday0)) {
          dayflag = 1;
-         iday = (int) day;
+         iday = (long) day;
          dhour = dhour+dtau;
          if (dhour >= 86400.0) {
 	   dhourflag = 1;
@@ -566,9 +576,9 @@ BARRIER(bars->sl_prini,nprocs)
          fields2->psium[i][iindex] = fields2->psium[i][iindex]+fields->psim[0][i][iindex];
        }
      }
-     
+
 /* update values of psilm array to psilm + psim[2]  */
-     
+
      if (procid == MASTER) {
        fields2->psilm[0][0] = fields2->psilm[0][0]+fields->psim[1][0][0];
      }
@@ -606,7 +616,7 @@ BARRIER(bars->sl_prini,nprocs)
          fields2->psilm[i][iindex] = fields2->psilm[i][iindex]+fields->psim[1][i][iindex];
        }
      }
-     if (iday >= (int) outday3) {
+     if (iday >= (long) outday3) {
        endflag = 1;
      }
   }

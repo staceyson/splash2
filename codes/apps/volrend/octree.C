@@ -20,6 +20,7 @@
 *                                                                             *
 ******************************************************************************/
 
+#include <string.h>
 #include "incl.h"
 
 #define WRITE_PYR(IBIT,ILEVEL,IZ,IY,IX)\
@@ -35,12 +36,12 @@
 short pyr_version;		/* Version of this .pyr file                 */
 
 short pyr_levels;		/* Number of levels in this pyramid          */
-				
+
 short pyr_len[MAX_PYRLEVEL+1][NM];	/* Number of voxels on each level    */
 short pyr_voxlen[MAX_PYRLEVEL+1][NM];	/* Size of voxels on each level      */
 
-long pyr_length[MAX_PYRLEVEL+1];/* Total number of bytes on this level       */
-				/*   (= (int)((product of lens+7)/8))        */
+int pyr_length[MAX_PYRLEVEL+1];/* Total number of bytes on this level       */
+				/*   (= (long)((product of lens+7)/8))        */
 BYTE *pyr_address[MAX_PYRLEVEL+1];/* Pointer to binary pyramid               */
 				/*   (only pyr_levels sets of lens, lengths, */
 				/*    and 3-D arrays are written to file)    */
@@ -64,17 +65,14 @@ long pyr_offset1,		/* Bit offset of desired bit within pyramid  */
      pyr_offset2;		/* Bit offset of bit within byte             */
 BYTE *pyr_address2;		/* Pointer to byte containing bit            */
 
-void Compute_Base();
-void Or_Neighbors_In_Base();
-
 EXTERN_ENV
 
 #include "anl.h"
 
-Compute_Octree()
+void Compute_Octree()
 {
-  int level,max_len;
-  int i;
+  long level,max_len;
+  long i;
   max_len = 0;
   for (i=0; i<NM; i++) {
     max_len = MAX(max_len,opc_len[i]);
@@ -84,7 +82,7 @@ Compute_Octree()
     pyr_levels++;
   printf("    Computing binary pyramid of %d levels...\n",
 	 pyr_levels);
-  
+
   for (i=0; i<NM; i++) {
     pyr_len[0][i] = opc_len[i];
     pyr_voxlen[0][i] = 1;
@@ -146,19 +144,19 @@ on all processors, don't do this create.
 
 void Compute_Base()
 {
-  int outx, outy, outz, i;	
-  int pmap_partition,zstart,zstop;
-  int num_xqueue,num_yqueue,num_zqueue,num_queue;
-  int xstart,xstop,ystart,ystop;
-  int my_node;
+  long outx, outy, outz;
+  long zstart,zstop;
+  long num_xqueue,num_yqueue,num_zqueue,num_queue;
+  long xstart,xstop,ystart,ystop;
+  long my_node;
 
   LOCK(Global->IndexLock);
   my_node = Global->Index++;
   UNLOCK(Global->IndexLock);
   my_node = my_node%num_nodes;
 
-/*  POSSIBLE ENHANCEMENT:  Here's where one might bind the process to a 
-    processor, if one wanted to. 
+/*  POSSIBLE ENHANCEMENT:  Here's where one might bind the process to a
+    processor, if one wanted to.
 */
 
   num_xqueue = ROUNDUP((float)pyr_len[0][X]/(float)voxel_section[X]);
@@ -209,22 +207,21 @@ this barrier either.
 
 void Or_Neighbors_In_Base()
 {
-  int outx,outy,outz;	/* Loop indices in image space               */
-  int outx_plus_one,outy_plus_one,outz_plus_one;
-  int i;
+  long outx,outy,outz;	/* Loop indices in image space               */
+  long outx_plus_one,outy_plus_one,outz_plus_one;
   BOOLEAN bit;
-  int pmap_partition,zstart,zstop;
-  int my_node;
+  long pmap_partition,zstart,zstop;
+  long my_node;
 
   LOCK(Global->IndexLock);
   my_node = Global->Index++;
   UNLOCK(Global->IndexLock);
   my_node = my_node%num_nodes;
 
-/*  POSSIBLE ENHANCEMENT:  Here's where one might bind the process to a 
-    processor, if one wanted to. 
+/*  POSSIBLE ENHANCEMENT:  Here's where one might bind the process to a
+    processor, if one wanted to.
 */
-    
+
   /* assumed for now that z direction has enough parallelism */
   pmap_partition = ROUNDUP((double)pyr_len[0][Z]/(double)num_nodes);
   zstart = pmap_partition * my_node;
@@ -246,7 +243,7 @@ on all processors, then you should execute what's in the SERIAL_PREPROC
       outy_plus_one = MIN(outy+1,pyr_len[0][Y]-1);
       for (outx=0; outx<pyr_len[0][X]; outx++) {
 	outx_plus_one = MIN(outx+1,pyr_len[0][X]-1);
-	
+
 	bit = PYR(0,outz,outy,outx);
 	bit |= PYR(0,outz,outy,outx_plus_one);
 	bit |= PYR(0,outz,outy_plus_one,outx);
@@ -255,7 +252,7 @@ on all processors, then you should execute what's in the SERIAL_PREPROC
 	bit |= PYR(0,outz_plus_one,outy,outx_plus_one);
 	bit |= PYR(0,outz_plus_one,outy_plus_one,outx);
 	bit |= PYR(0,outz_plus_one,outy_plus_one,outx_plus_one);
-	
+
 	WRITE_PYR(bit,0,outz,outy,outx);
       }
     }
@@ -267,17 +264,16 @@ need this barrier either.
 */
 
 #ifndef SERIAL_PREPROC
-  BARRIER(Global->SlaveBarrier,num_nodes);	
+  BARRIER(Global->SlaveBarrier,num_nodes);
 #endif
 }
 
 
-Allocate_Pyramid_Level(address, length)
+void Allocate_Pyramid_Level(address, length)
      BYTE **address;
      long length;
 {
-  unsigned int i,j,size,type_per_page,count,block;
-  unsigned int p,numbytes;
+  long i;
 
   printf("      Allocating pyramid level of %ld bytes...\n",
 	 length*sizeof(BYTE));
@@ -291,7 +287,7 @@ on all processors, then replace the macro below with a regular malloc.
   if (*address == NULL)
     Error("    No space available for pyramid level.\n");
 
-/*  POSSIBLE ENHANCEMENT:  Here's where one might distribute the 
+/*  POSSIBLE ENHANCEMENT:  Here's where one might distribute the
     octree among physical memories if one wanted to.
 */
 
@@ -300,16 +296,15 @@ on all processors, then replace the macro below with a regular malloc.
 }
 
 
-Compute_Pyramid_Level(level)
-     int level;
+void Compute_Pyramid_Level(level)
+     long level;
 {
-  int outx,outy,outz;	/* Loop indices in image space               */
-  int i;
-  int inx,iny,inz;
-  int inx_plus_one,iny_plus_one,inz_plus_one;
+  long outx,outy,outz;	/* Loop indices in image space               */
+  long inx,iny,inz;
+  long inx_plus_one,iny_plus_one,inz_plus_one;
   BOOLEAN bit;
-  
-  printf("      Computing pyramid level %d from level %d...\n",
+
+  printf("      Computing pyramid level %ld from level %ld...\n",
 	 level,level-1);
   for (outz=0; outz<pyr_len[level][Z]; outz++) {
     inz = outz<<1;
@@ -320,7 +315,7 @@ Compute_Pyramid_Level(level)
       for (outx=0; outx<pyr_len[level][X]; outx++) {
 	inx = outx<<1;
 	inx_plus_one = MIN(inx+1,pyr_len[level-1][X]-1);
-	
+
 	bit = PYR(level-1,inz,iny,inx);
 	bit |= PYR(level-1,inz,iny,inx_plus_one);
 	bit |= PYR(level-1,inz,iny_plus_one,inx);
@@ -329,7 +324,7 @@ Compute_Pyramid_Level(level)
 	bit |= PYR(level-1,inz_plus_one,iny,inx_plus_one);
 	bit |= PYR(level-1,inz_plus_one,iny_plus_one,inx);
 	bit |= PYR(level-1,inz_plus_one,iny_plus_one,inx_plus_one);
-	
+
 	WRITE_PYR(bit,level,outz,outy,outx);
       }
     }
@@ -337,63 +332,60 @@ Compute_Pyramid_Level(level)
 }
 
 
-Load_Octree(filename)
+void Load_Octree(filename)
      char filename[];
 {
   char local_filename[FILENAME_STRING_SIZE];
-  int fd,level;
+  int fd;
+  long level;
 
   strcpy(local_filename,filename);
   strcat(local_filename,".pyr");
   fd = Open_File(local_filename);
-  
-  Read_Shorts(fd,&pyr_version, (long)sizeof(pyr_version));
-  if (pyr_version != PYR_CUR_VERSION) 
-    Error("    Can't load version %d file\n",pyr_version);
-  
-  Read_Shorts(fd,&pyr_levels,(long)sizeof(pyr_levels));
-  Read_Shorts(fd,pyr_len,(long)(pyr_levels*NM*sizeof(short)));
-  Read_Shorts(fd,pyr_voxlen,(long)(pyr_levels*NM*sizeof(short)));
-  Read_Longs(fd,pyr_length,(long)(pyr_levels*sizeof(long)));
+
+  Read_Shorts(fd,(unsigned char *)&pyr_version, (long)sizeof(pyr_version));
+  if (pyr_version != PYR_CUR_VERSION)
+    Error("    Can't load version %ld file\n",pyr_version);
+
+  Read_Shorts(fd,(unsigned char *)&pyr_levels,(long)sizeof(pyr_levels));
+  Read_Shorts(fd,(unsigned char *)pyr_len,(long)(pyr_levels*NM*sizeof(long)));
+  Read_Shorts(fd,(unsigned char *)pyr_voxlen,(long)(pyr_levels*NM*sizeof(long)));
+  Read_Longs(fd,(unsigned char *)pyr_length,(long)(pyr_levels*sizeof(pyr_length[0])));
 
   printf("    Loading binary pyramid of %d levels...\n",pyr_levels);
   for (level=0; level<pyr_levels; level++) {
     Allocate_Pyramid_Level(&pyr_address[level],pyr_length[level]);
-    printf("      Loading pyramid level %d from .pyr file...\n",level);
-    Read_Bytes(fd,pyr_address[level],(long)(pyr_length[level]*sizeof(BYTE)));
+    printf("      Loading pyramid level %ld from .pyr file...\n",level);
+    Read_Bytes(fd,(unsigned char *)pyr_address[level],(long)(pyr_length[level]*sizeof(BYTE)));
   }
   Close_File(fd);
 }
 
 
-Store_Octree(filename)
+void Store_Octree(filename)
 char filename[];
 {
   char local_filename[FILENAME_STRING_SIZE];
-  int fd,level;
+  int fd;
+  long level;
 
   strcpy(local_filename,filename);
   strcat(local_filename,".pyr");
   fd = Create_File(local_filename);
 
   pyr_version = PYR_CUR_VERSION;
-  Write_Shorts(fd,&pyr_version,(long)sizeof(pyr_version));
+  Write_Shorts(fd,(unsigned char *)&pyr_version,(long)sizeof(pyr_version));
 
-  Write_Shorts(fd,&pyr_levels,(long)sizeof(pyr_levels));
-  Write_Shorts(fd,pyr_len,(long)(pyr_levels*NM*sizeof(short)));
-  Write_Shorts(fd,pyr_voxlen,(long)(pyr_levels*NM*sizeof(short)));
-  Write_Longs(fd,pyr_length,(long)(pyr_levels*sizeof(long)));
+  Write_Shorts(fd,(unsigned char *)&pyr_levels,(long)sizeof(pyr_levels));
+  Write_Shorts(fd,(unsigned char *)pyr_len,(long)(pyr_levels*NM*sizeof(long)));
+  Write_Shorts(fd,(unsigned char *)pyr_voxlen,(long)(pyr_levels*NM*sizeof(long)));
+  Write_Longs(fd,(unsigned char *)pyr_length,(long)(pyr_levels*sizeof(pyr_length[0])));
 
   printf("    Storing binary pyramid of %d levels...\n",pyr_levels);
   for (level=0; level<pyr_levels; level++) {
-    printf("      Storing pyramid level %d into .pyr file...\n",level);
+    printf("      Storing pyramid level %ld into .pyr file...\n",level);
 
-    Write_Bytes(fd,pyr_address[level],(long)(pyr_length[level]*sizeof(BYTE)));
+    Write_Bytes(fd,(unsigned char *)pyr_address[level],(long)(pyr_length[level]*sizeof(BYTE)));
   }
   Close_File(fd);
 }
-
-
-
-
-

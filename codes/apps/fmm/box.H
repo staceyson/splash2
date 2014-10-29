@@ -35,7 +35,7 @@
 typedef struct _Box box;
 typedef struct _Box_Node box_node;
 
-typedef void (*list_function)(int my_id, box *list_box, box *b);
+typedef void (*list_function)(long my_id, box *list_box, box *b);
 
 typedef enum { CHILDLESS, PARENT } box_type;
 
@@ -46,7 +46,7 @@ typedef enum { CHILDLESS, PARENT } box_type;
  *       the ID of the processor that created the box)
  *    2.- 3. An x and y position for its center
  *    4. The length of the box (measured as the length of one of its sides)
- *    5. The level of ancestry of the box (how many parents do you have to 
+ *    5. The level of ancestry of the box (how many parents do you have to
  *       visit before the first box is found?)
  *    6. The number of particles in the box
  *    7. A list of those particles
@@ -71,39 +71,39 @@ struct _Box
   real x_center;
   real y_center;
   real length;
-  int level;
+  long level;
   box_type type;
   particle *particles[MAX_PARTICLES_PER_BOX + 1];
-  int num_particles;
+  long num_particles;
   box *parent;
-  int child_num;
+  long child_num;
   box *shadow[NUM_OFFSPRING];
   box *children[NUM_OFFSPRING];
-  int num_children;
+  long num_children;
   box *siblings[MAX_SIBLINGS];
-  int num_siblings;
+  long num_siblings;
   box *colleagues[MAX_COLLEAGUES];
-  int num_colleagues;
+  long num_colleagues;
   box *u_list[MAX_U_LIST];
-  int num_u_list;
+  long num_u_list;
   box *v_list[MAX_V_LIST];
-  int num_v_list;
+  long num_v_list;
   box *w_list[MAX_W_LIST];
-  int num_w_list;
+  long num_w_list;
   complex mp_expansion[MAX_EXPANSION_TERMS];
   complex local_expansion[MAX_EXPANSION_TERMS];
   complex x_expansion[MAX_EXPANSION_TERMS];
-  int exp_lock_index;
-  int particle_lock_index;
-  volatile int construct_synch;
-  volatile int interaction_synch;
-  int proc;
-  int cost;
-  int u_cost;
-  int v_cost;
-  int w_cost;
-  int p_cost;
-  int subtree_cost;
+  long exp_lock_index;
+  long particle_lock_index;
+  volatile long construct_synch;
+  volatile long interaction_synch;
+  long proc;
+  long cost;
+  long u_cost;
+  long v_cost;
+  long w_cost;
+  long p_cost;
+  long subtree_cost;
   box *next;
   box *prev;
   box *link1;
@@ -120,17 +120,15 @@ struct _Box_Node
 
 extern box *Grid;
 
-extern void CreateBoxes(int my_id, int num_boxes);
-extern void FreeBoxes(int my_id);
-extern box *InitBox(int my_id, real x_center, real y_center, real length,
-		    box *parent);
+extern void CreateBoxes(long my_id, long num_boxes);
+extern void FreeBoxes(long my_id);
+extern box *InitBox(long my_id, real x_center, real y_center, real length, box *parent);
 extern void PrintBox(box *b);
-extern void PrintBoxArrayIds(box *b_array[], int array_length);
+extern void PrintBoxArrayIds(box *b_array[], long array_length);
 extern void PrintExpansionTerms(complex expansion[]);
 
-extern void ListIterate(int my_id, box *b, box **list, int length,
-			list_function function);
-extern int AdjacentBoxes(int my_id, box *b1, box *b2);
-extern int WellSeparatedBoxes(int my_id, box *b1, box *b2);
+extern void ListIterate(long my_id, box *b, box **list, long length, list_function function);
+extern long AdjacentBoxes(box *b1, box *b2);
+extern long WellSeparatedBoxes(box *b1, box *b2);
 
 #endif /* _Box_H */

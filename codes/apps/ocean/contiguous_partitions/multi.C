@@ -14,7 +14,7 @@
 /*                                                                       */
 /*************************************************************************/
 
-/* Shared memory implementation of the multigrid method 
+/* Shared memory implementation of the multigrid method
    Implementation uses red-black gauss-seidel relaxation
    iterations, w cycles, and the method of half-injection for
    residual computation. */
@@ -24,41 +24,25 @@ EXTERN_ENV
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <stdlib.h>
 #include "decs.h"
 
-void multig(int);
-void relax(int,double *,int,int);
-void rescal(int,int);
-void intadd(int,int);
-void putz(int,int);
-void copy_borders(int,int);
-void copy_rhs_borders(int,int);
-void copy_red(int,int);
-void copy_black(int,int);
-void printerr(char *);
-
-void multig(my_id)
-
 /* perform multigrid (w cycles)                                     */
-
-int my_id;
-
+void multig(long my_id)
 {
-   int iter;
-   double wu; 
+   long iter;
+   double wu;
    double errp;
-   int m;
-   int flag1;
-   int flag2;
-   int k;
-   int my_num;
+   long m;
+   long flag1;
+   long flag2;
+   long k;
+   long my_num;
    double wmax;
    double local_err;
    double red_local_err;
    double black_local_err;
    double g_error;
-   int i;
-   int j;
 
    flag1 = 0;
    flag2 = 0;
@@ -79,15 +63,21 @@ int my_id;
 
 /* barrier to make sure all procs have finished intadd or rescal   */
 /* before proceeding with relaxation                               */
-
-     BARRIER(bars->error_barrier,nprocs)  
+#if defined(MULTIPLE_BARRIERS)
+     BARRIER(bars->error_barrier,nprocs)
+#else
+     BARRIER(bars->barrier,nprocs)
+#endif
      copy_black(k,my_num);
 
      relax(k,&red_local_err,RED_ITER,my_num);
 
 /* barrier to make sure all red computations have been performed   */
-
-     BARRIER(bars->error_barrier,nprocs)  
+#if defined(MULTIPLE_BARRIERS)
+     BARRIER(bars->error_barrier,nprocs)
+#else
+     BARRIER(bars->barrier,nprocs)
+#endif
      copy_red(k,my_num);
 
      relax(k,&black_local_err,BLACK_ITER,my_num);
@@ -114,15 +104,20 @@ int my_id;
      wu+=pow((double)4.0,(double)k-m);
 
 /* barrier to make sure all processors have checked local error    */
-
-     BARRIER(bars->error_barrier,nprocs)  
-
+#if defined(MULTIPLE_BARRIERS)
+     BARRIER(bars->error_barrier,nprocs)
+#else
+     BARRIER(bars->barrier,nprocs)
+#endif
      g_error = multi->err_multi;
 
 /* barrier to make sure master does not cycle back to top of loop  */
 /* and reset global->err before we read it and decide what to do   */
-
-     BARRIER(bars->error_barrier,nprocs)  
+#if defined(MULTIPLE_BARRIERS)
+     BARRIER(bars->error_barrier,nprocs)
+#else
+     BARRIER(bars->barrier,nprocs)
+#endif
 
      if (g_error >= lev_tol[k]) {
        if (wu > wmax) {
@@ -133,7 +128,7 @@ int my_id;
        } else {
 /* if we have not converged                                        */
          if ((k != 0) && (g_error/errp >= 0.6) &&
-	     (k > minlevel)) {  
+	     (k > minlevel)) {
 /* if need to go to coarser grid                                   */
 
            copy_borders(k,my_num);
@@ -144,7 +139,11 @@ int my_id;
    border points have been written before we try computing the new
    rescal values                                                   */
 
-           BARRIER(bars->error_barrier,nprocs)    
+#if defined(MULTIPLE_BARRIERS)
+	   BARRIER(bars->error_barrier,nprocs)
+#else
+	   BARRIER(bars->barrier,nprocs)
+#endif
 
            rescal(k,my_num);
 
@@ -176,30 +175,22 @@ int my_id;
    }
    if (do_output) {
      if (my_num == MASTER) {
-       printf("iter %d, level %d, residual norm %12.8e, work = %7.3f\n",
-               iter,k,multi->err_multi,wu);
+       printf("iter %ld, level %ld, residual norm %12.8e, work = %7.3f\n", iter,k,multi->err_multi,wu);
      }
    }
-}  
-
-void relax(k,err,color,my_num) 
-
-int k;
-double *err;
-int color;
-int my_num;
+}
 
 /* perform red or black iteration (not both)                    */
-
+void relax(long k, double *err, long color, long my_num)
 {
-   int i;
-   int j;
-   int iend;
-   int jend;
-   int oddistart;
-   int oddjstart;
-   int evenistart;
-   int evenjstart;
+   long i;
+   long j;
+   long iend;
+   long jend;
+   long oddistart;
+   long oddjstart;
+   long evenistart;
+   long evenjstart;
    double a;
    double h;
    double factor;
@@ -242,8 +233,8 @@ int my_num;
        t1c = (double *) t2a[i-1];
        t1d = (double *) t2a[i+1];
        for (j=evenjstart;j<jend;j+=2) {
-         a = t1a[j+1] + t1a[j-1] + 
-	     t1c[j] + t1d[j] - 
+         a = t1a[j+1] + t1a[j-1] +
+	     t1c[j] + t1d[j] -
 	     t1b[j] ;
          oldval = t1a[j];
          newval = a / factor;
@@ -260,8 +251,8 @@ int my_num;
        t1c = (double *) t2a[i-1];
        t1d = (double *) t2a[i+1];
        for (j=oddjstart;j<jend;j+=2) {
-         a = t1a[j+1] + t1a[j-1] + 
-	     t1c[j] + t1d[j] - 
+         a = t1a[j+1] + t1a[j-1] +
+	     t1c[j] + t1d[j] -
 	     t1b[j] ;
          oldval = t1a[j];
          newval = a / factor;
@@ -279,8 +270,8 @@ int my_num;
        t1c = (double *) t2a[i-1];
        t1d = (double *) t2a[i+1];
        for (j=oddjstart;j<jend;j+=2) {
-         a = t1a[j+1] + t1a[j-1] + 
-	     t1c[j] + t1d[j] - 
+         a = t1a[j+1] + t1a[j-1] +
+	     t1c[j] + t1d[j] -
 	     t1b[j] ;
          oldval = t1a[j];
          newval = a / factor;
@@ -297,8 +288,8 @@ int my_num;
        t1c = (double *) t2a[i-1];
        t1d = (double *) t2a[i+1];
        for (j=evenjstart;j<jend;j+=2) {
-         a = t1a[j+1] + t1a[j-1] + 
-	     t1c[j] + t1d[j] - 
+         a = t1a[j+1] + t1a[j-1] +
+	     t1c[j] + t1d[j] -
 	     t1b[j] ;
          oldval = t1a[j];
          newval = a / factor;
@@ -313,23 +304,18 @@ int my_num;
    *err = maxerr;
 }
 
-void rescal(kf,my_num)
-
 /* perform half-injection to next coarsest level                */
-
-int kf;
-int my_num;
-
+void rescal(long kf, long my_num)
 {
-   int ic;
-   int if17;
-   int jf;
-   int jc;
-   int krc;
-   int istart;
-   int iend;
-   int jstart;
-   int jend;
+   long ic;
+   long if17;
+   long jf;
+   long jc;
+   long krc;
+   long istart;
+   long iend;
+   long jstart;
+   long jend;
    double hf;
    double hc;
    double s;
@@ -338,18 +324,17 @@ int my_num;
    double s3;
    double s4;
    double factor;
-   double h;
    double int1;
    double int2;
    double i_int_factor;
    double j_int_factor;
    double int_val;
-   int i_off;
-   int j_off;
-   int up_proc;
-   int left_proc;
-   int im;
-   int jm;
+   long i_off;
+   long j_off;
+   long up_proc;
+   long left_proc;
+   long im;
+   long jm;
    double temp;
    double temp2;
    double **t2a;
@@ -384,7 +369,7 @@ int my_num;
    t2a = (double **) q_multi[my_num][kf];
    t2b = (double **) rhs_multi[my_num][kf];
    t2c = (double **) rhs_multi[my_num][krc];
-   if17=2*(istart-1);  
+   if17=2*(istart-1);
    for(ic=istart;ic<=iend;ic++) {
      if17+=2;
      i_int_factor = (ic+i_off) * i_int_coeff[krc] * 0.5;
@@ -405,8 +390,8 @@ int my_num;
 
 /* do bilinear interpolation */
        s = t1a[jf+1] + t1a[jf-1] + t1d[jf] + t1e[jf];
-       s1 = 2.0 * (t1b[jf] - s + factor * t1a[jf]); 
-       if (((if17 == 2) && (gp[my_num].neighbors[UP] == -1)) || 
+       s1 = 2.0 * (t1b[jf] - s + factor * t1a[jf]);
+       if (((if17 == 2) && (gp[my_num].neighbors[UP] == -1)) ||
 	   ((jf == 2) && (gp[my_num].neighbors[LEFT] == -1))) {
           s2 = 0;
           s3 = 0;
@@ -417,15 +402,15 @@ int my_num;
           } else {
             temp = t1a[jf-3];
           }
-          s = t1a[jf-1] + temp + t1d[jf-2] + t1e[jf-2];   
-          s2 = 2.0 * (t1b[jf-2] - s + factor * t1a[jf-2]);  
+          s = t1a[jf-1] + temp + t1d[jf-2] + t1e[jf-2];
+          s2 = 2.0 * (t1b[jf-2] - s + factor * t1a[jf-2]);
 	  if (if17 == 2) {
 	    temp = q_multi[up_proc][kf][im-1][jf];
           } else {
             temp = t1g[jf];
           }
           s = t1f[jf+1]+ t1f[jf-1]+ temp + t1d[jf];
-          s3 = 2.0 * (t1h[jf] - s + factor * t1f[jf]);   
+          s3 = 2.0 * (t1h[jf] - s + factor * t1f[jf]);
 	  if (jf == 2) {
 	    temp = q_multi[left_proc][kf][if17-2][jm-1];
           } else {
@@ -436,44 +421,36 @@ int my_num;
           } else {
             temp2 = t1g[jf-2];
           }
-          s = t1f[jf-1]+ temp + temp2 + t1d[jf-2];  
-          s4 = 2.0 * (t1h[jf-2] - s + factor * t1f[jf-2]); 
+          s = t1f[jf-1]+ temp + temp2 + t1d[jf-2];
+          s4 = 2.0 * (t1h[jf-2] - s + factor * t1f[jf-2]);
        } else {
-          s = t1a[jf-1] + t1a[jf-3] + t1d[jf-2] + t1e[jf-2];  
-          s2 = 2.0 * (t1b[jf-2] - s + factor * t1a[jf-2]);  
+          s = t1a[jf-1] + t1a[jf-3] + t1d[jf-2] + t1e[jf-2];
+          s2 = 2.0 * (t1b[jf-2] - s + factor * t1a[jf-2]);
           s = t1f[jf+1]+ t1f[jf-1]+ t1g[jf] +   t1d[jf];
-          s3 = 2.0 * (t1h[jf] - s + factor * t1f[jf]);   
-          s = t1f[jf-1]+ t1f[jf-3]+ t1g[jf-2]+ t1d[jf-2];  
-          s4 = 2.0 * (t1h[jf-2] - s + factor * t1f[jf-2]); 
+          s3 = 2.0 * (t1h[jf] - s + factor * t1f[jf]);
+          s = t1f[jf-1]+ t1f[jf-3]+ t1g[jf-2]+ t1d[jf-2];
+          s4 = 2.0 * (t1h[jf-2] - s + factor * t1f[jf-2]);
        }
        int1 = j_int_factor*s4 + (1.0-j_int_factor)*s3;
        int2 = j_int_factor*s2 + (1.0-j_int_factor)*s1;
        int_val = i_int_factor*int1+(1.0-i_int_factor)*int2;
-       t1c[jc] = i_int_factor*int1+(1.0-i_int_factor)*int2;  
+       t1c[jc] = i_int_factor*int1+(1.0-i_int_factor)*int2;
      }
    }
 }
 
-void intadd(kc,my_num)
-
 /* perform interpolation and addition to next finest grid       */
-
-int kc;
-int my_num;
-
+void intadd(long kc, long my_num)
 {
-   int ic;
-   int if17;
-   int jf;
-   int jc;
-   int i;
-   int kf;
-   int istart;
-   int jstart;
-   int iend;
-   int jend;
-   double a;
-   double am;
+   long ic;
+   long if17;
+   long jf;
+   long jc;
+   long kf;
+   long istart;
+   long jstart;
+   long iend;
+   long jend;
    double hc;
    double hf;
    double int1;
@@ -482,9 +459,8 @@ int my_num;
    double j_int_factor1;
    double i_int_factor2;
    double j_int_factor2;
-   double int_val;
-   int i_off;
-   int j_off;
+   long i_off;
+   long j_off;
    double **t2a;
    double **t2b;
    double *t1a;
@@ -506,12 +482,12 @@ int my_num;
 
    t2a = (double **) q_multi[my_num][kc];
    t2b = (double **) q_multi[my_num][kf];
-   if17 = 2*(istart-1);  
+   if17 = 2*(istart-1);
    for(ic=istart;ic<=iend;ic++) {
      if17+=2;
      i_int_factor1= ((imx[kc]-2)-(ic+i_off-1)) * (i_int_coeff[kf]);
      i_int_factor2= (ic+i_off) * i_int_coeff[kf];
-     jf = 2*(jstart-1); 
+     jf = 2*(jstart-1);
 
      t1a = (double *) t2a[ic];
      t1b = (double *) t2a[ic-1];
@@ -537,25 +513,20 @@ int my_num;
    }
 }
 
-void putz(k,my_num)
-
 /* initialize a grid to zero in parallel                        */
-
-int k;
-int my_num;
-
+void putz(long k, long my_num)
 {
-   int i;
-   int j;
-   int istart;
-   int jstart;
-   int iend;
-   int jend;
+   long i;
+   long j;
+   long istart;
+   long jstart;
+   long iend;
+   long jend;
    double **t2a;
    double *t1a;
 
    istart = gp[my_num].rlist[k];
-   jstart = gp[my_num].rljst[k];  
+   jstart = gp[my_num].rljst[k];
    iend = gp[my_num].rlien[k];
    jend = gp[my_num].rljen[k];
 
@@ -568,19 +539,15 @@ int my_num;
    }
 }
 
-void copy_borders(k,pid)
-
-int k;
-int pid;
-
+void copy_borders(long k, long pid)
 {
-  int i;
-  int j;
-  int jj;
-  int im;
-  int jm;
-  int lastrow;
-  int lastcol;
+  long i;
+  long j;
+  long jj;
+  long im;
+  long jm;
+  long lastrow;
+  long lastcol;
   double **t2a;
   double **t2b;
   double *t1a;
@@ -700,18 +667,14 @@ int pid;
 
 }
 
-void copy_rhs_borders(k,procid)
-
-int k;
-int procid;
-
+void copy_rhs_borders(long k, long procid)
 {
-   int i;
-   int j;
-   int im;
-   int jm;
-   int lastrow;
-   int lastcol;
+   long i;
+   long j;
+   long im;
+   long jm;
+   long lastrow;
+   long lastcol;
    double **t2a;
    double **t2b;
    double *t1a;
@@ -721,7 +684,7 @@ int procid;
    jm = (jmx[k]-2)/xprocs+2;
    lastrow = (imx[k]-2)/yprocs;
    lastcol = (jmx[k]-2)/xprocs;
-  
+
    t2a = (double **) rhs_multi[procid][k];
    if (gp[procid].neighbors[UPLEFT] != -1) {
      j = gp[procid].neighbors[UPLEFT];
@@ -749,18 +712,14 @@ int procid;
    }
 }
 
-void copy_red(k,procid)
-
-int k;
-int procid;
-
+void copy_red(long k, long procid)
 {
-   int i;
-   int j;
-   int im;
-   int jm;
-   int lastrow;
-   int lastcol;
+   long i;
+   long j;
+   long im;
+   long jm;
+   long lastrow;
+   long lastcol;
    double **t2a;
    double **t2b;
    double *t1a;
@@ -804,18 +763,14 @@ int procid;
    }
 }
 
-void copy_black(k,procid)
-
-int k;
-int procid;
-
+void copy_black(long k, long procid)
 {
-   int i;
-   int j;
-   int im;
-   int jm;
-   int lastrow;
-   int lastcol;
+   long i;
+   long j;
+   long im;
+   long jm;
+   long lastrow;
+   long lastcol;
    double **t2a;
    double **t2b;
    double *t1a;

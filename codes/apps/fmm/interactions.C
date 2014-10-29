@@ -29,24 +29,24 @@ static real C[2 * MAX_EXPANSION_TERMS][2 * MAX_EXPANSION_TERMS];
 static complex One;
 static complex Zero;
 
-void InitExp(int my_id, box *b);
-void ComputeMPExp(int my_id, box *b);
-void ShiftMPExp(int my_id, box *cb, box *pb);
-void UListInteraction(int my_id, box *b1, box *b2);
-void VListInteraction(int my_id, box *source_box, box *dest_box);
-void WAndXListInteractions(int my_id, box *b1, box *b2);
-void WListInteraction(int my_id, box *source_box, box *dest_box);
-void XListInteraction(int my_id, box *source_box, box *dest_box);
-void ComputeSelfInteraction(int my_id, box *b);
-void ShiftLocalExp(int my_id, box *pb, box *cb);
-void EvaluateLocalExp(int my_id, box *b);
+void InitExp(box *b);
+void ComputeMPExp(box *b);
+void ShiftMPExp(box *cb, box *pb);
+void UListInteraction(long my_id, box *b1, box *b2);
+void VListInteraction(long my_id, box *source_box, box *dest_box);
+void WAndXListInteractions(long my_id, box *b1, box *b2);
+void WListInteraction(box *source_box, box *dest_box);
+void XListInteraction(box *source_box, box *dest_box);
+void ComputeSelfInteraction(box *b);
+void ShiftLocalExp(box *pb, box *cb);
+void EvaluateLocalExp(box *b);
 
 
 void
 InitExpTables ()
 {
-   int i;
-   int j;
+   long i;
+   long j;
 
    for (i = 1; i < MAX_EXPANSION_TERMS + 1; i++) {
       Inv[i] = ((real) 1) / (real) i;
@@ -71,32 +71,29 @@ InitExpTables ()
 void
 PrintExpTables ()
 {
-   int i;
-   int j;
-  
+   long i;
+   long j;
+
    printf("Table for the functions f(i) = 1 / i and g(i) = i / (i + 1)\n");
    printf("i\t\tf(i)\t\tg(i)\t\t\n");
    for (i = 1; i < MAX_EXPANSION_TERMS; i++)
-      printf("%d\t\t%e\t%f\t\n", i, Inv[i], OverInc[i]);
+      printf("%ld\t\t%e\t%f\t\n", i, Inv[i], OverInc[i]);
    printf("\n\nTable for the function h(i,j) = i choose j\n");
    printf("i\tj\th(i,j)\n");
    for (i = 0; i < (2 * MAX_EXPANSION_TERMS); i++) {
       for (j = 0; j <= i; j++)
-	 printf("%d\t%d\t%g\n", i, j, C[i][j]);
+	 printf("%ld\t%ld\t%g\n", i, j, C[i][j]);
       printf("\n");
    }
 }
 
-  
-void
-UpwardPass (int my_id, box *b)
-{
-   int i;
-   box *cb;
 
-   InitExp(my_id, b);
+void
+UpwardPass (long my_id, box *b)
+{
+   InitExp(b);
    if (b->type == CHILDLESS) {
-      ComputeMPExp(my_id, b);
+      ComputeMPExp(b);
       ALOCK(G_Memory->lock_array, b->exp_lock_index);
       b->interaction_synch = 1;
       AULOCK(G_Memory->lock_array, b->exp_lock_index);
@@ -107,7 +104,7 @@ UpwardPass (int my_id, box *b)
       }
    }
    if (b->parent != NULL) {
-      ShiftMPExp(my_id, b, b->parent);
+      ShiftMPExp(b, b->parent);
       ALOCK(G_Memory->lock_array, b->parent->exp_lock_index);
       b->parent->interaction_synch += 1;
       AULOCK(G_Memory->lock_array, b->parent->exp_lock_index);
@@ -116,11 +113,11 @@ UpwardPass (int my_id, box *b)
 
 
 void
-ComputeInteractions (int my_id, box *b)
+ComputeInteractions (long my_id, box *b)
 {
    b->cost = 0;
    if (b->type == CHILDLESS) {
-      ComputeSelfInteraction(my_id, b);
+      ComputeSelfInteraction(b);
       ListIterate(my_id, b, b->u_list, b->num_u_list, UListInteraction);
       ListIterate(my_id, b, b->w_list, b->num_w_list, WAndXListInteractions);
    }
@@ -129,18 +126,16 @@ ComputeInteractions (int my_id, box *b)
 
 
 void
-DownwardPass (int my_id, box *b)
+DownwardPass (long my_id, box *b)
 {
-   int i;
-  
    if (b->parent != NULL) {
       while (b->parent->interaction_synch != 0) {
 	 /* wait */;
       }
-      ShiftLocalExp(my_id, b->parent, b);
+      ShiftLocalExp(b->parent, b);
    }
    if (b->type == CHILDLESS) {
-      EvaluateLocalExp(my_id, b);
+      EvaluateLocalExp(b);
       b->interaction_synch = 0;
    }
    else {
@@ -152,7 +147,7 @@ DownwardPass (int my_id, box *b)
 
 
 void
-ComputeParticlePositions (int my_id, box *b)
+ComputeParticlePositions (long my_id, box *b)
 {
    particle *p;
    vector force;
@@ -161,8 +156,8 @@ ComputeParticlePositions (int my_id, box *b)
    vector delta_vel;
    vector avg_vel;
    vector delta_pos;
-   int i;
-  
+   long i;
+
    for (i = 0; i < b->num_particles; i++) {
       p = b->particles[i];
       force.x = p->field.r * p->charge;
@@ -185,10 +180,10 @@ ComputeParticlePositions (int my_id, box *b)
 
 
 void
-InitExp (int my_id, box *b)
+InitExp (box *b)
 {
-   int i;
-  
+   long i;
+
    for (i = 0; i < Expansion_Terms; i++) {
       b->mp_expansion[i].r = 0.0;
       b->mp_expansion[i].i = 0.0;
@@ -201,7 +196,7 @@ InitExp (int my_id, box *b)
 
 
 /*
- *  ComputeMPExp (int my_id, box *b)
+ *  ComputeMPExp (long my_id, box *b)
  *
  *  Args : a box, b.
  *
@@ -217,7 +212,7 @@ InitExp (int my_id, box *b)
  *
  */
 void
-ComputeMPExp (int my_id, box *b)
+ComputeMPExp (box *b)
 {
    particle *p;
    complex charge;
@@ -227,10 +222,9 @@ ComputeMPExp (int my_id, box *b)
    complex z0_pow_n;
    complex temp;
    complex result_exp[MAX_EXPANSION_TERMS];
-   int comp_cost;
-   int i;
-   int j;
-    
+   long i;
+   long j;
+
    box_pos.r = b->x_center;
    box_pos.i = b->y_center;
    for (i = 0; i < Expansion_Terms; i++) {
@@ -250,7 +244,7 @@ ComputeMPExp (int my_id, box *b)
 	 COMPLEX_MUL(temp, z0_pow_n, charge);
 	 COMPLEX_ADD(result_exp[j], result_exp[j], temp);
 	 COMPLEX_MUL(z0_pow_n, z0_pow_n, z0);
-      }    
+      }
    }
    ALOCK(G_Memory->lock_array, b->exp_lock_index);
    for (i = 0; i < Expansion_Terms; i++) {
@@ -258,11 +252,11 @@ ComputeMPExp (int my_id, box *b)
       b->mp_expansion[i].i = result_exp[i].i;
    }
    AULOCK(G_Memory->lock_array, b->exp_lock_index);
-}  
+}
 
 
 void
-ShiftMPExp (int my_id, box *cb, box *pb)
+ShiftMPExp (box *cb, box *pb)
 {
    complex z0;
    complex z0_inv;
@@ -273,10 +267,9 @@ ShiftMPExp (int my_id, box *cb, box *pb)
    complex child_pos;
    complex parent_pos;
    complex temp;
-   int comp_cost;
-   int i;
-   int j;
-    
+   long i;
+   long j;
+
    child_pos.r = cb->x_center;
    child_pos.i = cb->y_center;
    parent_pos.r = pb->x_center;
@@ -316,7 +309,7 @@ ShiftMPExp (int my_id, box *cb, box *pb)
 
 
 void
-UListInteraction (int my_id, box *source_box, box *dest_box)
+UListInteraction (long my_id, box *source_box, box *dest_box)
 {
    complex result;
    complex temp_vector;
@@ -327,9 +320,9 @@ UListInteraction (int my_id, box *source_box, box *dest_box)
    real y_sep;
    real dest_x;
    real dest_y;
-   int i;
-   int j;
-  
+   long i;
+   long j;
+
    for (i = 0; i < dest_box->num_particles; i++) {
       result.r = (real) 0.0;
       result.i = (real) 0.0;
@@ -347,17 +340,17 @@ UListInteraction (int my_id, box *source_box, box *dest_box)
 	 COMPLEX_SUB(result, result, temp_result);
       }
       result.i = -result.i;
-      COMPLEX_ADD((dest_box->particles[i]->field), 
+      COMPLEX_ADD((dest_box->particles[i]->field),
 		  (dest_box->particles[i]->field), result);
    }
 
-   dest_box->cost += U_LIST_COST(source_box->num_particles, 
+   dest_box->cost += U_LIST_COST(source_box->num_particles,
 				 dest_box->num_particles);
 }
 
 
 void
-VListInteraction (int my_id, box *source_box, box *dest_box)
+VListInteraction (long my_id, box *source_box, box *dest_box)
 {
    complex z0;
    complex z0_inv;
@@ -367,8 +360,8 @@ VListInteraction (int my_id, box *source_box, box *dest_box)
    complex source_pos;
    complex dest_pos;
    complex temp;
-   int i;
-   int j;
+   long i;
+   long j;
 
    if (source_box->type == CHILDLESS) {
       while (source_box->interaction_synch != 1) {
@@ -390,7 +383,7 @@ VListInteraction (int my_id, box *source_box, box *dest_box)
    z0_pow_minus_n[0].r = One.r;
    z0_pow_minus_n[0].i = One.i;
    temp_exp[0].r = source_box->mp_expansion[0].r;
-   temp_exp[0].i = source_box->mp_expansion[0].i;  
+   temp_exp[0].i = source_box->mp_expansion[0].i;
    for (i = 1; i < Expansion_Terms; i++) {
       COMPLEX_MUL(z0_pow_minus_n[i], z0_pow_minus_n[i - 1], z0_inv);
       COMPLEX_MUL(temp_exp[i], z0_pow_minus_n[i], source_box->mp_expansion[i]);
@@ -423,31 +416,31 @@ VListInteraction (int my_id, box *source_box, box *dest_box)
 	 COMPLEX_MUL(temp, temp, source_box->mp_expansion[0]);
 	 COMPLEX_SUB(result_exp, result_exp, temp);
       }
-      COMPLEX_ADD((dest_box->local_expansion[i]), 
+      COMPLEX_ADD((dest_box->local_expansion[i]),
 		  (dest_box->local_expansion[i]), result_exp);
    }
    dest_box->cost += V_LIST_COST(Expansion_Terms);
-}  
-
-
-void
-WAndXListInteractions (int my_id, box *b1, box *b2)
-{
-   WListInteraction(my_id, b1, b2);
-   XListInteraction(my_id, b2, b1);
 }
 
 
 void
-WListInteraction (int my_id, box *source_box, box *dest_box)
+WAndXListInteractions (long my_id, box *b1, box *b2)
+{
+   WListInteraction(b1, b2);
+   XListInteraction(b2, b1);
+}
+
+
+void
+WListInteraction (box *source_box, box *dest_box)
 {
    complex z0;
    complex z0_inv;
    complex result;
    complex source_pos;
    complex particle_pos;
-   int i;
-   int j;
+   long i;
+   long j;
 
    if (source_box->type == CHILDLESS) {
       while (source_box->interaction_synch != 1) {
@@ -473,16 +466,16 @@ WListInteraction (int my_id, box *source_box, box *dest_box)
 	 COMPLEX_ADD(result, result, (source_box->mp_expansion[j]));
 	 COMPLEX_MUL(result, result, z0_inv);
       }
-      COMPLEX_ADD((dest_box->particles[i]->field), 
+      COMPLEX_ADD((dest_box->particles[i]->field),
 		  (dest_box->particles[i]->field), result);
    }
-  
+
    dest_box->cost += W_LIST_COST(dest_box->num_particles, Expansion_Terms);
 }
 
 
 void
-XListInteraction (int my_id, box *source_box, box *dest_box)
+XListInteraction (box *source_box, box *dest_box)
 {
    complex z0;
    complex z0_inv;
@@ -492,9 +485,9 @@ XListInteraction (int my_id, box *source_box, box *dest_box)
    complex dest_pos;
    complex charge;
    complex temp;
-   int i;
-   int j;
-    
+   long i;
+   long j;
+
    dest_pos.r = dest_box->x_center;
    dest_pos.i = dest_box->y_center;
    for (i = 0; i < Expansion_Terms; i++) {
@@ -518,7 +511,7 @@ XListInteraction (int my_id, box *source_box, box *dest_box)
    }
    ALOCK(G_Memory->lock_array, dest_box->exp_lock_index);
    for (i = 0; i < Expansion_Terms; i++) {
-      COMPLEX_SUB((dest_box->x_expansion[i]), 
+      COMPLEX_SUB((dest_box->x_expansion[i]),
 		  (dest_box->x_expansion[i]), result_exp[i]);
    }
    AULOCK(G_Memory->lock_array, dest_box->exp_lock_index);
@@ -527,7 +520,7 @@ XListInteraction (int my_id, box *source_box, box *dest_box)
 
 
 void
-ComputeSelfInteraction (int my_id, box *b)
+ComputeSelfInteraction (box *b)
 {
    complex results[MAX_PARTICLES_PER_BOX];
    complex temp_vector;
@@ -536,9 +529,8 @@ ComputeSelfInteraction (int my_id, box *b)
    real denom;
    real x_sep;
    real y_sep;
-   int comp_cost;
-   int i;
-   int j;
+   long i;
+   long j;
 
    for (i = 0; i < b->num_particles; i++) {
       results[i].r = (real) 0.0;
@@ -583,9 +575,9 @@ ComputeSelfInteraction (int my_id, box *b)
    b->cost += SELF_COST(b->num_particles);
 }
 
-  
+
 void
-ShiftLocalExp (int my_id, box *pb, box *cb)
+ShiftLocalExp (box *pb, box *cb)
 {
    complex z0;
    complex z0_inv;
@@ -596,8 +588,8 @@ ShiftLocalExp (int my_id, box *pb, box *cb)
    complex child_pos;
    complex parent_pos;
    complex temp;
-   int i;
-   int j;
+   long i;
+   long j;
 
    child_pos.r = cb->x_center;
    child_pos.i = cb->y_center;
@@ -614,7 +606,7 @@ ShiftLocalExp (int my_id, box *pb, box *cb)
 		  pb->x_expansion[i]);
       COMPLEX_MUL(temp_exp[i], z0_pow_n, pb->local_expansion[i]);
       COMPLEX_MUL(z0_pow_n, z0_pow_n, z0);
-   }    
+   }
    for (i = 0; i < Expansion_Terms; i++) {
       result_exp[i].r = (real) 0.0;
       result_exp[i].i = (real) 0.0;
@@ -629,7 +621,7 @@ ShiftLocalExp (int my_id, box *pb, box *cb)
    }
    ALOCK(G_Memory->lock_array, cb->exp_lock_index);
    for (i = 0; i < Expansion_Terms; i++) {
-      COMPLEX_ADD((cb->local_expansion[i]), (cb->local_expansion[i]), 
+      COMPLEX_ADD((cb->local_expansion[i]), (cb->local_expansion[i]),
 		  result_exp[i]);
    }
    AULOCK(G_Memory->lock_array, cb->exp_lock_index);
@@ -637,16 +629,16 @@ ShiftLocalExp (int my_id, box *pb, box *cb)
 
 
 void
-EvaluateLocalExp (int my_id, box *b)
+EvaluateLocalExp (box *b)
 {
    complex z0;
    complex result;
    complex source_pos;
    complex particle_pos;
    complex temp;
-   int i;
-   int j;
-    
+   long i;
+   long j;
+
    source_pos.r = b->x_center;
    source_pos.i = b->y_center;
    for (i = 0; i < b->num_particles; i++) {

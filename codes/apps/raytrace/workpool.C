@@ -64,11 +64,7 @@
  *	Nothing.
  */
 
-VOID	PutJob(xs, ys, xe, ye, xbe, ybe, pid)
-INT	xs,  ys;
-INT	xe,  ye;
-INT	xbe, ybe;
-INT	pid;
+VOID	PutJob(INT xs, INT ys, INT xe, INT ye, INT xbe, INT ybe, INT pid)
 	{
 	INT	i, j;
 	INT	xb_addr, yb_addr;		/* Bundle pixel address.     */
@@ -149,9 +145,7 @@ INT	pid;
  *	Work pool status code.
  */
 
-INT	GetJob(job, pid)
-RAYJOB	*job;
-INT	pid;
+INT	GetJob(RAYJOB *job, INT pid)
 	{
 	WPJOB	*wpentry;			/* Work pool entry.	     */
 
@@ -198,9 +192,7 @@ INT	pid;
  *	Workpool status.
  */
 
-INT	GetJobs(job, pid)
-RAYJOB	*job;
-INT	pid;
+INT	GetJobs(RAYJOB *job, INT pid)
 	{
 	INT	i;
 
@@ -250,8 +242,7 @@ INT	pid;
  *	Nothing.
  */
 
-VOID	PrintWorkPool(pid)
-INT	pid;
+VOID	PrintWorkPool(INT pid)
 	{
 	WPJOB	*j;
 
@@ -278,8 +269,7 @@ INT	pid;
  *	Nothing.
  */
 
-VOID	InitWorkPool(pid)
-INT	pid;
+VOID	InitWorkPool(INT pid)
 	{
 	INT	i;
 	INT	x, y;

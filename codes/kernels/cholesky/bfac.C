@@ -19,22 +19,20 @@ EXTERN_ENV
 #include "matrix.h"
 #include <math.h>
 
-int vMiss=0, wMiss=0, xMiss=0, yMiss=0; /* Local but don't care */
-extern int BS;
+long vMiss=0, wMiss=0, xMiss=0, yMiss=0; /* Local but don't care */
+extern long BS;
 extern struct GlobalMemory *Global;
 extern BMatrix LB;
-extern int solution_method;
-extern int *node, *firstchild;  /* global */
-int *block_start, *all_blocks;
+extern long solution_method;
+extern long *node, *firstchild;  /* global */
+long *block_start, *all_blocks;
 
 /* arguments */
-extern int *T, P;
+extern long *T, P;
 
-BFac(diag, MyNum, lc)
-int MyNum;
-struct LocalCopies *lc;
+void BFac(long diag, struct LocalCopies *lc)
 {
-  int n, is, il, js, jl, ks, kl;
+  long n, is, il, js, jl, ks, kl;
   double *A;
 
   n = BLOCK(diag)->length;
@@ -48,11 +46,11 @@ struct LocalCopies *lc;
     for (is=jl; is<n; is+=BS) {
       il = is+BS; if (il > n) il = n;
 
-      CopyBlock(A, lc->blktmp, n, is, js, il, jl, MyNum, lc);
+      CopyBlock(A, lc->blktmp, n, is, js, il, jl);
 
       OneDiv(&A[js+n*js], lc->blktmp, jl-js, il-is, n);
 
-      CopyBlockBack(A, lc->blktmp, n, is, js, il, jl, MyNum, lc);
+      CopyBlockBack(A, lc->blktmp, n, is, js, il, jl);
 
       for (ks=jl; ks<is; ks+=BS) {
         kl = ks+BS; if (kl > n) kl = n;
@@ -70,10 +68,9 @@ struct LocalCopies *lc;
 
 /* Factor A (dim n1 by n1), stride n2 */
 
-OneFac(A, n1, n2)
-double *A;
+void OneFac(double *A, long n1, long n2)
 {
-  int i, j, k;
+  long i, j, k;
 
   for (j=0; j<n1; j++) {
     for (k=0; k<j; k++)
@@ -86,13 +83,9 @@ double *A;
 }
 
 
-BDiv(diag, below, n1, n3, diag_nz, below_nz, MyNum, lc)
-int diag, below, MyNum;
-int n1, n3;
-double *diag_nz, *below_nz;
-struct LocalCopies *lc;
+void BDiv(long n1, long n3, double *diag_nz, double *below_nz, struct LocalCopies *lc)
 {
-  int is, il, js, jl, ks, kl;
+  long is, il, js, jl, ks, kl;
   double *A, *B;
 
   /* diag block is A, dim n1 by n1 */
@@ -110,11 +103,11 @@ struct LocalCopies *lc;
       for (is=0; is<n3; is+=BS) {
         il = is+BS; if (il > n3) il = n3;
 
-        CopyBlock(B, lc->blktmp, n3, is, js, il, jl, MyNum, lc);
+        CopyBlock(B, lc->blktmp, n3, is, js, il, jl);
 
         OneDiv(&A[js+js*n1], lc->blktmp, jl-js, il-is, n1);
 
-        CopyBlockBack(B, lc->blktmp, n3, is, js, il, jl, MyNum, lc);
+        CopyBlockBack(B, lc->blktmp, n3, is, js, il, jl);
 
         for (ks=jl; ks<n1; ks+=BS) {
           kl = ks+BS; if (kl > n1) kl = n1;
@@ -130,10 +123,9 @@ struct LocalCopies *lc;
 /* below block is B, dim n3 by n1 */
 /* n4 is stride of A */
 
-OneDiv(A, B, n1, n3, n4)
-double *A, *B;
+void OneDiv(double *A, double *B, long n1, long n3, long n4)
 {
-  int i, j, k;
+  long i, j, k;
   double a_j0k0, a_j0k1, a_j0k2, a_j0k3;
   double a_j1k0, a_j1k1, a_j1k2, a_j1k3;
   double *b0, *b1, *b2, *b3;
@@ -193,13 +185,9 @@ double *A, *B;
 
 }
 
-BMod(top, bend, n1, n2, n3, top_nz, bend_nz, dest_nz, MyNum, lc)
-int top, bend, MyNum;
-int n1, n2, n3;
-double *top_nz, *bend_nz, *dest_nz;
-struct LocalCopies *lc;
+void BMod(long n1, long n2, long n3, double *top_nz, double *bend_nz, double *dest_nz, struct LocalCopies *lc)
 {
-  int is, il, ks, kl, hbs;
+  long is, il, ks, kl, hbs;
   double *B, *A, *C;
 
   /* three blocks form an L */
@@ -228,21 +216,16 @@ struct LocalCopies *lc;
       il = is+BS; if (il > n3) il = n3;
       for (ks=0; ks<n2; ks+=BS) {
         kl = ks+BS; if (kl > n2) kl = n2;
-        CopyBlock(B, lc->blktmp, n3, is, ks, il, kl, MyNum, lc);
+        CopyBlock(B, lc->blktmp, n3, is, ks, il, kl);
         OneMatmat(lc->blktmp, &A[ks*n1], &C[is], n1, kl-ks, il-is, n3, n1);
       }
     }
   }
 }
 
-
-CopyBlock(B, dest, n3, is, ks, il, kl,MyNum,lc)
-double *B, *dest;
-int MyNum;
-struct LocalCopies *lc;
+void CopyBlock(double *B, double *dest, long n3, long is, long ks, long il, long kl/*, long MyNum, struct LocalCopies *lc*/)
 {
-  int i, k, bs;
-  double *destination, *bptr, *top_of_B;
+  long i, k, bs;
 
   bs = il-is;
   for (k=ks; k<kl; k++)
@@ -251,12 +234,9 @@ struct LocalCopies *lc;
     }
 }
 
-
-
-CopyBlockBack(B, src, n3, is, ks, il, kl)
-double *B, *src;
+void CopyBlockBack(double *B, double *src, long n3, long is, long ks, long il, long kl)
 {
-  int i, k, bs;
+  long i, k, bs;
 
   bs = il-is;
   for (k=ks; k<kl; k++)
@@ -268,10 +248,9 @@ double *B, *src;
 /* Result added into C (C dim n3 by n1) */
 /* n4 is stride of C, n5 is stride of A */
 
-OneMatmat(B, A, C, n1, n2, n3, n4, n5)
-double *B, *A, *C;
+void OneMatmat(double *B, double *A, double *C, long n1, long n2, long n3, long n4, long n5)
 {
-  int i, j, k;
+  long i, j, k;
   double a_j0k0, a_j0k1, a_j0k2, a_j0k3;
   double a_j0k4, a_j0k5, a_j0k6, a_j0k7;
   double a_j1k0, a_j1k1, a_j1k2, a_j1k3;
@@ -377,12 +356,9 @@ double *B, *A, *C;
 /* block is n1 by n2, with given nz */
 /* subtract lower triangle of AA^T from 'dest_nz' */
 
-BLMod(left, n1, n2, left_nz, dest_nz, MyNum, lc)
-int left, n1, n2, MyNum;
-double *left_nz, *dest_nz;
-struct LocalCopies *lc;
+void BLMod(long n1, long n2, double *left_nz, double *dest_nz, struct LocalCopies *lc)
 {
-  int is, ks, il, kl;
+  long is, ks, il, kl;
   double *A, *C;
 
   A = left_nz;
@@ -396,7 +372,7 @@ struct LocalCopies *lc;
       il = is+BS; if (il > n1) il = n1;
       for (ks=0; ks<n2; ks+=BS) {
         kl = ks+BS; if (kl > n2) kl = n2;
-        CopyBlock(A, lc->blktmp, n1, is, ks, il, kl, MyNum, lc);
+        CopyBlock(A, lc->blktmp, n1, is, ks, il, kl);
         OneMatmat(lc->blktmp, &A[ks*n1], &C[is], is, kl-ks, il-is, n1, n1);
 	OneLower(lc->blktmp, &C[is+is*n1], il-is, kl-ks, n1);
       }
@@ -409,10 +385,9 @@ struct LocalCopies *lc;
 /* result is lower triangle of square block, dim n1 by n1 */
 /* n3 is stride of C */
 
-OneLower(A, C, n1, n2, n3)
-double *A, *C;
+void OneLower(double *A, double *C, long n1, long n2, long n3)
 {
-  int i, j, k;
+  long i, j, k;
   double *tmp;
   double a_j0k0, a_j0k1, a_j0k2, a_j0k3;
   double a_j1k0, a_j1k1, a_j1k2, a_j1k3;
@@ -463,13 +438,10 @@ double *A, *C;
 }
 
 
-FindBlockUpdate(domain, bli, blj, update, stride)
-int domain, blj, bli;
-double **update;
-int *stride;
+void FindBlockUpdate(long domain, long bli, long blj, double **update, long *stride)
 {
-  int i;
-  int into_i, into_j, update_len;
+  long i;
+  long into_i, into_j, update_len;
   double *domain_update;
 
   into_j = 0;
@@ -486,3 +458,4 @@ int *stride;
   *update = &domain_update[into_j*update_len - into_j*(into_j+1)/2 + into_i];
   *stride = update_len - into_j - 1;
 }
+

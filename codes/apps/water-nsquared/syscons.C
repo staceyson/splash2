@@ -14,6 +14,7 @@
 /*                                                                       */
 /*************************************************************************/
 
+EXTERN_ENV
 #include "stdio.h"
 #include <math.h>
 
@@ -23,8 +24,9 @@
 #include "wwpot.h"
 #include "cnst.h"
 #include "mddata.h"
+#include "global.h"
 
-SYSCNS()                    /* sets up some system constants */
+void SYSCNS()                    /* sets up some system constants */
 {
     TSTEP=TSTEP/UNITT;        /* time between steps */
     NATMO=NATOMS*NMOL;        /* total number of atoms in system */
@@ -35,27 +37,27 @@ SYSCNS()                    /* sets up some system constants */
                                                         length of the cubical "box".  Note that box size is
                                                         computed as being large enough to handle the input
                                                         number of water molecules */
-    
+
     BOXL=BOXL/UNITL;    /* normalized length of computational box */
-    
-    BOXH=BOXL*0.50; /* half the box length, used in 
+
+    BOXH=BOXL*0.50; /* half the box length, used in
                        computing cutoff radius */
-    
+
     if (CUTOFF == 0.0) {
-        CUTOFF=max(BOXH,CUTOFF);    /* cutoff radius is max of BOXH 
+        CUTOFF=max(BOXH,CUTOFF);    /* cutoff radius is max of BOXH
                                        and default (= 0); i.e. CUTOFF
                                        radius is set to half the normalized
                                        box length */
     }
-    if (CUTOFF > 11.0) CUTOFF = 11.0; /* cutoff never greater than 11 
+    if (CUTOFF > 11.0) CUTOFF = 11.0; /* cutoff never greater than 11
 					  Angstrom*/
-    
+
     REF1= -QQ/(CUTOFF*CUTOFF*CUTOFF);
     REF2=2.00*REF1;
     REF4=2.00*REF2;
-    CUT2=CUTOFF*CUTOFF;       /* square of cutoff radius,  used 
-                                 to actually decide whether an 
-                                 interaction should be computed in 
+    CUT2=CUTOFF*CUTOFF;       /* square of cutoff radius,  used
+                                 to actually decide whether an
+                                 interaction should be computed in
                                  INTERF and POTENG */
     FHM=(TSTEP*TSTEP*0.50)/HMAS;
     FOM=(TSTEP*TSTEP*0.50)/OMAS;

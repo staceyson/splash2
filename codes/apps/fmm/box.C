@@ -27,19 +27,17 @@
 
 box *Grid = NULL;
 
-void ZeroBox(int my_id, box *b);
-void PrintExpansionTerms();
+void ZeroBox(long my_id, box *b);
 
 void
-CreateBoxes (int my_id, int num_boxes) 
+CreateBoxes (long my_id, long num_boxes)
 {
-   int cluster_no;
-   int i;
-   
+   long i;
+
    LOCK(G_Memory->mal_lock);
    Local[my_id].B_Heap = (box *) G_MALLOC(num_boxes * sizeof(box));
 
-/* POSSIBLE ENHANCEMENT:  Here is where one might distribute the 
+/* POSSIBLE ENHANCEMENT:  Here is where one might distribute the
    B_Heap data across physically distributed memories as desired.
 
    One way to do this is as follows:
@@ -70,11 +68,11 @@ CreateBoxes (int my_id, int num_boxes)
 
 
 void
-FreeBoxes (int my_id)
+FreeBoxes (long my_id)
 {
-   int i;
+   long i;
    box *b_array;
-     
+
    b_array = Local[my_id].B_Heap;
    for (i = 0; i < Local[my_id].Index_B_Heap; i++)
       ZeroBox(my_id, &b_array[i]);
@@ -83,10 +81,10 @@ FreeBoxes (int my_id)
 
 
 void
-ZeroBox (int my_id, box *b)
+ZeroBox (long my_id, box *b)
 {
-   int i;
-  
+   long i;
+
    b->type = CHILDLESS;
    b->num_particles = 0;
    for (i = 0; i < MAX_PARTICLES_PER_BOX; i++)
@@ -108,7 +106,7 @@ ZeroBox (int my_id, box *b)
 
 
 /*
- *  InitBox (int my_id, real x_center, real y_center, real length, int level, box *parent)
+ *  InitBox (long my_id, real x_center, real y_center, real length, long level, box *parent)
  *
  *  Args : the x_center and y_center of the center of the box;
  *         the length of the box;
@@ -118,15 +116,15 @@ ZeroBox (int my_id, box *b)
  *  Returns : the address of the newly created box.
  *
  *  Side Effects : Initializes num_particles to 0, all other pointers to NULL,
- *    and sets the box ID to a unique number. It also creates the space for 
+ *    and sets the box ID to a unique number. It also creates the space for
  *    the two expansion arrays.
  *
  */
 box *
-InitBox (int my_id, real x_center, real y_center, real length, box *parent)
+InitBox (long my_id, real x_center, real y_center, real length, box *parent)
 {
    box *b;
-  
+
    if (Local[my_id].Index_B_Heap == Local[my_id].Max_B_Heap) {
       LockedPrint("ERROR (P%d) : Ran out of boxes\n", my_id);
       exit(-1);
@@ -157,8 +155,6 @@ InitBox (int my_id, real x_center, real y_center, real length, box *parent)
 void
 PrintBox (box *b)
 {
-   int i;
-  
    LOCK(G_Memory->io_lock);
    fflush(stdout);
    if (b != NULL) {
@@ -166,9 +162,9 @@ PrintBox (box *b)
       printf("  X center       = %.40g\n", b->x_center);
       printf("  Y center       = %.40g\n", b->y_center);
       printf("  Length         = %.40g\n", b->length);
-      printf("  Level          = %d\n", b->level);
+      printf("  Level          = %ld\n", b->level);
       printf("  Type           = %d\n", b->type);
-      printf("  Child Num      = %d\n", b->child_num);
+      printf("  Child Num      = %ld\n", b->child_num);
       if (b->parent == NULL)
 	 printf("  Parent         = NONE\n");
       else
@@ -191,11 +187,11 @@ PrintBox (box *b)
       PrintBoxArrayIds(b->v_list, b->num_v_list);
       printf("  W List IDs : ");
       PrintBoxArrayIds(b->w_list, b->num_w_list);
-      printf("  # of Particles = %d\n", b->num_particles);
+      printf("  # of Particles = %ld\n", b->num_particles);
       printf("  Particles' IDs : ");
       PrintParticleArrayIds(b->particles, b->num_particles);
-      printf("  Assigned Process ID : %d\n", b->proc);
-      printf("  Cost : %d\n", b->cost);
+      printf("  Assigned Process ID : %ld\n", b->proc);
+      printf("  Cost : %ld\n", b->cost);
       printf("\n");
    }
    else
@@ -205,22 +201,22 @@ PrintBox (box *b)
 
 
 /*
- *  PrintBoxArrayIds (box_node *b_array[], int array_length)
+ *  PrintBoxArrayIds (box_node *b_array[], long array_length)
  *
  *  Args : the address of the box array, b_array;
  *         the length of the array, array_length.
- * 
+ *
  *  Returns : nothing.
  *
- *  Side Effects : Prints to stdout just the id numbers for every box in 
+ *  Side Effects : Prints to stdout just the id numbers for every box in
  *    b_array.
  *
  */
 void
-PrintBoxArrayIds (box *b_array[], int array_length)
+PrintBoxArrayIds (box *b_array[], long array_length)
 {
-   int i;
-   int tab_count;
+   long i;
+   long tab_count;
 
    tab_count = 0;
    for (i = 0; i < array_length; i++) {
@@ -249,18 +245,18 @@ PrintBoxArrayIds (box *b_array[], int array_length)
 void
 PrintExpansionTerms (complex expansion[])
 {
-   int i;
-   int tab_count = 0;
-  
+   long i;
+   long tab_count = 0;
+
    for (i = 0; i < Expansion_Terms; i++) {
       if (tab_count == 0) {
 	 printf("\n");
 	 tab_count = TERMS_PER_LINE;
       }
       if (expansion[i].i >= (real) 0.0)
-	 printf("\ta%d = %.3e + %.3ei", i, expansion[i].r, expansion[i].i);
+	 printf("\ta%ld = %.3e + %.3ei", i, expansion[i].r, expansion[i].i);
       else
-	 printf("\ta%d = %.3e - %.3ei", i, expansion[i].r, -expansion[i].i);
+	 printf("\ta%ld = %.3e - %.3ei", i, expansion[i].r, -expansion[i].i);
       tab_count -= 1;
    }
    printf("\n");
@@ -268,9 +264,9 @@ PrintExpansionTerms (complex expansion[])
 
 
 void
-ListIterate (int my_id, box *b, box **list, int length, list_function function)
+ListIterate (long my_id, box *b, box **list, long length, list_function function)
 {
-   int i;
+   long i;
 
    for (i = 0; i < length; i++) {
       if (list[i] == NULL) {
@@ -283,7 +279,7 @@ ListIterate (int my_id, box *b, box **list, int length, list_function function)
 
 
 /*
- *  AdjacentBoxes (int my_id, box *b1, box *b2)
+ *  AdjacentBoxes (box *b1, box *b2)
  *
  *  Args : two potentially adjacent boxes, b1 and b2.
  *
@@ -298,34 +294,34 @@ ListIterate (int my_id, box *b, box **list, int length, list_function function)
  *
  *     NOTE : By this definition, parents are NOT adjacent to their children.
  */
-int
-AdjacentBoxes (int my_id, box *b1, box *b2)
+long
+AdjacentBoxes (box *b1, box *b2)
 {
    real exact_separation;
    real x_separation;
    real y_separation;
-   int ret_val;
-      
+   long ret_val;
+
    exact_separation = (b1->length / (real) 2.0) + (b2->length / (real) 2.0);
    x_separation = (real) fabs((double)(b1->x_center - b2->x_center));
    y_separation = (real) fabs((double)(b1->y_center - b2->y_center));
-  
-   if ((x_separation == exact_separation) && 
+
+   if ((x_separation == exact_separation) &&
        (y_separation <= exact_separation))
       ret_val = TRUE;
    else
-      if ((y_separation == exact_separation) && 
+      if ((y_separation == exact_separation) &&
 	  (x_separation <= exact_separation))
 	 ret_val = TRUE;
       else
 	 ret_val = FALSE;
-  
+
    return ret_val;
 }
 
 
-/*  
- *  WellSeparatedBoxes (int my_id, box *b1, box *b2)
+/*
+ *  WellSeparatedBoxes (box *b1, box *b2)
  *
  *  Args : Two potentially well separated boxes, b1 and b2.
  *
@@ -341,14 +337,14 @@ AdjacentBoxes (int my_id, box *b1, box *b2)
  *     twice the length of the biggest box.
  *
  */
-int
-WellSeparatedBoxes (int my_id, box *b1, box *b2)
+long
+WellSeparatedBoxes (box *b1, box *b2)
 {
    real min_ws_distance;
    real x_separation;
    real y_separation;
-   int ret_val;
-      
+   long ret_val;
+
    if (b1->length > b2->length)
       min_ws_distance = b1->length * (real) 2.0;
    else
@@ -356,7 +352,7 @@ WellSeparatedBoxes (int my_id, box *b1, box *b2)
 
    x_separation = (real) fabs((double)(b1->x_center - b2->x_center));
    y_separation = (real) fabs((double)(b1->y_center - b2->y_center));
-    
+
    if ((x_separation >= min_ws_distance) || (y_separation >= min_ws_distance))
       ret_val = TRUE;
    else

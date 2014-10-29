@@ -32,33 +32,33 @@
       There are a total of nine parameters, with parameters
       three through seven having no default values.
 
-      1) Cluster Type : Particles are distributed either in one cluster, 
-         or two interacting clusters of size (# of particles)/ 2. 
+      1) Cluster Type : Particles are distributed either in one cluster,
+         or two interacting clusters of size (# of particles)/ 2.
          These two options are selected by the strings "one cluster" or
          "two cluster". The default is for two clusters.
-      2) Distribution Type : Particles are distributed in a cluster 
-         either in a spherical uniform distribution, or according to 
-         the Plummer model which typically has a large percentage of the 
-         particles close to the center of the sphere and fewer particles 
-         farther from the center.  There two options are selected by 
-         the strings "uniform" or "plummer". The default is for a 
+      2) Distribution Type : Particles are distributed in a cluster
+         either in a spherical uniform distribution, or according to
+         the Plummer model which typically has a large percentage of the
+         particles close to the center of the sphere and fewer particles
+         farther from the center.  There two options are selected by
+         the strings "uniform" or "plummer". The default is for a
          plummer distribution.
       3) Number Of Particles : Should be an integer greater than 0.
       4) Precision : A measure of how accurate the calculation should be.
-         A precision of 1e-3 means that the results will be accurate to 
-         within three decimal places regardless of the relative magnitude 
-         of the positions.  The precision should be a real number greater 
+         A precision of 1e-3 means that the results will be accurate to
+         within three decimal places regardless of the relative magnitude
+         of the positions.  The precision should be a real number greater
          than 0.
       5) Number of Processors : Should be an integer greater than 0.
       6) Number of Time Steps : Should be an integer greater than 0.
       7) Duration of a Time Step : How long each time step lasts.
          Should be a double greater than 0.
-      8) Softening Parameter : This value sets the minimum distance in 
-         each direction that two particles can be separated by.  If two 
-         particles are closer than this, the distance used for the 
-         calculation is changed to the softening parameter. The particle 
-         positions themselves are NOT changed. This number should be a 
-         real number greater than 0 and defaults to DBL_MIN or FLT_MIN, 
+      8) Softening Parameter : This value sets the minimum distance in
+         each direction that two particles can be separated by.  If two
+         particles are closer than this, the distance used for the
+         calculation is changed to the softening parameter. The particle
+         positions themselves are NOT changed. This number should be a
+         real number greater than 0 and defaults to DBL_MIN or FLT_MIN,
          depending on what type of data is being used.
       9) Partitioning Scheme : Sets which type of partitioning scheme
          is used. There are currently two : "cost zones" and "orb".
@@ -70,6 +70,7 @@
 #include <math.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 #include "defs.h"
 #include "memory.h"
 #include "particle.h"
@@ -95,29 +96,28 @@
 
 static partition_alg Partition_Flag;
 static real Precision;
-static int Time_Steps;
+static long Time_Steps;
 static cluster_type Cluster;
 static model_type Model;
-int do_stats = 0;
-int do_output = 0;
-unsigned int starttime;
-unsigned int endtime;
+long do_stats = 0;
+long do_output = 0;
+unsigned long starttime;
+unsigned long endtime;
 
-void ParallelExecute();
-void StepSimulation(int my_id, time_info *local_time, int time_all);
-void PartitionGrid(int my_id, time_info *local_time, int time_all);
-void GetArguments();
-void PrintTimes();
-void Help();
+void ParallelExecute(void);
+void StepSimulation(long my_id, time_info *local_time, long time_all);
+void PartitionGrid(long my_id, time_info *local_time, long time_all);
+void GetArguments(void);
+void PrintTimes(void);
+void Help(void);
 
 
-void
+int
 main (int argc, char *argv[])
 {
-   int i;
-   int c;
+   long c;
    extern char *optarg;
-  
+
    CLOCK(starttime);
 
    while ((c = getopt(argc, argv, "osh")) != -1) {
@@ -131,15 +131,18 @@ main (int argc, char *argv[])
    MAIN_INITENV(,40000000);
 
    GetArguments();
-   InitGlobalMemory();    
+   InitGlobalMemory();
    InitExpTables();
    CreateDistribution(Cluster, Model);
 
-   for (i = 1; i < Number_Of_Processors; i++) {
+/*   for (i = 1; i < Number_Of_Processors; i++) {
       CREATE(ParallelExecute);
    }
    ParallelExecute();
-   WAIT_FOR_END(Number_Of_Processors - 1);
+   WAIT_FOR_END(Number_Of_Processors - 1);*/
+   CREATE(ParallelExecute, Number_Of_Processors);
+   WAIT_FOR_END(Number_Of_Processors);
+
    printf("Finished FMM\n");
    PrintTimes();
    if (do_output) {
@@ -149,26 +152,24 @@ main (int argc, char *argv[])
 }
 
 
-void 
+void
 ParallelExecute ()
 {
-   int my_id;
-   int num_boxes;
-   box *b, *b_list;
-   int i;
-   int start_index, end_index;
-   unsigned long start, finish;
+   long my_id;
+   long num_boxes;
+   unsigned long start, finish = 0;
    time_info *local_time;
-   int time_all = 0;
+   long time_all = 0;
    time_info *timing;
-   unsigned int local_init_done;
-    
+   unsigned long local_init_done = 0;
+
+   BARINCLUDE(G_Memory->synch);
    local_time = (time_info *) malloc(sizeof(struct _Time_Info) * MAX_TIME_STEPS);
    BARRIER(G_Memory->synch, Number_Of_Processors);
    LOCK(G_Memory->count_lock);
      my_id = G_Memory->id;
      G_Memory->id++;
-   UNLOCK(G_Memory->count_lock);   
+   UNLOCK(G_Memory->count_lock);
 
 /* POSSIBLE ENHANCEMENT:  Here is where one might pin processes to
    processors to avoid migration */
@@ -213,12 +214,12 @@ ParallelExecute ()
         if (do_stats || my_id == 0) {
           CLOCK(local_init_done);
         }
-      } 
+      }
 
       if (MY_TIME_STEP == 0) {
 	 CLOCK(start);
       }
-      else      
+      else
 	 start = finish;
       ConstructGrid(my_id,local_time,time_all);
       ConstructLists(my_id,local_time,time_all);
@@ -231,7 +232,7 @@ ParallelExecute ()
    }
    if (my_id == 0) {
       CLOCK(endtime);
-   } 
+   }
    BARRIER(G_Memory->synch, Number_Of_Processors);
    for (MY_TIME_STEP = 0; MY_TIME_STEP < Time_Steps; MY_TIME_STEP++) {
      timing = &(MY_TIMING[MY_TIME_STEP]);
@@ -250,47 +251,43 @@ ParallelExecute ()
 
 
 void
-PartitionGrid (int my_id, time_info *local_time, int time_all)
+PartitionGrid (long my_id, time_info *local_time, long time_all)
 {
-   unsigned long start, finish;
+   unsigned long start = 0, finish;
 
    if (time_all)
       CLOCK(start);
    if (Partition_Flag == COST_ZONES)
       CostZones(my_id);
-   else {
-   }
-   if (time_all)
-      CLOCK(finish);
-
    if (time_all) {
+      CLOCK(finish);
       local_time[MY_TIME_STEP].partition_time = finish - start;
    }
 }
 
 
 void
-StepSimulation (int my_id, time_info *local_time, int time_all)
+StepSimulation (long my_id, time_info *local_time, long time_all)
 {
    unsigned long start, finish;
    unsigned long upward_end, interaction_end, downward_end, barrier_end;
-  
-   if (time_all) 
+
+   if (time_all)
       CLOCK(start);
    PartitionIterate(my_id, UpwardPass, BOTTOM);
-   if (time_all) 
+   if (time_all)
       CLOCK(upward_end);
    PartitionIterate(my_id, ComputeInteractions, BOTTOM);
-   if (time_all) 
+   if (time_all)
       CLOCK(interaction_end);
    BARRIER(G_Memory->synch, Number_Of_Processors);
-   if (time_all) 
+   if (time_all)
       CLOCK(barrier_end);
    PartitionIterate(my_id, DownwardPass, TOP);
-   if (time_all) 
+   if (time_all)
       CLOCK(downward_end);
    PartitionIterate(my_id, ComputeParticlePositions, CHILDREN);
-   if (time_all) 
+   if (time_all)
       CLOCK(finish);
 
    if (time_all) {
@@ -326,7 +323,7 @@ GetArguments ()
 	 exit(-1);
       }
    }
-    
+
    gets(input);
    if (strcmp(input, "uniform") == 0)
       Model = UNIFORM;
@@ -348,7 +345,7 @@ GetArguments ()
       fprintf(stderr, "If you need help, type \"nbody -help\".\n");
       exit(-1);
    }
-  
+
    Precision = atof(gets(input));
    if (Precision == 0.0) {
       fprintf(stderr, "ERROR: The precision has no default value.\n");
@@ -357,10 +354,9 @@ GetArguments ()
    }
    /* Determine number of multipole expansion terms needed for specified
     * precision and flag an error if it is too precise */
-   Expansion_Terms = (int) ceil(-(log(Precision) / log(BASE)));
+   Expansion_Terms = (long) ceil(-(log(Precision) / log(BASE)));
    if (Expansion_Terms > MAX_EXPANSION_TERMS) {
-      fprintf(stderr, "ERROR: %g (%d terms) is too great a precision.\n",
-	      Precision, Expansion_Terms);
+      fprintf(stderr, "ERROR: %g (%ld terms) is too great a precision.\n", Precision, Expansion_Terms);
       fprintf(stderr, "If you need help, type \"nbody -help\".\n");
       exit(-1);
    }
@@ -433,7 +429,7 @@ GetArguments ()
 void
 PrintTimes ()
 {
-   int i, j;
+   long i, j;
    time_info *timing;
    FILE *fp;
    double t_total_time = 0;
@@ -455,8 +451,8 @@ PrintTimes ()
    double intra_time;
    double other_time;
    double overall_total = 0;
-   int P;
-   int init_done;
+   long P;
+   long init_done;
 
    if ((fp = fopen("times", "w")) == NULL) {
       fprintf(stderr, "Error opening output file\n");
@@ -464,13 +460,12 @@ PrintTimes ()
       exit(-1);
    }
    fprintf(fp, "TIMING:\n");
-   fprintf(fp, "%d\t%d\t%.2e\t%d\n", Number_Of_Processors, Total_Particles,
-	   Precision, Time_Steps);
+   fprintf(fp, "%ld\t%ld\t%.2e\t%ld\n", Number_Of_Processors, Total_Particles, Precision, Time_Steps);
    for (i = 0; i < Time_Steps; i++) {
-      fprintf(fp, "Time Step %d\n", i);
+      fprintf(fp, "Time Step %ld\n", i);
       for (j = 0; j < Number_Of_Processors; j++) {
 	 timing = &(Local[j].Timing[i]);
-	 fprintf(fp, "Processor %d\n", j);
+	 fprintf(fp, "Processor %ld\n", j);
 	 fprintf(fp, "\tTotal Time = %lu\n", timing->total_time);
 	 if (do_stats) {
 	    fprintf(fp, "\tTree Construction Time = %lu\n",
@@ -492,7 +487,7 @@ PrintTimes ()
    printf("                                   PROCESS STATISTICS\n");
    printf("             Track        Tree        List        Part        Pass       Inter        Bar        Intra       Other\n");
    printf(" Proc        Time         Time        Time        Time        Time       Time         Time       Time        Time\n");
-   total_time = tree_time = list_time = part_time = pass_time = 
+   total_time = tree_time = list_time = part_time = pass_time =
    inter_time = bar_time = intra_time = other_time = 0;
    for (i = 2; i < Time_Steps; i++) {
      timing = &(Local[0].Timing[i]);
@@ -522,7 +517,7 @@ PrintTimes ()
      overall_total = total_time;
    }
    for (j = 1; j < Number_Of_Processors; j++) {
-     total_time = tree_time = list_time = part_time = pass_time = 
+     total_time = tree_time = list_time = part_time = pass_time =
      inter_time = bar_time = intra_time = other_time = 0;
      for (i = 2; i < Time_Steps; i++) {
        timing = &(Local[j].Timing[i]);
@@ -537,7 +532,7 @@ PrintTimes ()
        other_time += timing->other_time;
      }
      if (do_stats) {
-       printf(" %4d %12.0f%12.0f%12.0f%12.0f%12.0f%12.0f%12.0f%12.0f%12.0f\n",
+       printf(" %4ld %12.0f%12.0f%12.0f%12.0f%12.0f%12.0f%12.0f%12.0f%12.0f\n",
                j,total_time,tree_time,list_time,part_time,pass_time,
                inter_time,bar_time,intra_time,other_time);
      }
@@ -572,24 +567,18 @@ PrintTimes ()
        }
      }
      printf("                                   TIMING INFORMATION\n");
-     printf("Start time                        : %16d\n",
-             starttime);
-     printf("Initialization finish time        : %16d\n",
-             init_done);
-     printf("Overall finish time               : %16d\n",
-             endtime);
-     printf("Total time with initialization    : %16d\n",
-             endtime - starttime);
-     printf("Total time without initialization : %16d\n",
-             (int) (overall_total));
+     printf("Start time                        : %16lu\n", starttime);
+     printf("Initialization finish time        : %16lu\n", init_done);
+     printf("Overall finish time               : %16lu\n", endtime);
+     printf("Total time with initialization    : %16lu\n", endtime - starttime);
+     printf("Total time without initialization : %16lu\n", (long) (overall_total));
      printf("\n");
 
-     printf("Total time for steps %d to %d : %12.0f\n",3,Time_Steps,
-             overall_total);
+     printf("Total time for steps %ld to %ld : %12.0f\n", 3L, Time_Steps, overall_total);
      printf("\n");
    }
 }
-  
+
 
 void
 Help ()

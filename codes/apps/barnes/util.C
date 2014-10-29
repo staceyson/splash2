@@ -14,7 +14,9 @@
 /*                                                                       */
 /*************************************************************************/
 
-#include <stdio.h>
+EXTERN_ENV
+#define global extern
+
 #include "stdinc.h"
 
 #define HZ 60.0
@@ -23,30 +25,22 @@
 #define MASK (0x7FFFFFFF)
 #define TWOTO31 2147483648.0
 
-local int A = 1;
-local int B = 0;
-local int randx = 1;
-local int lastrand;   /* the last random number */
+local long A = 1;
+local long B = 0;
+local long randx = 1;
+local long lastrand;   /* the last random number */
 
 /*
  * XRAND: generate floating-point random number.
  */
 
-double prand();
-
-double xrand(xl, xh)
-  double xl, xh;		/* lower, upper bounds on number */
+double xrand(double xl, double xh)
 {
-   long random ();
-   double x;
-
    return (xl + (xh - xl) * prand());
 }
 
-void pranset(int seed)
+void pranset(long seed)
 {
-   int proc;
-  
    A = 1;
    B = 0;
    randx = (A*seed+B) & MASK;
@@ -54,8 +48,7 @@ void pranset(int seed)
    B = (MULT*B + ADD) & MASK;
 }
 
-double 
-prand()
+double prand()
 /*
 	Return a random double in [0, 1.0)
 */
@@ -68,32 +61,11 @@ prand()
 /*
  * CPUTIME: compute CPU time in min.
  */
-
-#include <sys/types.h>
-#include <sys/times.h>
-
-
 double cputime()
 {
    struct tms buffer;
 
-   if (times(&buffer) == -1)
+   if (times(&buffer) == (clock_t)-1)
       error("times() call failed\n");
    return (buffer.tms_utime / (60.0 * HZ));
 }
-
-/*
- * ERROR: scream and die quickly.
- */
-
-error(msg, a1, a2, a3, a4)
-  char *msg, *a1, *a2, *a3, *a4;
-{
-   extern int errno;
-
-   fprintf(stderr, msg, a1, a2, a3, a4);
-   if (errno != 0)
-      perror("Error");
-   exit(0);
-}
-

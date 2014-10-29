@@ -16,8 +16,8 @@
 
 /*************************************************************************
 *                                                                        *
-*     adaptive.c:  Render dataset via raytracing. 					  	 *
-*															             *
+*     adaptive.c:  Render dataset via raytracing.                        *
+*                                                                        *
 *************************************************************************/
 
 #include "incl.h"
@@ -29,10 +29,10 @@ float invjacobian[NM][NM];	/* Jacobian matrix showing object space      */
 				/*   [2][0] is dx(object)/dz(image)          */
 float invinvjacobian[NM][NM];	/*   [i][j] = 1.0 / invjacobian[i][j]        */
                                 /* For gathering statistics:                 */
-int num_rays_traced;            /*   number of calls to Trace_Ray            */
-int num_traced_rays_hit_volume; /*   number of traced rays that hit volume   */
-int num_samples_trilirped;      /*   number of samples trilirped             */
-int itest;
+long num_rays_traced;            /*   number of calls to Trace_Ray            */
+long num_traced_rays_hit_volume; /*   number of traced rays that hit volume   */
+long num_samples_trilirped;      /*   number of samples trilirped             */
+long itest;
 
 #define	RAY_TRACED	((MAX_PIXEL+1)/2)	/* Ray traced at this pixel  */
 #define START_RAY       1
@@ -42,15 +42,11 @@ EXTERN_ENV
 
 #include "anl.h"
 
-Ray_Trace(int my_node)
+void Ray_Trace(long my_node)
 {
-  int outx,outy,outz;
-  int i,j;
-  unsigned int starttime,stoptime,exectime,exectime1;
-  int pid;
-  char cmd[FILENAME_STRING_SIZE];
+  long i,j;
+  long starttime,stoptime,exectime,exectime1;
 
-  
   /* Assumptions made by ray tracer:                                   */
   /*   o Frustrum clipping is performed.                               */
   /*     All viewing frustums will be handled correctly.               */
@@ -58,7 +54,7 @@ Ray_Trace(int my_node)
   /*     If downsizing was specified, some input voxels will be        */
   /*     unsampled, but upsizing may be specified and will be          */
   /*     handled correctly.                                            */
-  
+
   /* Compute inverse Jacobian matrix from                              */
   /* coordinates of output map unit voxel in object space,             */
   /* then make a copy of object space d{x,y,z} per image space dz,     */
@@ -107,7 +103,7 @@ Ray_Trace(int my_node)
     BARRIER(Global->TimeBarrier,num_nodes);
 
     mclock(stoptime,starttime,&exectime);
-    
+
     /* If adaptively ray tracing and highest sampling size is greater    */
     /* than lowest size for volume data if polygon list exists or        */
     /* display pixel size if it does not, recursively interpolate to     */
@@ -126,6 +122,7 @@ Ray_Trace(int my_node)
 
       mclock(stoptime,starttime,&exectime1);
     }
+
   }
   else {
 
@@ -151,7 +148,7 @@ Ray_Trace(int my_node)
   }
 
     LOCK(Global->CountLock);
-    printf("%3d\t%3d\t%6u\t%6u\t%6d\t%6d\t%8d\n",my_node,frame,exectime,
+    printf("%3ld\t%3ld\t%6ld\t%6ld\t%6ld\t%6ld\t%8ld\n",my_node,frame,exectime,
 	   exectime1,num_rays_traced,num_traced_rays_hit_volume,
 	   num_samples_trilirped);
 
@@ -161,12 +158,12 @@ Ray_Trace(int my_node)
 }
 
 
-Ray_Trace_Adaptively(int my_node)
+void Ray_Trace_Adaptively(long my_node)
 {
-  int i,outx,outy,yindex,xindex;
+  long outx,outy,yindex,xindex;
 
-  int num_xqueue,num_yqueue,num_queue,lnum_xblocks,lnum_yblocks,lnum_blocks;
-  int xstart,xstop,ystart,ystop,local_node,work;
+  long num_xqueue,num_yqueue,num_queue,lnum_xblocks,lnum_yblocks,lnum_blocks;
+  long xstart,xstop,ystart,ystop,local_node,work;
 
   itest = 0;
 
@@ -198,7 +195,7 @@ Ray_Trace_Adaptively(int my_node)
 	   outy+=highest_sampling_boxlen) {
 	for (outx=xindex; outx<xindex+block_xlen && outx<xstop;
 	     outx+=highest_sampling_boxlen) {
-	  
+
 	  /* Trace rays within square box of highest sampling size     */
 	  /* whose lower-left corner is current image space location.  */
 	  Ray_Trace_Adaptive_Box(outx,outy,highest_sampling_boxlen);
@@ -223,17 +220,16 @@ Ray_Trace_Adaptively(int my_node)
 }
 
 
-Ray_Trace_Adaptive_Box(outx, outy, boxlen)
-     int outx, outy, boxlen;
+void Ray_Trace_Adaptive_Box(long outx, long outy, long boxlen)
 {
-  int i,j;
-  int half_boxlen;
-  int min_volume_color,max_volume_color;
+  long i,j;
+  long half_boxlen;
+  long min_volume_color,max_volume_color;
   float foutx,fouty;
-  volatile int imask;
-  
+  volatile long imask;
+
   PIXEL *pixel_address;
-  
+
   /* Trace rays from all four corners of the box into the map,         */
   /* being careful not to exceed the boundaries of the output image,   */
   /* and using a flag array to avoid retracing any rays.               */
@@ -278,7 +274,7 @@ Ray_Trace_Adaptive_Box(outx, outy, boxlen)
 
 /*reschedule processes here if rescheduling only at synch points on simulator*/
 
-	Trace_Ray(outx+j,outy+i,foutx,fouty,pixel_address);
+	Trace_Ray(foutx,fouty,pixel_address);
 
 /*reschedule processes here if rescheduling only at synch points on simulator*/
 
@@ -316,7 +312,7 @@ Ray_Trace_Adaptive_Box(outx, outy, boxlen)
   /* being careful not to exceed the boundaries of the output image.   */
   /* Use of geometry-only color difference suppressed in accordance    */
   /* with hybrid.trf as published in IEEE CG&A, March, 1990.           */
-  if (boxlen > lowest_volume_boxlen && 
+  if (boxlen > lowest_volume_boxlen &&
       max_volume_color - min_volume_color >=
       volume_color_difference) {
     half_boxlen = boxlen >> 1;
@@ -329,14 +325,14 @@ Ray_Trace_Adaptive_Box(outx, outy, boxlen)
 }
 
 
-Ray_Trace_Non_Adaptively(int my_node)
+void Ray_Trace_Non_Adaptively(long my_node)
 {
-  int i,outx,outy,xindex,yindex;
+  long outx,outy,xindex,yindex;
   float foutx,fouty;
   PIXEL *pixel_address;
 
-  int num_xqueue,num_yqueue,num_queue,lnum_xblocks,lnum_yblocks,lnum_blocks;
-  int xstart,xstop,ystart,ystop,local_node,work;
+  long num_xqueue,num_yqueue,num_queue,lnum_xblocks,lnum_yblocks,lnum_blocks;
+  long xstart,xstop,ystart,ystop,local_node,work;
 
   num_xqueue = ROUNDUP((float)image_len[X]/(float)image_section[X]);
   num_yqueue = ROUNDUP((float)image_len[Y]/(float)image_section[Y]);
@@ -359,13 +355,13 @@ Ray_Trace_Non_Adaptively(int my_node)
       yindex = ystart + (work/lnum_xblocks)*block_ylen;
       for (outy=yindex; outy<yindex+block_ylen && outy<ystop; outy++) {
 	for (outx=xindex; outx<xindex+block_xlen && outx<xstop; outx++) {
-	  
+
 	  /* Trace ray from specified image space location into map.   */
 	  /* Stochastic sampling is as described in adaptive code.     */
 	  foutx = (float)(outx);
 	  fouty = (float)(outy);
 	  pixel_address = IMAGE_ADDRESS(outy,outx);
-	  Trace_Ray(outx,outy,foutx,fouty,pixel_address);
+	  Trace_Ray(foutx,fouty,pixel_address);
 	}
       }
       ALOCK(Global->QLock,local_node);
@@ -385,9 +381,9 @@ Ray_Trace_Non_Adaptively(int my_node)
 }
 
 
-Ray_Trace_Fast_Non_Adaptively(int my_node)
+void Ray_Trace_Fast_Non_Adaptively(long my_node)
 {
-  int i,outx,outy,xindex,yindex;
+  long i,outx,outy,xindex,yindex;
   float foutx,fouty;
   PIXEL *pixel_address;
 
@@ -399,14 +395,14 @@ Ray_Trace_Fast_Non_Adaptively(int my_node)
          outy<image_len[Y]; outy+=lowest_volume_boxlen) {
       for (outx=xindex; outx<xindex+block_xlen &&
            outx<image_len[X]; outx+=lowest_volume_boxlen) {
-      
+
 	/* Trace ray from specified image space location into map.   */
 	/* Stochastic sampling is as described in adaptive code.     */
 	MASK_IMAGE(outy,outx) += RAY_TRACED;
 	foutx = (float)(outx);
 	fouty = (float)(outy);
 	pixel_address = IMAGE_ADDRESS(outy,outx);
-	Trace_Ray(outx,outy,foutx,fouty,pixel_address);
+	Trace_Ray(foutx,fouty,pixel_address);
 	num_rays_traced++;
       }
     }
@@ -414,10 +410,10 @@ Ray_Trace_Fast_Non_Adaptively(int my_node)
 }
 
 
-Interpolate_Recursively(int my_node)
+void Interpolate_Recursively(long my_node)
 {
-  int i,outx,outy,xindex,yindex;
-  
+  long i,outx,outy,xindex,yindex;
+
   for (i=0; i<num_blocks; i+=num_nodes) {
     yindex = ((my_node+i)/num_xblocks)*block_ylen;
     xindex = ((my_node+i)%num_xblocks)*block_xlen;
@@ -436,18 +432,17 @@ Interpolate_Recursively(int my_node)
 }
 
 
-Interpolate_Recursive_Box(outx, outy, boxlen)
-     int outx, outy, boxlen;
+void Interpolate_Recursive_Box(long outx, long outy, long boxlen)
 {
-  int i,j;
-  int half_boxlen;
-  int corner_color[2][2],color;
-  int outx_plus_boxlen,outy_plus_boxlen;
-  
+  long i,j;
+  long half_boxlen;
+  long corner_color[2][2],color;
+  long outx_plus_boxlen,outy_plus_boxlen;
+
   float one_over_boxlen;
   float xalpha,yalpha;
   float one_minus_xalpha,one_minus_yalpha;
-  
+
   /* Fill in the four pixels at the midpoints of the sides and at      */
   /* the center of the box by bilirping between the four corners,      */
   /* being careful not to exceed the boundaries of the output image,   */
@@ -500,11 +495,3 @@ Interpolate_Recursive_Box(outx, outy, boxlen)
     }
   }
 }
-
-
-
-
-
-
-
-

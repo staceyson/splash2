@@ -31,18 +31,18 @@ typedef enum { UNIFORM, PLUMMER } model_type;
  *    3. A charge
  *    4. The field that acts on it due to every other particle
  *
- *  The force is what the algorithm actually calculates. 
+ *  The force is what the algorithm actually calculates.
  */
-struct _Particle 
+struct _Particle
 {
-  int id;
+  long id;
   real charge;
   real mass;
   vector pos;
   vector acc;
   vector vel;
   complex field;
-  int cost;
+  long cost;
   real box;
 };
 
@@ -54,14 +54,14 @@ struct _Particle_Node
   particle_node *next;
 };
 
-extern int Total_Particles;
+extern long Total_Particles;
 
-extern void CreateParticleList(int my_id, int length);
-extern void InitParticleList(int my_id, int num_assigned, int starting_id);
+extern void CreateParticleList(long my_id, long length);
+extern void InitParticleList(long my_id, long num_assigned, long starting_id);
 extern void CreateDistribution(cluster_type cluster, model_type model);
 extern void PrintParticle(particle *p);
-extern void PrintAllParticles();
-extern void PrintParticleArrayIds(particle **p_array, int num_particles);
+extern void PrintAllParticles(void);
+extern void PrintParticleArrayIds(particle **p_array, long num_particles);
 
 
 #endif /* _Particle_H */

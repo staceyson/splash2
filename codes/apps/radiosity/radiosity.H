@@ -15,7 +15,7 @@
 /*************************************************************************/
 
 
-/*  This file contains many constant definitions that control the execution 
+/*  This file contains many constant definitions that control the execution
 of the program, as well as lobal data structure declarations */
 
 #ifndef _RADIOSITY_H
@@ -206,38 +206,36 @@ struct _element ;
 
 typedef struct
 {
-    int visibility_comp ;
-    int ray_intersect_test ;
-    int tasks_from_myq ;
-    int tasks_from_otherq ;
-    int process_tasks_wait ;
+    long visibility_comp ;
+    long ray_intersect_test ;
+    long tasks_from_myq ;
+    long tasks_from_otherq ;
+    long process_tasks_wait ;
     struct _element *last_pr_task ;
 } PerIterationInfo ;
 
 
 typedef struct
 {
-    char pad1[PAGE_SIZE];	 	/* padding to avoid false-sharing 
-    and allow page-placement */	
-    int total_modeling_tasks ;
-    int total_def_patch_tasks ;
-    int total_ff_ref_tasks ;
-    int total_ray_tasks ;
-    int total_radavg_tasks ;
-    int total_direct_radavg_tasks ;
-    int total_interaction_comp ;
-    int total_visibility_comp ;
-    int partially_visible ;
-    int total_ray_intersect_test ;
-    int total_patch_cache_check ;
-    int total_patch_cache_hit ;
-    int patch_cache_hit[PATCH_CACHE_SIZE] ;
+    char pad1[PAGE_SIZE];	 	/* padding to avoid false-sharing
+    and allow page-placement */
+    long total_modeling_tasks ;
+    long total_def_patch_tasks ;
+    long total_ff_ref_tasks ;
+    long total_ray_tasks ;
+    long total_radavg_tasks ;
+    long total_direct_radavg_tasks ;
+    long total_interaction_comp ;
+    long total_visibility_comp ;
+    long partially_visible ;
+    long total_ray_intersect_test ;
+    long total_patch_cache_check ;
+    long total_patch_cache_hit ;
+    long patch_cache_hit[PATCH_CACHE_SIZE] ;
     PerIterationInfo per_iteration[ MAX_ITERATION_INFO ] ;
-    char pad2[PAGE_SIZE];	 	/* padding to avoid false-sharing 
-    and allow page-placement */	
+    char pad2[PAGE_SIZE];	 	/* padding to avoid false-sharing
+    and allow page-placement */
 } StatisticalInfo ;
-
-extern void init_stat_info() ;
 
 /****************************************
 *
@@ -247,76 +245,76 @@ extern void init_stat_info() ;
 
 typedef struct
 {
-    long int rad_start, rad_time, refine_time, wait_time, vertex_time;
+    long rad_start, rad_time, refine_time, wait_time, vertex_time;
 } Timing;
 
 typedef struct
 {
-    
+
     /* Task queue */
-    /* ***** */ int index;
+    /* ***** */ long index;
     /* ***** */	LOCKDEC(index_lock)
     Task_Queue task_queue[ MAX_TASKQUEUES ] ;
     Task task_buf[ MAX_TASKS ] ;
-    
+
     /* BSP tree root */
     LOCKDEC(bsp_tree_lock)
     Patch *bsp_root ;
-    
+
     /* Average radiosity value */
     LOCKDEC(avg_radiosity_lock)
-    int   converged ;
+    long   converged ;
     Rgb   prev_total_energy ;
     Rgb   total_energy ;
     float total_patch_area ;
-    int   iteration_count ;
-    
+    long   iteration_count ;
+
     /* Computation cost estimate */
     LOCKDEC(cost_sum_lock)
-    int cost_sum ;
-    int cost_estimate_sum ;
+    long cost_sum ;
+    long cost_estimate_sum ;
     Patch_Cost patch_cost[ MAX_PATCHES ] ;
-    
+
     /* Barrier */
     BARDEC(barrier)
-    
+
     /* Private varrier */
-    int pbar_count ;
+    long pbar_count ;
     LOCKDEC(pbar_lock)
-    
+
     /* Task initializer counter */
-    int task_counter ;
+    long task_counter ;
     LOCKDEC(task_counter_lock)
-    
+
     /* Resource buffers */
     LOCKDEC(free_patch_lock)
     Patch *free_patch ;
-    int   n_total_patches ;
-    int   n_free_patches ;
+    long   n_total_patches ;
+    long   n_free_patches ;
     Patch patch_buf[ MAX_PATCHES ] ;
-    
+
     LOCKDEC(free_element_lock)
     Element *free_element ;
-    int     n_free_elements ;
+    long     n_free_elements ;
     Element element_buf[ MAX_ELEMENTS ] ;
-    
+
     LOCKDEC(free_interaction_lock)
     Interaction *free_interaction ;
-    int         n_free_interactions ;
+    long         n_free_interactions ;
     Interaction interaction_buf[ MAX_INTERACTIONS ] ;
-    
+
     LOCKDEC(free_elemvertex_lock)
-    int         free_elemvertex ;
+    long         free_elemvertex ;
     ElemVertex  elemvertex_buf[ MAX_ELEMVERTICES ] ;
-    
+
     LOCKDEC(free_edge_lock)
-    int   free_edge ;
+    long   free_edge ;
     Edge  edge_buf[ MAX_EDGES ] ;
-    
+
     Shared_Lock sh_lock[ MAX_SHARED_LOCK ] ;
-    
+
     StatisticalInfo stat_info[ MAX_PROCESSORS ] ;
-    
+
 } Global ;
 
 
@@ -328,20 +326,20 @@ typedef struct
 
 extern Timing **timing ;
 extern Global *global ;
-extern int    n_processors ;
-extern int    n_taskqueues ;
-extern int    n_tasks_per_queue ;
+extern long    n_processors ;
+extern long    n_taskqueues ;
+extern long    n_tasks_per_queue ;
 
-extern int    N_inter_parallel_bf_refine ;
-extern int    N_visibility_per_task ;
+extern long    N_inter_parallel_bf_refine ;
+extern long    N_visibility_per_task ;
 extern float  Area_epsilon ;
 extern float  Energy_epsilon ;
 extern float  BFepsilon ;
 
-extern int batch_mode, verbose_mode ;
-extern int taskqueue_id[] ; 
+extern long batch_mode, verbose_mode ;
+extern long taskqueue_id[] ;
 
-extern int time_rad_start, time_rad_end, time_process_start[] ;
+extern long time_rad_start, time_rad_end, time_process_start[] ;
 
 
 /****************************************
@@ -350,34 +348,132 @@ extern int time_rad_start, time_rad_end, time_process_start[] ;
 *
 *****************************************/
 
-extern void init_global() ;
-extern void init_visibility_module() ;
+/*
+ * display.C
+ */
+void radiosity_averaging(Element *elem, long mode, long process_id);
+void setup_view(float rot_x, float rot_y, float dist, float zoom, long process_id);
+void display_scene(long fill_sw, long patch_sw, long mesh_sw, long interaction_sw, long process_id);
+void display_patch(Patch *patch, long mode, long process_id);
+void display_patches_in_bsp_tree(long mode, long process_id);
+void display_element(Element *element, long mode, long process_id);
+void display_elements_in_patch(Patch *patch, long mode, long process_id);
+void display_elements_in_bsp_tree(long mode, long process_id);
+void display_interactions_in_element(Element *elem, long mode, long process_id);
+void display_interactions_in_patch(Patch *patch, long mode, long process_id);
+void display_interactions_in_bsp_tree(long process_id);
+void ps_display_scene(long fill_sw, long patch_sw, long mesh_sw, long interaction_sw, long process_id);
+void ps_display_patch(Patch *patch, long mode, long process_id);
+void ps_display_patches_in_bsp_tree(long mode, long process_id);
+void ps_display_element(Element *element, long mode, long process_id);
+void ps_display_elements_in_patch(Patch *patch, long mode, long process_id);
+void ps_display_elements_in_bsp_tree(long mode, long process_id);
+void ps_display_interactions_in_element(Element *elem, long mode, long process_id);
+void ps_display_interactions_in_patch(Patch *patch, long mode, long process_id);
+void ps_display_interactions_in_bsp_tree(long process_id);
 
-extern void radiosity_averaging() ;
-extern void setup_view() ;
-extern void display_scene() ;
-extern void display_patch(), display_patches_in_bsp_tree() ;
-extern void display_element(), display_elements_in_patch() ;
-extern void display_elements_in_bsp_tree() ;
-extern void display_interactions_in_element() ;
-extern void display_interactions_in_patch() ;
-extern void display_interactions_in_bsp_tree() ;
+/*
+ * elemman.C
+ */
+void foreach_element_in_patch(Patch *patch, void (*func)(), long arg1, long process_id);
+void foreach_leaf_element_in_patch(Patch *patch, void (*func)(), long arg1, long process_id);
+void ff_refine_elements(Element *e1, Element *e2, long level, long process_id);
+long error_analysis(Element *e1, Element *e2, Interaction *inter12, Interaction *inter21, long process_id);
+void bf_error_analysis_list(Element *elem, Interaction *i_list, long process_id);
+long bf_error_analysis(Element *elem, Interaction *inter, long process_id);
+long radiosity_converged(long process_id);
+void subdivide_element(Element *e, long process_id);
+void process_rays(Element *e, long process_id);
+long element_completely_invisible(Element *e1, Element *e2, long process_id);
+Element *get_element(long process_id);
+long leaf_element(Element *elem, long process_id);
+void init_elemlist(long process_id);
+void print_element(Element *elem, long process_id);
+void foreach_interaction_in_element(Element *elem, void (*func)(), long arg1, long process_id);
+void compute_formfactor(Element *e_src, Element *e_dst, Interaction *inter, long process_id);
+void compute_interaction(Element *e_src, Element *e_dst, Interaction *inter, long subdiv, long process_id);
+void insert_interaction(Element *elem, Interaction *inter, long process_id);
+void delete_interaction(Element *elem, Interaction *prev, Interaction *inter, long process_id);
+void insert_vis_undef_interaction(Element *elem, Interaction *inter, long process_id);
+void delete_vis_undef_interaction(Element *elem, Interaction *prev, Interaction *inter, long process_id);
+Interaction *get_interaction(long process_id);
+void free_interaction(Interaction *interaction, long process_id);
+void init_interactionlist(long process_id);
+void print_interaction(Interaction *inter, long process_id);
 
-extern void ps_display_scene() ;
-extern void ps_display_patch(), ps_display_patches_in_bsp_tree() ;
-extern void ps_display_element(), ps_display_elements_in_patch() ;
-extern void ps_display_elements_in_bsp_tree() ;
-extern void ps_display_interactions_in_element() ;
-extern void ps_display_interactions_in_patch() ;
-extern void ps_display_interactions_in_bsp_tree() ;
+/*
+ * rad_main.C
+ */
+void start_radiosity(long val);
+void change_display(long val);
+void change_view_x(long val);
+void change_view_y(long val);
+void change_view_zoom(long val);
+void change_BFepsilon(long val);
+void change_area_epsilon(long val);
+void select_model(long val);
+void utility_tools(long val);
+void radiosity(void);
+long init_ray_tasks(long process_id);
+void init_radavg_tasks(long mode, long process_id);
+void init_global(long process_id);
+void print_usage(void);
 
-extern void print_statistics() ;
-extern void print_running_time(), print_fork_time() ;
-extern void print_usage() ;
+/*
+ * rad_tools.C
+ */
+void print_statistics(FILE *fd, long process_id);
+void print_per_process_info(FILE *fd, long process);
+void get_patch_stat(Patch *patch, long dummy, long process_id);
+void get_elem_stat(Element *elem, long dummy, long process_id);
+void count_interaction(Element *es, Element *e1, Element *e2, Element *e3, long *c3, long *c2, long *c1, long *c0, long process_id);
+long search_intearction(Interaction *int_list, Interaction *inter, long process_id);
+void print_running_time(long process_id);
+void print_fork_time(long process_id);
+void init_stat_info(long process_id);
+void clear_radiosity(long process_id);
+void clear_patch_radiosity(Patch *patch, long dummy, long process_id);
 
-extern void clear_radiosity(), clear_patch_radiosity() ;
+/*
+ * smallobj.C
+ */
+float vector_length(Vertex *v);
+float distance(Vertex *p1, Vertex *p2);
+float normalize_vector(Vertex *v1, Vertex *v2);
+float inner_product(Vertex *v1, Vertex *v2);
+void cross_product(Vertex *vc, Vertex *v1, Vertex *v2);
+float plane_normal(Vertex *vc, Vertex *p1, Vertex *p2, Vertex *p3);
+void center_point(Vertex *p1, Vertex *p2, Vertex *p3, Vertex *pc);
+void four_center_points(Vertex *p1, Vertex *p2, Vertex *p3, Vertex *pc, Vertex *pc1, Vertex *pc2, Vertex *pc3);
+void print_point(Vertex *point);
+void print_rgb(Rgb *rgb);
+ElemVertex *create_elemvertex(Vertex *p, long process_id);
+ElemVertex *get_elemvertex(long process_id);
+void init_elemvertex(long process_id);
+void foreach_leaf_edge(Edge *edge, long reverse, void (*func)(), long arg1, long arg2, long process_id);
+Edge *create_edge(ElemVertex *v1, ElemVertex *v2, long process_id);
+void subdivide_edge(Edge *e, float a_ratio, long process_id);
+Edge *get_edge(long process_id);
+void init_edge(long process_id);
+void init_sharedlock(long process_id);
+Shared_Lock *get_sharedlock(long segment, long process_id);
 
-extern void exit() ;
-
+/*
+ * visible.C
+ */
+void init_visibility_module(long process_id);
+void get_test_rays(Vertex *p_src, Ray *v, long no, long process_id);
+long v_intersect(Patch *patch, Vertex *p, Ray *ray, float t);
+long traverse_bsp(Patch *src_node, Vertex *p, Ray *ray, float r_min, float r_max, long process_id);
+long traverse_subtree(Patch *node, Vertex *p, Ray *ray, float r_min, float r_max, long process_id);
+long intersection_type(Patch *patch, Vertex *p, Ray *ray, float *tval, float range_min, float range_max);
+long test_intersection(Patch *patch, Vertex *p, Ray *ray, float tval, long process_id);
+void update_patch_cache(Patch *patch, long process_id);
+long check_patch_cache(Vertex *p, Ray *ray, float r_min, float r_max, long process_id);
+void init_patch_cache(long process_id);
+long patch_tested(Patch *p, long process_id);
+float visibility(Element *e1, Element *e2, long n_rays, long process_id);
+void compute_visibility_values(Element *elem, Interaction *inter, long n_inter, long process_id);
+void visibility_task(Element *elem, Interaction *inter, long n_inter, void (*k)(), long process_id);
 
 #endif

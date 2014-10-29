@@ -28,19 +28,19 @@
 #endif
 
 
-/* For doing different parts of the computation differently; 
+/* For doing different parts of the computation differently;
 If RENDER_ONLY is defined, then the program assumes that the .norm, .opc
 and .pyr files already exist and just does rendering, getting its input
-from these files.   If RENDER_ONLY is not defined, then the program will 
-not use these files but start from the .den file itself.  In this case, 
+from these files.   If RENDER_ONLY is not defined, then the program will
+not use these files but start from the .den file itself.  In this case,
 there are two options:  if PREPROCESS is defined, then the program will
 not render, but will create the .norm, .opc and .pyr files from the .den
 file for a future run of the program to render. If PREPROCESS is not
-defined either, then the program will not produce these intermediate 
+defined either, then the program will not produce these intermediate
  files:  It will start from the .den file, create the normal and opacity
-tables etc as internal data structures, and render them directly. 
+tables etc as internal data structures, and render them directly.
 
-The SERIAL_PREPROC option tells whether the preprocessing phases (computing  
+The SERIAL_PREPROC option tells whether the preprocessing phases (computing
 the normal table or .norm file, etc.), should be done serially or in
 parallel, when they are done.
 
@@ -49,7 +49,7 @@ do parallel preprocessing and rendering without storing intermediate array
 values.
 */
 
-#if 1
+#if 0
 #define RENDER_ONLY                             /* to just do rendering from */
 #endif                                          /* .norm, .opc and .pyr files*/
 

@@ -182,17 +182,17 @@ VOID	StartRayTrace()
 	INT	pid;			/* Our internal process id number.   */
 	UINT	begin;
 	UINT	end;
-	UINT	lapsed;
-
 
 	LOCK(gm->pidlock)
 	pid = gm->pid++;
 	UNLOCK(gm->pidlock)
 
+	BARINCLUDE(gm->start);
+
 	if ((pid == 0) ||  (dostats))
         CLOCK(begin);
 
-	/* POSSIBLE ENHANCEMENT: Here's where one might lock processes down 
+	/* POSSIBLE ENHANCEMENT: Here's where one might lock processes down
 	to processors if need be */
 
 	InitWorkPool(pid);
@@ -207,7 +207,7 @@ VOID	StartRayTrace()
 
 	BARRIER(gm->start, gm->nprocs)
 
-	/* POSSIBLE ENHANCEMENT:  Here's where one would RESET STATISTICS 
+	/* POSSIBLE ENHANCEMENT:  Here's where one would RESET STATISTICS
 	and TIMING if one wanted to measure only the parallel part */
 
 	RayTrace(pid);
@@ -241,80 +241,69 @@ VOID	StartRayTrace()
  *	1 for any type of failure.
  */
 
-int	main(argc, argv)
-int	argc;
-CHAR	*argv[];
+int	main(int argc, CHAR *argv[])
 	{
 	INT	i;
 	UINT	begin;
 	UINT	end;
 	UINT	lapsed;
-	U16	tmp;
-	CHAR	*pch;
 	MATRIX	vtrans, Vinv;		/*  View transformation and inverse. */
 
 
 	/*
 	 *	First, process command line arguments.
 	 */
+	i = 1;
+	while ((i < argc) && (argv[i][0] == '-')) {
+		switch (argv[i][1]) {
+			case '?':
+			case 'h':
+			case 'H':
+				Usage();
+				exit(1);
 
-	while (argc-- > 1 && (*++argv)[0] == '-')
-		for (pch = argv[0] + 1; *pch != '\0'; pch++)
-			switch (*pch)
-				{
-				case '?':
-				case 'h':
-				case 'H':
-					Usage();
-					exit(1);
-
-				case 'a':
-				case 'A':
-					AntiAlias = TRUE;
-					if (*++pch)
-						NumSubRays = atoi(pch);
-
-					*pch = '\0';
-					pch--;
-					break;
-
-				case 'm':
-					if (*++pch)
-						MaxGlobMem = atoi(pch);
-
-					*pch = '\0';
-					pch--;
-					break;
-
-				case 'p':
-					if (*++pch)
-						nprocs = atoi(pch);
-
-					*pch = '\0';
-					pch--;
-					break;
-                    
-                case 's':
-                case 'S': 
-                    dostats = TRUE;
-                    break;
-
-				default:
-					fprintf(stderr, "%s: Invalid option \'%c\'.\n", ProgName, *pch);
-					exit(1);
+			case 'a':
+			case 'A':
+				AntiAlias = TRUE;
+				if (argv[i][2] != '\0') {
+					NumSubRays = atoi(&argv[i][2]);
+				} else {
+					NumSubRays = atoi(&argv[++i][0]);
 				}
+				break;
 
+			case 'm':
+				if (argv[i][2] != '\0') {
+					MaxGlobMem = atoi(&argv[i][2]);
+				} else {
+					MaxGlobMem = atoi(&argv[++i][0]);
+				}
+				break;
 
-	/*
-	 *	If no more command line arguments, the environment file name
-	 *	is missing.  Print a usage message and terminate.
-	 */
+			case 'p':
+				if (argv[i][2] != '\0') {
+					nprocs = atoi(&argv[i][2]);
+				} else {
+					nprocs = atoi(&argv[++i][0]);
+				}
+				break;
 
-	if (!argc)
-		{
+			case 's':
+			case 'S':
+				dostats = TRUE;
+				break;
+
+			default:
+				fprintf(stderr, "%s: Invalid option \'%c\'.\n", ProgName, argv[i][0]);
+				exit(1);
+		}
+		i++;
+	}
+
+	if (i == argc) {
 		Usage();
 		exit(1);
-		}
+	}
 
 
 	/*
@@ -323,7 +312,7 @@ CHAR	*argv[];
 
 	if (nprocs < 1 || nprocs > MAX_PROCS)
 		{
-		fprintf(stderr, "%s: Valid range for #processors is [1, %ld].\n", ProgName, MAX_PROCS);
+		fprintf(stderr, "%s: Valid range for #processors is [1, %d].\n", ProgName, MAX_PROCS);
 		exit(1);
 		}
 
@@ -358,13 +347,13 @@ CHAR	*argv[];
 	gm->pid    = 0;
 	gm->rid    = 1;
 
-	BARINIT(gm->start)
+	BARINIT(gm->start, nprocs)
 	LOCKINIT(gm->pidlock)
 	LOCKINIT(gm->ridlock)
 	LOCKINIT(gm->memlock)
 	ALOCKINIT(gm->wplock, nprocs)
 
-/* POSSIBLE ENHANCEMENT:  Here is where one might distribute the 
+/* POSSIBLE ENHANCEMENT:  Here is where one might distribute the
    raystruct data structure across physically distributed memories as
    desired.  */
 
@@ -380,7 +369,7 @@ CHAR	*argv[];
 	 */
 
 	Huniform_defaults();
-	ReadEnvFile(*argv);
+	ReadEnvFile(/* *argv*/argv[i]);
 	ReadGeoFile(GeoFileName);
 	OpenFrameBuffer();
 
@@ -416,12 +405,8 @@ CHAR	*argv[];
 	 */
 
 	CLOCK(begin)
-	for (i = 0; i < gm->nprocs - 1; i++)
-		CREATE(StartRayTrace)
-
-	StartRayTrace();
-
-	WAIT_FOR_END(gm->nprocs - 1)
+	CREATE(StartRayTrace, gm->nprocs);
+	WAIT_FOR_END(gm->nprocs);
 	CLOCK(end)
 
 
@@ -447,12 +432,12 @@ CHAR	*argv[];
         unsigned totalproctime, maxproctime, minproctime;
 
         printf("\n\n\nPER-PROCESS STATISTICS:\n");
-        
+
         printf("%20s%20s\n","Proc","Time");
         printf("%20s%20s\n\n","","Tracing Rays");
         for (i = 0; i < gm->nprocs; i++)
-            printf("%20d%20d\n",i,gm->partime[i]);
-        
+            printf("%20ld%20ld\n",i,gm->partime[i]);
+
         totalproctime = gm->partime[0];
         minproctime = gm->partime[0];
         maxproctime = gm->partime[0];

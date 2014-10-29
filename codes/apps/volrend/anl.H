@@ -24,8 +24,8 @@
 #define PAD 256
 
 struct GlobalMemory {
-  volatile int Index,Counter;
-  volatile int Queue[MAX_NUMPROC+1][PAD];
+  volatile long Index,Counter;
+  volatile long Queue[MAX_NUMPROC+1][PAD];
   BARDEC(SlaveBarrier)
   BARDEC(TimeBarrier)
   LOCKDEC(IndexLock)

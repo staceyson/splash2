@@ -19,15 +19,16 @@ EXTERN_ENV
 #include <stdio.h>
 #include "matrix.h"
 
-int *next_in_super, *member_of, *super_parent;
-int *tree_firstchild, *tree_sibling;
-int *tree_original_firstchild, *tree_original_sibling;
-int ops_added;
+long *next_in_super, *member_of, *super_parent;
+long *tree_firstchild, *tree_sibling;
+long *tree_original_firstchild, *tree_original_sibling;
+long ops_added;
 double *crit;
+extern long *INVP;
 
-OpsFromSuper(size, nz)
+long OpsFromSuper(long size, long nz)
 {
-  int ops = 0;
+  long ops = 0;
 
   ops += size*(size+1)*(2*size+1)/6;
   ops += size*size*(nz-size);
@@ -36,10 +37,9 @@ OpsFromSuper(size, nz)
   return(ops);
 }
 
-CountSupers(cols, node)
-int *node;
+long CountSupers(long cols, long *node)
 {
-  int i, supers;
+  long i, supers;
 
   supers = 0;
   for (i=0; i<cols; i+=node[i])
@@ -48,23 +48,21 @@ int *node;
   return(supers);
 }
 
-Amalgamate2(join, M, T, nz, node, domain, target_size)
-SMatrix M;
-int *T, *nz, *node, *domain;
+void Amalgamate2(long join, SMatrix M, long *T, long *nz, long *node, long *domain, long target_size)
 {
-  int i, j;
-  int counter, supers_before, supers_after;
+  long i, j;
+  long counter, supers_before, supers_after;
   double g_ops_before;
   extern double *work_tree;
-  extern int *PERM, *INVP, *firstchild, *child;
+  extern long *PERM, *firstchild, *child;
 
-  tree_firstchild = (int *) malloc((M.n+1)*sizeof(int));
-  tree_sibling = (int *) malloc((M.n+1)*sizeof(int));
-  tree_original_firstchild = (int *) malloc((M.n+1)*sizeof(int));
-  tree_original_sibling = (int *) malloc((M.n+1)*sizeof(int));
-  next_in_super = (int *) malloc((M.n+1)*sizeof(int));
-  member_of = (int *) malloc((M.n+1)*sizeof(int));
-  super_parent = (int *) malloc((M.n+1)*sizeof(int));
+  tree_firstchild = (long *) malloc((M.n+1)*sizeof(long));
+  tree_sibling = (long *) malloc((M.n+1)*sizeof(long));
+  tree_original_firstchild = (long *) malloc((M.n+1)*sizeof(long));
+  tree_original_sibling = (long *) malloc((M.n+1)*sizeof(long));
+  next_in_super = (long *) malloc((M.n+1)*sizeof(long));
+  member_of = (long *) malloc((M.n+1)*sizeof(long));
+  super_parent = (long *) malloc((M.n+1)*sizeof(long));
 
   for (i=0; i<=M.n; i++)
     tree_firstchild[i] = -1;
@@ -117,27 +115,22 @@ int *T, *nz, *node, *domain;
 
   supers_after = CountSupers(M.n, node);
 
-  printf("%d/%d supers before/after\n", supers_before, supers_after);
+  printf("%ld/%ld supers before/after\n", supers_before, supers_after);
   printf("%.0f/%.0f (%.2f) ops before/after amalgamation\n",
 	 g_ops_before, work_tree[M.n], work_tree[M.n]/(double) g_ops_before);
   if (ops_added != work_tree[M.n]-g_ops_before)
-    printf("Model says %d ops added, really %.0f\n", ops_added,
+    printf("Model says %ld ops added, really %.0f\n", ops_added,
 	   work_tree[M.n]-g_ops_before);
 }
 
 
-ConsiderMerge(join, super, M, nz, node, domain, target_size, traversal_order)
-SMatrix M;
-int *nz, *node, *domain;
+void ConsiderMerge(long join, long super, SMatrix M, long *nz, long *node, long *domain, long target_size, long traversal_order)
 {
-  int i, parent;
-  int ops_before, ops_after, do_merge, do_merge_simple, possible;
-  int allow_critical_to_grow;
+  long i, parent;
+  long ops_before, ops_after, do_merge, do_merge_simple, possible;
+  long allow_critical_to_grow;
   double time_before, time_after, dummy, simple_diff;
   double path_grows;
-  extern int *T;
-  extern double *crit;
-  extern int BETA;
 
   super = member_of[super];
 
@@ -188,7 +181,7 @@ int *nz, *node, *domain;
 
     if (do_merge) {
 
-      JoinTwoSupers2(nz, node, domain, super, parent, target_size);
+      JoinTwoSupers2(nz, node, super, parent);
       ops_added += (ops_after-ops_before);
 
     }
@@ -203,10 +196,9 @@ int *nz, *node, *domain;
     }
 }
 
-JoinTwoSupers2(nz, node, domain, child, parent, target_size)
-int *nz, *node, *domain;
+void JoinTwoSupers2(long *nz, long *node, long child, long parent)
 {
-  int i, child_last, member, grandparent;
+  long i, child_last, member, grandparent;
 
   /* record new memberships */
   member = parent;
@@ -255,11 +247,9 @@ int *nz, *node, *domain;
 }
 
 
-ReorderMatrix(M, super, node, counter, PERM)
-SMatrix M;
-int *node, *counter, *PERM;
+void ReorderMatrix(SMatrix M, long super, long *node, long *counter, long *PERM)
 {
-  int child, member, which_member;
+  long child, member, which_member;
 
   if (super != M.n) {
     super = member_of[super];
@@ -282,15 +272,12 @@ int *node, *counter, *PERM;
 }
 
 
-FixNodeNZAndT(M, PERM, node, nz, T)
-SMatrix M;
-int *PERM, *node, *nz, *T;
+void FixNodeNZAndT(SMatrix M, long *PERM, long *node, long *nz, long *T)
 {
-  int super, j;
-  int *tmp;
-  extern int *panels, *INVP;
+  long super, j;
+  long *tmp;
 
-  tmp = (int *) malloc(M.n*sizeof(int));
+  tmp = (long *) malloc(M.n*sizeof(long));
 
   for (j=0; j<M.n; j++)
     tmp[j] = node[j];
@@ -317,10 +304,9 @@ int *PERM, *node, *nz, *T;
   free(tmp);
 }
 
-InvertPerm(n, PERM, INVP)
-int *PERM, *INVP;
+void InvertPerm(long n, long *PERM, long *INVP)
 {
-  int i;
+  long i;
 
   for (i=0; i<=n; i++)
     INVP[i] = -1;
@@ -334,7 +320,7 @@ int *PERM, *INVP;
 }
 
 
-double PathLength(cols, rows, target_panel_size)
+double PathLength(long cols, long rows, long target_panel_size)
 {
   double path_length;
 
@@ -343,5 +329,4 @@ double PathLength(cols, rows, target_panel_size)
 
   return(path_length);
 }
-
 

@@ -14,6 +14,7 @@
 /*                                                                       */
 /*************************************************************************/
 
+EXTERN_ENV
 #include <stdio.h>
 #include "water.h"
 #include "wwpot.h"
@@ -21,19 +22,19 @@
 #include "frcnst.h"
 #include "fileio.h"
 #include "parameters.h"
+#include "global.h"
 
-CNSTNT(N,C)                     /* set up some constants */
-  
-  int N;		/* NORDER + 1 = 7 for a sixth-order method*/
-  double* C; 	/* DIMENSION C(N,N) */
+/* set up some constants
+ * N : NORDER + 1 = 7 for a sixth-order method
+ * C : DIMENSION C(N,N)
+ */
+void CNSTNT(long N, double *C)
 {
-    int NN,N1,K1;
+    long NN,N1,K1;
     double TN,TK,CM;
-    
-    int i;
-    
+
     /* molecular constants for water in angstrom, radian, and a.m.u. */
-    
+
     NATOMS = 3;
     ROH = 0.9572;
     ROHI = ONE/ROH;
@@ -42,17 +43,17 @@ CNSTNT(N,C)                     /* set up some constants */
     OMAS = 15.99945;
     HMAS = 1.007825;
     WTMOL = OMAS+TWO*HMAS;
-    
+
     /* units used to scale variables (in c.g.s.) */
-    
+
     UNITT = 1.0e-15;
     UNITL = 1.0e-8;
     UNITM = 1.6605655e-24;
     BOLTZ = 1.380662e-16;
     AVGNO = 6.022045e23;
-    
+
     /* force constants scaled (divided) by (UNITM/UNITT**2) */
-    
+
     FC11 =  0.512596;
     FC33 =  0.048098;
     FC12 = -0.005823;
@@ -72,9 +73,9 @@ CNSTNT(N,C)                     /* set up some constants */
     FC1133 = -0.0048;
     FC1233 =  0.0211;
     FC1333 =  0.006263;
-    
+
     /* water-water interaction parameters */
-    
+
     QQ = 0.07152158;
     A1 = 455.313100;
     B1 = 5.15271070;
@@ -93,28 +94,28 @@ CNSTNT(N,C)                     /* set up some constants */
     C2 = 0.50*CM;
     QQ2 = 2.00*QQ;
     QQ4 = 2.00*QQ2;
-    
+
     /*  calculate the coefficients of taylor series expansion */
     /*     for F(X), F"(X), F""(X), ...... (with DELTAT**N/N] included) */
     /*     in C(1,1),..... C(1,2),..... C(1,3),....... */
-    
+
     C[1] = ONE;
-    for (N1=2;N1<=N;N1++) {  
+    for (N1=2;N1<=N;N1++) {
         NN = N1-1;
         TN = NN;
         C[N1] = ONE;
         TK = ONE;
-        for (K1=2;K1<=N1;K1++) { 
+        for (K1=2;K1<=N1;K1++) {
             C[(K1-1)*N+NN] = C[(K1-2)*N+NN+1]*TN/TK;
             NN = NN-1;
             TN = TN-ONE;
             TK = TK+ONE;
         }
     }
-    
-    
+
+
     /* predictor-corrector constants for 2nd order differential equation */
-    
+
     PCC[2] = ONE;
     N1 = N-1;
     switch(N1) {

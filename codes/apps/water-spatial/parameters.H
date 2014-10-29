@@ -14,10 +14,10 @@
 /*                                                                       */
 /*************************************************************************/
 
-  /* contains the definitions of certain system constants */
-  
+/* contains the definitions of certain system constants */
+
 #define MAXODR 7                    /* Order of predictor-corrector method + 1 */
-#define NATOM 3                     /* Atoms per molecule, H-O-H */ 
+#define NATOM 3                     /* Atoms per molecule, H-O-H */
 #define MXOD2 (MAXODR+2)            /* Variables maintained per mol */
 #define NDIR 3                      /* Number of spatial directions */
 

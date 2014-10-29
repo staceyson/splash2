@@ -10,8 +10,7 @@
 
 #include <stdio.h>
 #include <math.h>
-
-
+#include "pslib.h"
 
 #define SCREEN_WIDTH   (6.0*72)
 #define SCREEN_HEIGHT  (4.8*72)
@@ -27,29 +26,6 @@
 #define DEFAULT_BACK_PLANE_Z  (-4000.0)
 #define DEFAULT_PRP_Z         (10000.0)    /* Projection point Z coord. */
 
-
-/*** Data structure used in radiosity algorithm ***/
-
-typedef struct {
-      float x, y, z ;
-} Point ;
-
-typedef struct {
-      float r, g, b ;
-} Rgb ;
-
-
-typedef struct
-{
-      float v[4] ;                   /* x, y, z, and w */
-} Vertex ;
-
-typedef struct
-{
-      float m[4][4] ;                /* m[row][column], row vector assumed */
-} Matrix ;
-
-
 /**************************************************
 *
 *    Globals
@@ -57,8 +33,8 @@ typedef struct
 ***************************************************/
 
 static Matrix  trans_mtx ;		/* WC -> DC */
-static Vertex  prp ;			/* Projection point */
-static Vertex  active_prp ;		/* Projection point in effect (WC) */
+static Vertex2  prp ;			/* Projection point */
+static Vertex2  active_prp ;		/* Projection point in effect (WC) */
 static float   view_rotx, view_roty ;	/* Viewing */
 static float   view_zoom ;
 
@@ -69,12 +45,18 @@ static float   clip_front, clip_back ;	/*             (Z) */
 
 static FILE *ps_fd ;
 
-
-
-void gset_unit_matrix(), gconcatenate_matrix(), gscale_matrix() ;
-void gtranslate_matrix(), grotate_x_matrix(), grotate_y_matrix() ;
-void grotate_z_matrix(), gtransform(), ginverse_matrix() ;
-
+static void setup_transformation(void);
+static void init_transformation(void);
+static void gset_unit_matrix(Matrix *mtx);
+static void gconcatenate_matrix(long precat, Matrix *m1, Matrix *m2);
+static void gscale_matrix(long precat, Matrix *m1, float sx, float sy, float sz);
+static void gtranslate_matrix(long precat, Matrix *m1, float tx, float ty, float tz);
+static void grotate_x_matrix(long precat, Matrix *m1, float rot);
+static void grotate_y_matrix(long precat, Matrix *m1, float rot);
+static void gtransform(Vertex2 *v1, Vertex2 *v2, Matrix *mtx);
+static void ginverse_matrix(Matrix *m1, Matrix *m2);
+static double det(Matrix *m);
+static double cdet(Matrix *m, long r0, long r1, long r2, long c0, long c1, long c2);
 
 /************************************************************************
 *
@@ -85,12 +67,8 @@ void grotate_z_matrix(), gtransform(), ginverse_matrix() ;
 
 
 
-int ps_open( file )
-    char *file ;
+long ps_open(char *file)
 {
-      void init_transformation() ;
-      void setup_transformation() ;
-
       if( (ps_fd = fopen( file, "w" )) == 0 )
       {
 	    perror( file ) ;
@@ -111,6 +89,7 @@ int ps_open( file )
       /* Initialize transformation */
       init_transformation() ;
       setup_transformation() ;
+      return(0);
 }
 
 
@@ -136,9 +115,7 @@ void ps_close()
 *
 ***************************************************/
 
-void ps_linewidth( w )
-   
-    float w ;
+void ps_linewidth(float w)
 {
       if( ps_fd == 0 )
 	    return ;
@@ -154,11 +131,9 @@ void ps_linewidth( w )
 *
 ***************************************************/
 
-void ps_line( p1, p2 )
-
-    Point *p1, *p2 ;
+void ps_line(Vertex *p1, Vertex *p2)
 {
-      Vertex  v1, v2 ;
+      Vertex2  v1, v2 ;
       float x1, y1, x2, y2 ;
 
       if( ps_fd == 0 )
@@ -185,14 +160,11 @@ void ps_line( p1, p2 )
 *
 ***************************************************/
 
-void ps_polygonedge( n, p_list )
-
-    int n ;
-    Point *p_list ;
+void ps_polygonedge(long n, Vertex *p_list)
 {
       float dcx, dcy ;
-      Vertex v ;
-      int i ;
+      Vertex2 v ;
+      long i ;
 
       if( ps_fd == 0 )
 	    return ;
@@ -203,8 +175,8 @@ void ps_polygonedge( n, p_list )
       v.v[2] = p_list[0].z ;
       v.v[3] = 1.0 ;
       gtransform( &v, &v, &trans_mtx ) ;
-      dcx = v.v[0] / v.v[3] ; 
-      dcy = v.v[1] / v.v[3] ; 
+      dcx = v.v[0] / v.v[3] ;
+      dcy = v.v[1] / v.v[3] ;
       fprintf( ps_fd, "newpath\n%f %f moveto\n", dcx, dcy ) ;
 
       for( i = 1 ; i < n ; i++ )
@@ -215,12 +187,12 @@ void ps_polygonedge( n, p_list )
 	    v.v[2] = p_list[i].z ;
 	    v.v[3] = 1.0 ;
 	    gtransform( &v, &v, &trans_mtx ) ;
-	    dcx = v.v[0] / v.v[3] ; 
-	    dcy = v.v[1] / v.v[3] ; 
+	    dcx = v.v[0] / v.v[3] ;
+	    dcy = v.v[1] / v.v[3] ;
 
 	    fprintf( ps_fd, "%f %f lineto\n", dcx, dcy ) ;
       }
-      
+
       fprintf( ps_fd, "closepath stroke\n" ) ;
 }
 
@@ -231,14 +203,11 @@ void ps_polygonedge( n, p_list )
 *
 ***************************************************/
 
-void ps_polygon( n, p_list )
-
-    int n ;
-    Point *p_list ;
+void ps_polygon(long n, Vertex *p_list)
 {
       float dcx, dcy ;
-      Vertex v ;
-      int i ;
+      Vertex2 v ;
+      long i ;
 
       if( ps_fd == 0 )
 	    return ;
@@ -249,8 +218,8 @@ void ps_polygon( n, p_list )
       v.v[2] = p_list[0].z ;
       v.v[3] = 1.0 ;
       gtransform( &v, &v, &trans_mtx ) ;
-      dcx = v.v[0] / v.v[3] ; 
-      dcy = v.v[1] / v.v[3] ; 
+      dcx = v.v[0] / v.v[3] ;
+      dcy = v.v[1] / v.v[3] ;
       fprintf( ps_fd, "newpath\n%f %f moveto\n", dcx, dcy ) ;
 
       for( i = 1 ; i < n ; i++ )
@@ -261,12 +230,12 @@ void ps_polygon( n, p_list )
 	    v.v[2] = p_list[i].z ;
 	    v.v[3] = 1.0 ;
 	    gtransform( &v, &v, &trans_mtx ) ;
-	    dcx = v.v[0] / v.v[3] ; 
-	    dcy = v.v[1] / v.v[3] ; 
+	    dcx = v.v[0] / v.v[3] ;
+	    dcy = v.v[1] / v.v[3] ;
 
 	    fprintf( ps_fd, "%f %f lineto\n", dcx, dcy ) ;
       }
-      
+
       fprintf( ps_fd, "closepath fill\n" ) ;
 }
 
@@ -277,15 +246,11 @@ void ps_polygon( n, p_list )
 *
 ***************************************************/
 
-void ps_spolygon( n, p_list, c_list )
-
-    int n ;
-    Point *p_list ;
-    Rgb   *c_list ;
+void ps_spolygon(long n, Vertex *p_list, Rgb *c_list)
 {
       float dcx, dcy ;
-      Vertex v ;
-      int i ;
+      Vertex2 v ;
+      long i ;
       float gray_scale ;
 
       if( ps_fd == 0 )
@@ -297,8 +262,8 @@ void ps_spolygon( n, p_list, c_list )
       v.v[2] = p_list[0].z ;
       v.v[3] = 1.0 ;
       gtransform( &v, &v, &trans_mtx ) ;
-      dcx = v.v[0] / v.v[3] ; 
-      dcy = v.v[1] / v.v[3] ; 
+      dcx = v.v[0] / v.v[3] ;
+      dcy = v.v[1] / v.v[3] ;
       fprintf( ps_fd, "newpath\n%f %f moveto\n", dcx, dcy ) ;
 
       for( i = 1 ; i < n ; i++ )
@@ -309,18 +274,18 @@ void ps_spolygon( n, p_list, c_list )
 	    v.v[2] = p_list[i].z ;
 	    v.v[3] = 1.0 ;
 	    gtransform( &v, &v, &trans_mtx ) ;
-	    dcx = v.v[0] / v.v[3] ; 
-	    dcy = v.v[1] / v.v[3] ; 
+	    dcx = v.v[0] / v.v[3] ;
+	    dcy = v.v[1] / v.v[3] ;
 
 	    fprintf( ps_fd, "%f %f lineto\n", dcx, dcy ) ;
       }
-      
+
       gray_scale = c_list[0].g ;
       if( gray_scale > 1.0 )
 	    gray_scale = 1.0 ;
       else if( gray_scale < 0.0 )
 	    gray_scale = 0.0 ;
-		  
+
       fprintf( ps_fd, "closepath %f setgray fill\n", gray_scale ) ;
 }
 
@@ -343,12 +308,8 @@ void ps_clear()
 *
 ***************************************************/
 
-void ps_setup_view( rot_x, rot_y, dist, zoom )
-
-    float rot_x, rot_y, dist, zoom ;
+void ps_setup_view(float rot_x, float rot_y, float dist, float zoom)
 {
-      void setup_transformation() ;
-
       prp.v[0] = 0.0 ;
       prp.v[1] = 0.0 ;
       prp.v[2] = (float)dist ;
@@ -371,9 +332,8 @@ void ps_setup_view( rot_x, rot_y, dist, zoom )
 static void setup_transformation()
 {
       float cf_z, cb_z ;
-      int light ;
       Matrix pmat ;
-      
+
       /* Set to unit matrix */
       gset_unit_matrix( &trans_mtx ) ;
 
@@ -427,49 +387,19 @@ static void init_transformation()
       prp.v[1] = 0.0 ;
       prp.v[2] = DEFAULT_PRP_Z ;
       prp.v[3] = 0.0 ;
- 
+
       /* Viewing */
       view_rotx = view_roty = 0.0 ;
       view_zoom = 1.0 ;
-  
+
       /* Initialize view volume boundary */
       clip_right =  DEFAULT_WINDOW_WIDTH / 2.0 ;
       clip_left  = -DEFAULT_WINDOW_WIDTH / 2.0 ;
       clip_top   =  DEFAULT_WINDOW_HEIGHT / 2.0 ;
-      clip_bottom= -DEFAULT_WINDOW_HEIGHT / 2.0 ; 
+      clip_bottom= -DEFAULT_WINDOW_HEIGHT / 2.0 ;
       clip_front =  DEFAULT_FRONT_PLANE_Z ;
       clip_back  =  DEFAULT_BACK_PLANE_Z ;
 }
-
-
-/********************************************
-*
-*    set_matrix()
-*
-*********************************************/
-
-static void  gset_matrix( mtx, m11, m12, m13, m14,  m21, m22, m23, m24,
-		       m31, m32, m33, m34,  m41, m42, m43, m44 )
-
-    Matrix *mtx ;
-    float m11, m12, m13, m14 ;
-    float m21, m22, m23, m24 ;
-    float m31, m32, m33, m34 ;
-    float m41, m42, m43, m44 ;
-{
-      mtx->m[0][0] = m11 ; mtx->m[0][1] = m12 ;
-      mtx->m[0][2] = m13 ; mtx->m[0][3] = m14 ;
-
-      mtx->m[1][0] = m21 ; mtx->m[1][1] = m22 ;
-      mtx->m[1][2] = m23 ; mtx->m[1][3] = m24 ;
-
-      mtx->m[2][0] = m31 ; mtx->m[2][1] = m32 ;
-      mtx->m[2][2] = m33 ; mtx->m[2][3] = m34 ;
-
-      mtx->m[3][0] = m41 ; mtx->m[3][1] = m42 ;
-      mtx->m[3][2] = m43 ; mtx->m[3][3] = m44 ;
-}    
-
 
 
 /********************************************
@@ -478,12 +408,10 @@ static void  gset_matrix( mtx, m11, m12, m13, m14,  m21, m22, m23, m24,
 *
 *********************************************/
 
-static void  gset_unit_matrix( mtx )
-
-    Matrix *mtx ;
+static void  gset_unit_matrix(Matrix *mtx)
 {
-      int  row, col ;
-      
+      long  row, col ;
+
       /* Clear the matrix */
       for( row = 0 ; row < 4 ; row++ )
 	    for( col = 0 ; col < 4 ; col++ )
@@ -492,7 +420,7 @@ static void  gset_unit_matrix( mtx )
       /* Set 1.0s along diagonal line */
       for( row = 0 ; row < 4 ; row++ )
 	    mtx->m[row][row] = 1.0 ;
-}    
+}
 
 
 
@@ -506,15 +434,12 @@ static void  gset_unit_matrix( mtx )
 *
 *********************************************/
 
-static void  gconcatenate_matrix( precat, m1, m2 )
-
-    int precat ;
-    Matrix *m1, *m2 ;
+static void  gconcatenate_matrix(long precat, Matrix *m1, Matrix *m2)
 {
-      int  row, col, scan ;
+      long  row, col, scan ;
       Matrix *dest ;
       Matrix temp ;
-      
+
 
       /* Swap pointer according to the concatenation mode */
       dest = m1 ;
@@ -523,10 +448,10 @@ static void  gconcatenate_matrix( precat, m1, m2 )
 	    m1 = m2 ;
 	    m2 = dest ;
       }
-      
+
       /* concatenate it */
       for( row = 0 ; row < 4 ; row++ )
-	    for( col = 0 ; col < 4 ; col++ ) 
+	    for( col = 0 ; col < 4 ; col++ )
 	    {
 		  temp.m[row][col] = 0.0 ;
 		  for( scan = 0 ; scan < 4 ; scan++ )
@@ -547,14 +472,10 @@ static void  gconcatenate_matrix( precat, m1, m2 )
 *
 *********************************************/
 
-static void  gscale_matrix( precat, m1, sx, sy, sz )
-
-    int precat ;
-    Matrix *m1 ;
-    float sx, sy, sz ;
+static void  gscale_matrix(long precat, Matrix *m1, float sx, float sy, float sz)
 {
       Matrix smat ;
-      
+
       /* Initialize to unit matrix */
       gset_unit_matrix( &smat ) ;
 
@@ -578,14 +499,10 @@ static void  gscale_matrix( precat, m1, sx, sy, sz )
 *
 *********************************************/
 
-static void  gtranslate_matrix( precat, m1, tx, ty, tz )
-
-    int precat ;
-    Matrix *m1 ;
-    float tx, ty, tz ;
+static void  gtranslate_matrix(long precat, Matrix *m1, float tx, float ty, float tz)
 {
       Matrix tmat ;
-      
+
       /* Initialize to unit matrix */
       gset_unit_matrix( &tmat ) ;
 
@@ -611,15 +528,11 @@ static void  gtranslate_matrix( precat, m1, tx, ty, tz )
 *
 *********************************************/
 
-static void  grotate_x_matrix( precat, m1, rot )
-
-    int precat ;
-    Matrix *m1 ;
-    float rot ;
+static void  grotate_x_matrix(long precat, Matrix *m1, float rot)
 {
       Matrix rmat ;
       float s_val, c_val ;
-      
+
       /* Initialize to unit matrix */
       gset_unit_matrix( &rmat ) ;
 
@@ -638,15 +551,11 @@ static void  grotate_x_matrix( precat, m1, rot )
 
 
 
-static void  grotate_y_matrix( precat, m1, rot )
-
-    int precat ;
-    Matrix *m1 ;
-    float rot ;
+static void  grotate_y_matrix(long precat, Matrix *m1, float rot)
 {
       Matrix rmat ;
       float s_val, c_val ;
-      
+
       /* Initialize to unit matrix */
       gset_unit_matrix( &rmat ) ;
 
@@ -665,31 +574,6 @@ static void  grotate_y_matrix( precat, m1, rot )
 
 
 
-static void  grotate_z_matrix( precat, m1, rot )
-
-    int precat ;
-    Matrix *m1 ;
-    float rot ;
-{
-      Matrix rmat ;
-      float s_val, c_val ;
-      
-      /* Initialize to unit matrix */
-      gset_unit_matrix( &rmat ) ;
-
-      /* Set scale values */
-      s_val = sin( rot * M_PI / 180.0 ) ;
-      c_val = cos( rot * M_PI / 180.0 ) ;
-      rmat.m[0][0] = c_val ;
-      rmat.m[0][1] = s_val ;
-      rmat.m[1][0] = -s_val ;
-      rmat.m[1][1] = c_val ;
-
-      /* concatenate */
-      gconcatenate_matrix( precat, m1, &rmat ) ;
-}
-
-
 /********************************************
 *
 *    transform()
@@ -698,10 +582,7 @@ static void  grotate_z_matrix( precat, m1, rot )
 *
 *********************************************/
 
-static void gtransform( v1, v2, mtx )
-
-    Vertex *v1, *v2 ;
-    Matrix *mtx ;
+static void gtransform(Vertex2 *v1, Vertex2 *v2, Matrix *mtx)
 {
       float x, y, z, w ;
 
@@ -741,13 +622,10 @@ static void gtransform( v1, v2, mtx )
 *********************************************/
 
 
-static void ginverse_matrix( m1, m2 )
-
-    Matrix *m1, *m2 ;
+static void ginverse_matrix(Matrix *m1, Matrix *m2)
 {
       double detval ;
-      double det(), cdet() ;
-      
+
       /* det(m2) */
       detval = det( m2 ) ;
 
@@ -775,13 +653,10 @@ static void ginverse_matrix( m1, m2 )
 
 
 
-static double det( m )
-
-    Matrix *m ;
+static double det(Matrix *m)
 {
       double det_sum ;
-      double cdet() ;
-      
+
       /* Expand with respect to column 4 */
       det_sum = 0.0 ;
       if( m->m[0][3] != 0.0 )
@@ -797,10 +672,7 @@ static double det( m )
 }
 
 
-static double cdet( m, r0, r1, r2, c0, c1, c2 )
-
-    Matrix *m ;
-    int r0, r1, r2, c0, c1, c2 ;
+static double cdet(Matrix *m, long r0, long r1, long r2, long c0, long c1, long c2)
 {
         double temp ;
 
@@ -813,73 +685,4 @@ static double cdet( m, r0, r1, r2, c0, c1, c2 )
         temp -= m->m[r0][c0] * m->m[r2][c1] * m->m[r1][c2] ;
 
         return( temp ) ;
-}
-
-
-
-/********************************************
-*
-*    normalize_vector()
-*
-*          v1 <- normalized( v2 )
-*
-*          W component is ignored.
-*
-*********************************************/
-
-
-static void gnormalize_vector( v1, v2 )
-
-    Vertex *v1, *v2 ;
-{
-      float t0, t1, t2 ;
-
-      t0 = v2->v[0] * v2->v[0] ;
-       t1 = v2->v[1] * v2->v[1] ;
-        t2 = v2->v[2] * v2->v[2] ;
-
-      t0 = 1.0 / sqrt( t0 + t1 + t2 ) ;
-
-      v1->v[0] = v2->v[0] * t0 ;
-       v1->v[1] = v2->v[1] * t0 ;
-        v1->v[2] = v2->v[2] * t0 ;
-}
-
-
-/********************************************
-*
-*    inner_product()
-*
-*          (v1.v2) <- inner_product( v1, v2 )
-*
-*          W component is ignored.
-*
-*********************************************/
-
-static float ginner_product( v1, v2 )
-
-    Vertex *v1, *v2 ;
-{
-      float ip ;
-      
-      ip  = v1->v[0] * v2->v[0] ;
-      ip += v1->v[1] * v2->v[1] ;
-      ip += v1->v[2] * v2->v[2] ;
-
-      return( ip ) ;
-}
-
-
-/********************************************
-*
-*    print_vector()
-*
-*
-*********************************************/
-
-static void gprint_vector( v )
-
-    Vertex *v ;
-{
-      printf( "(%g,%g,%g,%g)\n", v->v[0], v->v[1], v->v[2], v->v[3] ) ;
 }

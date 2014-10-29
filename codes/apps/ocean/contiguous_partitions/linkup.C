@@ -14,21 +14,17 @@
 /*                                                                       */
 /*************************************************************************/
 
-/* Set all the pointers to the proper locations for the q_multi and 
+/* Set all the pointers to the proper locations for the q_multi and
    rhs_multi data structures */
 
 EXTERN_ENV
 
 #include "decs.h"
 
-void linkup();
-void link_multi();
-
 void link_all()
-
 {
-  int i;
-  int j;
+  long i;
+  long j;
 
   for (j=0;j<nprocs;j++) {
     linkup(psium[j]);
@@ -55,18 +51,14 @@ void link_all()
   link_multi();
 }
 
-void linkup(row_ptr)
-
-double **row_ptr;
-
+void linkup(double **row_ptr)
 {
-  int i;
-  int j;
+  long i;
   double *a;
   double **row;
   double **y;
-  int x_part;
-  int y_part;
+  long x_part;
+  long y_part;
 
   x_part = (jm-2)/xprocs + 2;
   y_part = (im-2)/yprocs + 2;
@@ -74,28 +66,27 @@ double **row_ptr;
   y = row + y_part;
   a = (double *) y;
   for (i=0;i<y_part;i++) {
-    *row = (double *) a;  
+    *row = (double *) a;
     row++;
     a += x_part;
   }
 }
 
 void link_multi()
-
 {
-  int i;
-  int j;
-  int l;
+  long i;
+  long j;
+  long l;
   double *a;
   double **row;
   double **y;
-  unsigned int z;
-  unsigned int zz;
-  int x_part;
-  int y_part;
-  unsigned int d_size;
+  unsigned long z;
+  unsigned long zz;
+  long x_part;
+  long y_part;
+  unsigned long d_size;
 
-  z = ((unsigned int) q_multi + nprocs*sizeof(double ***));
+  z = ((unsigned long) q_multi + nprocs*sizeof(double ***));
 
   if (nprocs%2 == 1) {         /* To make sure that the actual data
                                   starts double word aligned, add an extra
@@ -118,7 +109,7 @@ void link_multi()
     z += d_size;
   }
   for (j=0;j<nprocs;j++) {
-    zz = (unsigned int) q_multi[j];
+    zz = (unsigned long) q_multi[j];
     zz += numlev*sizeof(double **);
     if (numlev%2 == 1) {       /* To make sure that the actual data
                                   starts double word aligned, add an extra
@@ -148,7 +139,7 @@ void link_multi()
     }
   }
 
-  z = ((unsigned int) rhs_multi + nprocs*sizeof(double ***));
+  z = ((unsigned long) rhs_multi + nprocs*sizeof(double ***));
   if (nprocs%2 == 1) {         /* To make sure that the actual data
                                   starts double word aligned, add an extra
                                   pointer */
@@ -170,7 +161,7 @@ void link_multi()
     z += d_size;
   }
   for (j=0;j<nprocs;j++) {
-    zz = (unsigned int) rhs_multi[j];
+    zz = (unsigned long) rhs_multi[j];
     zz += numlev*sizeof(double **);
     if (numlev%2 == 1) {       /* To make sure that the actual data
                                   starts double word aligned, add an extra

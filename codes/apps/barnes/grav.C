@@ -15,25 +15,20 @@
 /*************************************************************************/
 
 /*
- * GRAV.C: 
+ * GRAV.C:
  */
 
 EXTERN_ENV
 #define global extern
 
-#include "code.h"
+#include "stdinc.h"
 
 /*
  * HACKGRAV: evaluate grav field at a given particle.
  */
-  
-hackgrav(p,ProcessId)
-  bodyptr p;
-  unsigned ProcessId;
 
+void hackgrav(bodyptr p, long ProcessId)
 {
-   extern gravsub();
-
    Local[ProcessId].pskip = p;
    SETV(Local[ProcessId].pos0, Pos(p));
    Local[ProcessId].phi0 = 0.0;
@@ -41,7 +36,7 @@ hackgrav(p,ProcessId)
    Local[ProcessId].myn2bterm = 0;
    Local[ProcessId].mynbcterm = 0;
    Local[ProcessId].skipself = FALSE;
-   hackwalk(gravsub, ProcessId);
+   hackwalk(ProcessId);
    Phi(p) = Local[ProcessId].phi0;
    SETV(Acc(p), Local[ProcessId].acc0);
 #ifdef QUADPOLE
@@ -51,34 +46,29 @@ hackgrav(p,ProcessId)
 #endif
 }
 
-
+
 
 /*
- * GRAVSUB: compute a single body-body or body-cell interaction.
+ * GRAVSUB: compute a single body-body or body-cell longeraction.
  */
 
-gravsub(p, ProcessId, level)
-  register nodeptr p;               /* body or cell to interact with     */
-  unsigned ProcessId;
-  int level;
+void gravsub(register nodeptr p, long ProcessId)
 {
-    double sqrt();
     real drabs, phii, mor3;
-    vector ai, quaddr;
-    real dr5inv, phiquad, drquaddr;
+    vector ai;
 
     if (p != Local[ProcessId].pmem) {
         SUBV(Local[ProcessId].dr, Pos(p), Local[ProcessId].pos0);
         DOTVP(Local[ProcessId].drsq, Local[ProcessId].dr, Local[ProcessId].dr);
     }
-    
+
     Local[ProcessId].drsq += epssq;
     drabs = sqrt((double) Local[ProcessId].drsq);
     phii = Mass(p) / drabs;
     Local[ProcessId].phi0 -= phii;
     mor3 = phii / Local[ProcessId].drsq;
     MULVS(ai, Local[ProcessId].dr, mor3);
-    ADDV(Local[ProcessId].acc0, Local[ProcessId].acc0, ai); 
+    ADDV(Local[ProcessId].acc0, Local[ProcessId].acc0, ai);
     if(Type(p) != BODY) {                  /* a body-cell/leaf interaction? */
        Local[ProcessId].mynbcterm++;
 #ifdef QUADPOLE
@@ -90,7 +80,7 @@ gravsub(p, ProcessId, level)
        phiquad = 5.0 * phiquad / Local[ProcessId].drsq;
        MULVS(ai, Local[ProcessId].dr, phiquad);
        SUBV(Local[ProcessId].acc0, Local[ProcessId].acc0, ai);
-       MULVS(quaddr, quaddr, dr5inv);   
+       MULVS(quaddr, quaddr, dr5inv);
        SUBV(Local[ProcessId].acc0, Local[ProcessId].acc0, quaddr);
 #endif
     }
@@ -103,11 +93,7 @@ gravsub(p, ProcessId, level)
  * HACKWALK: walk the tree opening cells too close to a given point.
  */
 
-local proced hacksub;
-
-hackwalk(sub, ProcessId)
-  proced sub;                                /* routine to do calculation */
-  unsigned ProcessId;
+void hackwalk(long ProcessId)
 {
     walksub(Global->G_root, Global->rsize * Global->rsize, ProcessId);
 }
@@ -116,17 +102,13 @@ hackwalk(sub, ProcessId)
  * WALKSUB: recursive routine to do hackwalk operation.
  */
 
-walksub(n, dsq, ProcessId)
-   nodeptr n;                        /* pointer into body-tree    */
-   real dsq;                         /* size of box squared       */
-   unsigned ProcessId;
+void walksub(nodeptr n, real dsq, long ProcessId)
 {
-   bool subdivp();
    nodeptr* nn;
    leafptr l;
    bodyptr p;
-   int i;
-    
+   long i;
+
    if (subdivp(n, dsq, ProcessId)) {
       if (Type(n) == CELL) {
 	 for (nn = Subp(n); nn < Subp(n) + NSUB; nn++) {
@@ -158,13 +140,11 @@ walksub(n, dsq, ProcessId)
  * Side effects: sets  pmem,dr, and drsq.
  */
 
-bool subdivp(p, dsq, ProcessId)
-   register nodeptr p;                      /* body/cell to be tested    */
-   real dsq;                                /* size of cell squared      */
-   unsigned ProcessId;
+bool subdivp(register nodeptr p, real dsq, long ProcessId)
 {
    SUBV(Local[ProcessId].dr, Pos(p), Local[ProcessId].pos0);
    DOTVP(Local[ProcessId].drsq, Local[ProcessId].dr, Local[ProcessId].dr);
    Local[ProcessId].pmem = p;
    return (tolsq * Local[ProcessId].drsq < dsq);
 }
+

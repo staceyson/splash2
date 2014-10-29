@@ -21,6 +21,7 @@
 *                                                                             *
 ******************************************************************************/
 
+#include <string.h>
 #include "incl.h"
 
 /* The following declarations show the layout of the .norm file.             */
@@ -33,22 +34,21 @@ short norm_version;		/* Version of this .norm file                */
 
 short norm_len[NM];		/* Size of this normal map                   */
 
-long norm_length;		/* Total number of normals in map            */
+int norm_length;		/* Total number of normals in map            */
 				/*   (= NM * product of lens)                */
 NORMAL *norm_address;		/* Pointer to normal map                     */
 
 /* End of layout of .norm file.                                              */
 
 float nmag_epsilon;
-void Normal_Compute();
 
 EXTERN_ENV
 
 #include "anl.h"
 
-Compute_Normal()
+void Compute_Normal()
 {
-  int i;
+  long i;
 
   for (i=0; i<NM; i++) {
     norm_len[i] = map_len[i]-2*INSET;
@@ -70,12 +70,11 @@ Compute_Normal()
 }
 
 
-Allocate_Normal(address, length)
+void Allocate_Normal(address, length)
      NORMAL **address;
      long length;
 {
-  unsigned int i,j,size,type_per_page,count,block;
-  unsigned int p,numbytes;
+  long i;
 
   printf("    Allocating normal map of %ld bytes...\n",
 	 length*sizeof(NORMAL));
@@ -85,7 +84,7 @@ Allocate_Normal(address, length)
   if (*address == NULL)
     Error("    No space available for map.\n");
 
-/*  POSSIBLE ENHANCEMENT:  Here's where one might distribute the 
+/*  POSSIBLE ENHANCEMENT:  Here's where one might distribute the
     normal map among physical memories if one wanted to.
 */
 
@@ -96,30 +95,30 @@ Allocate_Normal(address, length)
 
 void Normal_Compute()
 {
-  int inx,iny,inz;	/* Voxel location in object space            */
-  int outx,outy,outz;	/* Loop indices in image space               */
+  long inx,iny,inz;	/* Voxel location in object space            */
+  long outx,outy,outz;	/* Loop indices in image space               */
   NORMAL *local_norm_address;
   double inv_mag_shift,magnitude,norm_lshift,grd_x,grd_y,grd_z;
-  int nmap_partition,zstart,zstop;
-  int xnorm,ynorm,znorm,norm0;
-  int num_xqueue,num_yqueue,num_zqueue,num_queue;
-  int xstart,xstop,ystart,ystop;
-  int my_node;
+  long zstart,zstop;
+  long xnorm,ynorm,znorm,norm0;
+  long num_xqueue,num_yqueue,num_zqueue,num_queue;
+  long xstart,xstop,ystart,ystop;
+  long my_node;
 
   LOCK(Global->IndexLock);
   my_node = Global->Index++;
   UNLOCK(Global->IndexLock);
   my_node = my_node%num_nodes;
 
-/*  POSSIBLE ENHANCEMENT:  Here's where one might bind the process to a 
-    processor, if one wanted to. 
+/*  POSSIBLE ENHANCEMENT:  Here's where one might bind the process to a
+    processor, if one wanted to.
 */
 
   /* use these to save work in loop */
-  norm0 = (int)(NORM_LSHIFT);
+  norm0 = (long)(NORM_LSHIFT);
   norm_lshift = -NORM_LSHIFT;
   nmag_epsilon = magnitude_epsilon;
-  
+
   num_xqueue = ROUNDUP((float)norm_len[X]/(float)voxel_section[X]);
   num_yqueue = ROUNDUP((float)norm_len[Y]/(float)voxel_section[Y]);
   num_zqueue = ROUNDUP((float)norm_len[Z]/(float)voxel_section[Z]);
@@ -143,28 +142,28 @@ void Normal_Compute()
   for (outz=zstart; outz<zstop; outz++) {
     for (outy=ystart; outy<ystop; outy++) {
       for (outx=xstart; outx<xstop; outx++) {
-	
+
 	inx = INSET + outx;
 	iny = INSET + outy;
 	inz = INSET + outz;
-	
+
 	/* Compute voxel gradient assuming gradient operator is 1x3     */
-	grd_x = (double)((int)MAP(inz,iny,inx+1) - (int)MAP(inz,iny,inx-1));
-	grd_y = (double)((int)MAP(inz,iny+1,inx) - (int)MAP(inz,iny-1,inx));
-	grd_z = (double)((int)MAP(inz+1,iny,inx) - (int)MAP(inz-1,iny,inx));
+	grd_x = (double)((long)MAP(inz,iny,inx+1) - (long)MAP(inz,iny,inx-1));
+	grd_y = (double)((long)MAP(inz,iny+1,inx) - (long)MAP(inz,iny-1,inx));
+	grd_z = (double)((long)MAP(inz+1,iny,inx) - (long)MAP(inz-1,iny,inx));
 
 	/* Compute (magnitude*grd_divisor)**2 of gradient               */
 	/* Reduce (magnitude*grd_divisor)**2 to magnitude*grd_divisor   */
 	/* Reduce magnitude*grd_divisor to magnitude                    */
-	magnitude = grd_x*grd_x+grd_y*grd_y+grd_z*grd_z; 
+	magnitude = grd_x*grd_x+grd_y*grd_y+grd_z*grd_z;
 
 	local_norm_address = NORM_ADDRESS(outz,outy,outx,X);
 	if (magnitude > SMALL) {
-	  inv_mag_shift = norm_lshift/sqrt(magnitude); 
+	  inv_mag_shift = norm_lshift/sqrt(magnitude);
 	  if (grd_x*inv_mag_shift > 0.0) xnorm = 1;
 	  else xnorm = 0;
-	  ynorm = (int)(grd_y*inv_mag_shift);
-	  znorm = (int)(grd_z*inv_mag_shift);
+	  ynorm = (long)(grd_y*inv_mag_shift);
+	  znorm = (long)(grd_z*inv_mag_shift);
 	  *local_norm_address = TADDR(znorm,ynorm,xnorm);
 	}
 	else {
@@ -180,7 +179,7 @@ void Normal_Compute()
 }
 
 
-Load_Normal(filename)
+void Load_Normal(filename)
      char filename[];
 {
   char local_filename[FILENAME_STRING_SIZE];
@@ -188,26 +187,26 @@ Load_Normal(filename)
 
   strcpy(local_filename,filename);
   strcat(local_filename,".norm");
-  fd = Open_File(local_filename); 
-  
-  Read_Shorts(fd,&norm_version, (long)sizeof(norm_version));
-  if (norm_version != NORM_CUR_VERSION) 
+  fd = Open_File(local_filename);
+
+  Read_Shorts(fd,(unsigned char *)&norm_version, (long)sizeof(norm_version));
+  if (norm_version != NORM_CUR_VERSION)
     Error("    Can't load version %d file\n",norm_version);
-  
-  Read_Shorts(fd,norm_len,(long)sizeof(map_len));
-  
-  Read_Longs(fd,&norm_length,(long)sizeof(norm_length));
-  
+
+  Read_Shorts(fd,(unsigned char *)norm_len,(long)sizeof(map_len));
+
+  Read_Longs(fd,(unsigned char *)&norm_length,(long)sizeof(norm_length));
+
   Allocate_Normal(&norm_address,norm_length);
-  
+
   printf("    Loading normal map from .norm file...\n");
-  Read_Shorts(fd,norm_address,(long)(norm_length*sizeof(NORMAL)));
+  Read_Shorts(fd,(unsigned char *)norm_address,(long)(norm_length*sizeof(NORMAL)));
   fflush(stdout);
   Close_File(fd);
 }
 
 
-Store_Normal(filename)
+void Store_Normal(filename)
 char filename[];
 {
   char local_filename[FILENAME_STRING_SIZE];
@@ -215,24 +214,24 @@ char filename[];
 
   strcpy(local_filename,filename);
   strcat(local_filename,".norm");
-  fd = Create_File(local_filename); 
+  fd = Create_File(local_filename);
 
   norm_version = NORM_CUR_VERSION;
   strcpy(local_filename,filename);
   strcat(local_filename,".norm");
   fd = Create_File(local_filename);
-  Write_Shorts(fd,&norm_version,(long)sizeof(norm_version));
-  
-  Write_Shorts(fd,norm_len,(long)sizeof(norm_len));
-  Write_Longs(fd,&norm_length,(long)sizeof(norm_length));
-  
+  Write_Shorts(fd,(unsigned char *)&norm_version,(long)sizeof(norm_version));
+
+  Write_Shorts(fd,(unsigned char *)norm_len,(long)sizeof(norm_len));
+  Write_Longs(fd,(unsigned char *)&norm_length,(long)sizeof(norm_length));
+
   printf("    Storing normal map into .norm file...\n");
-  Write_Shorts(fd,norm_address,(long)(norm_length*sizeof(NORMAL)));
+  Write_Shorts(fd,(unsigned char *)norm_address,(long)(norm_length*sizeof(NORMAL)));
   Close_File(fd);
 }
 
 
-Deallocate_Normal(address)
+void Deallocate_Normal(address)
 NORMAL **address;
 {
   printf("    Deallocating normal map...\n");
@@ -241,4 +240,3 @@ NORMAL **address;
 
   *address = NULL;
 }
-

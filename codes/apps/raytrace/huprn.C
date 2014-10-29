@@ -29,15 +29,14 @@
 #include <math.h>
 #include "rt.h"
 
-VOID	prn_voxel(v)
-VOXEL	*v;
+VOID	prn_voxel(VOXEL *v)
 	{
 	ELEMENT *pe, **pepa;
 	GRID	*g;
 	INT	i;
 
 	fprintf(stderr, "    Print Voxel  id = %ld \n", v->id);
-	fprintf(stderr, "        celltype %ld \n", v->celltype);
+	fprintf(stderr, "        celltype %d \n", v->celltype);
 
 	if (v->celltype == GSM_VOXEL)
 		{
@@ -66,12 +65,10 @@ VOXEL	*v;
 
 
 
-VOID	prn_grid(g)
-GRID	*g;
+VOID	prn_grid(GRID *g)
 	{
 	INT	i;
 	INT	n;
-	INT	cnt;
 	GRID	*ng;
 	VOXEL	*v;
 
@@ -112,8 +109,7 @@ GRID	*g;
 
 
 
-VOID	prn_ray(r)
-RAY	*r;
+VOID	prn_ray(RAY *r)
 	{
 	RAYINFO *ri;
 	GRID	*g;
@@ -143,8 +139,7 @@ RAY	*r;
 
 
 
-VOID	prn_PrimElem(p)
-ELEMENT *p;
+VOID	prn_PrimElem(ELEMENT *p)
 	{
 	BBOX	b;
 
@@ -154,7 +149,7 @@ ELEMENT *p;
 		exit(-1);
 		}
 
-	fprintf(stderr, "PrimElem: index %ld  ptr %lu, PrimObj index %ld ptr %lu \n",
+	fprintf(stderr, "PrimElem: index %ld  ptr %p, PrimObj index %ld ptr %p \n",
 		p->index, p,  p->parent->index,   p->parent);
 
 	b = p->bv;
@@ -165,8 +160,7 @@ ELEMENT *p;
 
 
 
-VOID	prn_bintree_node(b)
-BTNODE	*b;
+VOID	prn_bintree_node(BTNODE *b)
 	{
 	INT	i;
 
@@ -193,8 +187,7 @@ BTNODE	*b;
 
 
 
-VOID	prn_bintree_leaves(root)
-BTNODE	*root;
+VOID	prn_bintree_leaves(BTNODE *root)
 	{
 	BTNODE	*b;
 
@@ -209,9 +202,7 @@ BTNODE	*root;
 	}
 
 
-VOID	prn_pepa_prim_list(pepa, nprims)
-ELEMENT **pepa;
-INT	nprims;
+VOID	prn_pepa_prim_list(ELEMENT **pepa, INT nprims)
 	{
 	INT	i;
 

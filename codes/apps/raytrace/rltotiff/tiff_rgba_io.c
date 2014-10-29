@@ -23,12 +23,18 @@ static char sccsid[] = "@(#)savemap.c	1.3 2/6/9q";
 #endif
 
 #include <stdio.h>
-#include <tiffioP.h>
+#include <stdlib.h>
+#include <tiffio.h>
 #include "tiff_rgba_io.h"
 
 #define	streq(a,b)	(strcmp(a,b) == 0)
 
-#define BYTESWAP 
+#define BYTESWAP
+
+typedef unsigned char  u_char;
+typedef unsigned long  u_long;
+typedef unsigned short ushort;
+typedef unsigned short u_short;
 
 static u_char	rbuf[2048];
 static u_char	gbuf[2048];
@@ -36,23 +42,22 @@ static u_char	bbuf[2048];
 static u_char	abuf[2048];
 static u_char	*scanline = NULL;
 
-static int	rowsperstrip = -1;
-static int	compression = COMPRESSION_LZW;
-static int	config = PLANARCONFIG_CONTIG;
-static int	orientation = ORIENTATION_BOTLEFT;
+static long	rowsperstrip = -1;
+static long	compression = COMPRESSION_LZW;
+static long	config = PLANARCONFIG_CONTIG;
+static long	orientation = ORIENTATION_BOTLEFT;
 
 #define	MIN(a,b)	((a)<(b)?(a):(b))
 #define	ABS(x)		((x)<0?-(x):(x))
 
 
-int
-tiff_save_rgba(char *name, int *pixels, int width, int height)
+long
+tiff_save_rgba(char *name, long *pixels, long width, long height)
 {
 	TIFF *tif;
-	int xsize, ysize;
-	int xorg, yorg;
-	int y, i;
-	int *pos;
+	long xsize, ysize;
+	long y;
+	long *pos;
 
 	xsize = width;
 	ysize = height;
@@ -83,7 +88,7 @@ tiff_save_rgba(char *name, int *pixels, int width, int height)
 #ifdef BYTESWAP
 		register char *sp = (char *) pos;
 		register char *tp = (char *) scanline;
-		register int x;
+		register long x;
 
 		for (x = 0; x < xsize; x++) {
 		    tp[3] = sp[0];
@@ -103,7 +108,7 @@ tiff_save_rgba(char *name, int *pixels, int width, int height)
 	    else if (config == PLANARCONFIG_SEPARATE) {
 
 		register char *pp = (char *) pos;
-		register int x;
+		register long x;
 
 		for (x = 0; x < xsize; x++) {
 		    rbuf[x] = pp[0];
@@ -117,22 +122,22 @@ tiff_save_rgba(char *name, int *pixels, int width, int height)
 		    TIFFWriteScanline(tif, bbuf, y, 2) < 0 ||
 		    TIFFWriteScanline(tif, abuf, y, 3) < 0)
 			break;
-	    } 
+	    }
 	}
     (void) TIFFClose(tif);
     return 1;
 }
 
 
-int
-tiff_load_rgba(char *file, int **pixels, int *width, int *height)
+long
+tiff_load_rgba(char *file, long **pixels, long *width, long *height)
 {
 	TIFF *tif;
-	u_short config, bitspersample, samplesperpixel;
+	u_short bitspersample, samplesperpixel;
 	u_long xsize, ysize;
-	register int x, y, rowbytes;
+	register long x, y, rowbytes;
 	u_char *buf;
-        int temp;
+        long temp;
 	ushort orient;
         register char *tp ;
         register char *sp ;
@@ -175,7 +180,7 @@ tiff_load_rgba(char *file, int **pixels, int *width, int *height)
 
 	*width = xsize;
 	*height = ysize;
-	*pixels = (int *) malloc(ysize*xsize*sizeof(int));
+	*pixels = (long *) malloc(ysize*xsize*sizeof(long));
 
 
         switch (samplesperpixel) {
@@ -184,7 +189,7 @@ tiff_load_rgba(char *file, int **pixels, int *width, int *height)
 		if (orient != ORIENTATION_BOTLEFT)
 		    tp += 4 * (*height-1) * *width;
 		buf = (u_char *) malloc(rowbytes);
-		
+
 		for (y = 0; y < ysize; y++) {
 		    if (TIFFReadScanline(tif, buf, y, 0) < 0)
 			break;
@@ -221,7 +226,7 @@ tiff_load_rgba(char *file, int **pixels, int *width, int *height)
 		    sp = (char *) &temp;
 
 		    for (x = 0; x < xsize; x++) {
-			temp = *((int *)tp);
+			temp = *((long *)tp);
 			tp[3] = sp[0];
 			tp[2] = sp[1];
 			tp[1] = sp[2];

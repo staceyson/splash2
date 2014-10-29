@@ -18,17 +18,15 @@ EXTERN_ENV
 
 #include "matrix.h"
 
-int *firstchild, *child;
+long *firstchild, *child;
 double *work_tree;
 
-EliminationTreeFromA(A, T, P, INVP)
-SMatrix A;
-int *T, *P, *INVP;
+void EliminationTreeFromA(SMatrix A, long *T, long *P, long *INVP)
 {
-  int *subtree;
-  int i, nd, nabor, j, r, nextr, root;
+  long *subtree;
+  long i, nd, nabor, j, r, nextr, root;
 
-  subtree = (int *) malloc((A.n+1)*sizeof(int));
+  subtree = (long *) malloc((A.n+1)*sizeof(long));
 
   for (i=0; i<=A.n; i++)
     T[i] = subtree[i] = A.n;
@@ -62,13 +60,12 @@ int *T, *P, *INVP;
 }
 
 
-ParentToChild(T, n, firstchild, child)
-int *T, *firstchild, *child;
+void ParentToChild(long *T, long n, long *firstchild, long *child)
 {
-  int i, k, parent, count=0;
-  int *next;
+  long i, k, parent, count=0;
+  long *next;
 
-  next = (int *) malloc((n+1)*sizeof(int));
+  next = (long *) malloc((n+1)*sizeof(long));
 
   for (i=0; i<=n; i++)
     firstchild[i] = next[i] = -1;
@@ -96,14 +93,12 @@ int *T, *firstchild, *child;
 }
 
 
-ComputeNZ(A, T, nz, PERM, INVP)
-SMatrix A;
-int *T, *nz, *PERM, *INVP;
+void ComputeNZ(SMatrix A, long *T, long *nz, long *PERM, long *INVP)
 {
-  int i, j, nd, nabor, k;
-  int *marker;
+  long i, j, nd, nabor, k;
+  long *marker;
 
-  marker = (int *) malloc(A.n*sizeof(int));
+  marker = (long *) malloc(A.n*sizeof(long));
   for (i=0; i<A.n; i++)
     nz[i] = 1;
   nz[A.n] = 0;
@@ -126,15 +121,13 @@ int *T, *nz, *PERM, *INVP;
 }
 
 
-FindSupernodes(A, T, nz, node, PERM, INVP)
-SMatrix A;
-int *T, *nz, *node, *PERM, *INVP;
+void FindSupernodes(SMatrix A, long *T, long *nz, long *node)
 {
-  int i;
-  int *nchild;
-  int supers, current, size, max_super = 0;
+  long i;
+  long *nchild;
+  long supers, current, size, max_super = 0;
 
-  nchild = (int *) malloc((A.n+1)*sizeof(int));
+  nchild = (long *) malloc((A.n+1)*sizeof(long));
   for (i=0; i<=A.n; i++)
     nchild[i] = 0;
 
@@ -164,20 +157,16 @@ int *T, *nz, *node, *PERM, *INVP;
     max_super = size;
   node[A.n] = 0;
 
-  printf("%d supers, %4.2f nodes/super, %d max super\n",
+  printf("%ld supers, %4.2f nodes/super, %ld max super\n",
 	 supers, A.n/(double) supers, max_super);  
 
   free(nchild);
 }
 
 
-ComputeWorkTree(A, nz, work_tree)
-SMatrix A;
-int *nz;
-double *work_tree;
+void ComputeWorkTree(SMatrix A, long *nz, double *work_tree)
 {
-  int i, j, nzj;
-  extern int *firstchild, *child;
+  long i, j, nzj;
 
   for (j=0; j<=A.n; j++) {
     if (j != A.n) {

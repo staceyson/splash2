@@ -24,14 +24,14 @@
 
 typedef enum { RIGHT, LEFT, UP, DOWN } direction;
 
-static int Child_Sequence[NUM_DIRECTIONS][NUM_OFFSPRING] = 
+static long Child_Sequence[NUM_DIRECTIONS][NUM_OFFSPRING] =
 {
    { 0, 1, 2, 3 },
    { 2, 3, 0, 1 },
    { 0, 3, 2, 1 },
    { 2, 1, 0, 3 },
 };
-static int Direction_Sequence[NUM_DIRECTIONS][NUM_OFFSPRING] =
+static long Direction_Sequence[NUM_DIRECTIONS][NUM_OFFSPRING] =
 {
    { UP, RIGHT, RIGHT, DOWN },
    { DOWN, LEFT, LEFT, UP },
@@ -39,16 +39,13 @@ static int Direction_Sequence[NUM_DIRECTIONS][NUM_OFFSPRING] =
    { LEFT, DOWN, DOWN, RIGHT },
 };
 
-void ComputeSubTreeCosts(int my_id, box *b);
-void CostZonesHelper(int my_id, box *b, int work, direction dir);
+void ComputeSubTreeCosts(long my_id, box *b);
+void CostZonesHelper(long my_id, box *b, long work, direction dir);
 
 
 void
-CostZones (int my_id)
+CostZones (long my_id)
 {
-   int i;
-   box *b;
-  
    PartitionIterate(my_id, ComputeSubTreeCosts, BOTTOM);
    BARRIER(G_Memory->synch, Number_Of_Processors);
    Local[my_id].Total_Work = Grid->subtree_cost;
@@ -67,19 +64,16 @@ CostZones (int my_id)
 
 
 void
-ComputeSubTreeCosts (int my_id, box *b)
+ComputeSubTreeCosts (long my_id, box *b)
 {
    box *pb;
-   box *sb;
-   int i;
-   box *cb;
 
    if (b->type == PARENT) {
       while (b->interaction_synch != b->num_children) {
       }
    }
    b->interaction_synch = 0;
-   ComputeCostOfBox(my_id, b);
+   ComputeCostOfBox(b);
    b->subtree_cost += b->cost;
    pb = b->parent;
    if (pb != NULL) {
@@ -92,13 +86,12 @@ ComputeSubTreeCosts (int my_id, box *b)
 
 
 void
-CostZonesHelper (int my_id, box *b, int work, direction dir)
+CostZonesHelper (long my_id, box *b, long work, direction dir)
 {
    box *cb;
-   int i;
-   int parent_cost;
-   int *next_child;
-   int *child_dir;
+   long i;
+   long *next_child;
+   long *child_dir;
 
    if (b->type == CHILDLESS) {
       if (work >= Local[my_id].Min_Work)

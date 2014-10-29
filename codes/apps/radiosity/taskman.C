@@ -32,13 +32,13 @@ include(radiosity.h)
 
 
 struct {
-    char pad1[PAGE_SIZE];	 	/* padding to avoid false-sharing 
-                                   and allow page-placement */	
-    int n_local_free_task ;
+    char pad1[PAGE_SIZE];	 	/* padding to avoid false-sharing
+                                   and allow page-placement */
+    long n_local_free_task ;
     Task *local_free_task ;
-    int crnt_taskq_id ;
-    char pad2[PAGE_SIZE];	 	/* padding to avoid false-sharing 
-                                   and allow page-placement */	
+    long crnt_taskq_id ;
+    char pad2[PAGE_SIZE];	 	/* padding to avoid false-sharing
+                                   and allow page-placement */
 }  task_struct[MAX_PROCESSORS];
 
 /***************************************************************************
@@ -60,13 +60,12 @@ struct {
 #define QUEUES_VISITED (n_taskqueues)
 #define DEQUEUE_TASK(q,v,p) (dequeue_task((q),(v),p))
 
-void process_tasks(process_id)
-  unsigned process_id;
+void process_tasks(long process_id)
 {
     Task *t ;
-    
+
     t = DEQUEUE_TASK( taskqueue_id[process_id], QUEUES_VISITED, process_id ) ;
-    
+
  retry_entry:
     while( t )
         {
@@ -82,7 +81,7 @@ void process_tasks(process_id)
                     ff_refine_elements( t->task.ref.e1, t->task.ref.e2, 0, process_id ) ;
                     break ;
                 case TASK_RAY:
-                    process_rays( t->task.ray.e, process_id, process_id ) ;
+                    process_rays( t->task.ray.e, process_id ) ;
                     break ;
                 case TASK_VISIBILITY:
                     visibility_task( t->task.vis.e, t->task.vis.inter,
@@ -94,38 +93,38 @@ void process_tasks(process_id)
                 default:
                     fprintf( stderr, "Panic:process_tasks:Illegal task type\n" );
                 }
-            
+
             /* Free the task */
             free_task( t, process_id ) ;
-            
+
             /* Get next task */
             t = DEQUEUE_TASK( taskqueue_id[process_id], QUEUES_VISITED, process_id ) ;
         }
-    
-    
+
+
     /* Barrier. While waiting for other processors to finish, poll the task
        queues and resume processing if there is any task */
-    
+
     LOCK(global->pbar_lock);
     /* Reset the barrier counter if not initialized */
     if( global->pbar_count >= n_processors )
         global->pbar_count = 0 ;
-    
+
     /* Increment the counter */
     global->pbar_count++ ;
     UNLOCK(global->pbar_lock);
-    
+
     /* barrier spin-wait loop */
     while( global->pbar_count < n_processors )
         {
             /* Wait for a while and then retry dequeue */
-            if( _process_task_wait_loop(process_id) )
+            if( _process_task_wait_loop() )
                 break ;
-            
+
             /* Waited for a while but other processors are still running.
                Poll the task queue again */
             t = DEQUEUE_TASK( taskqueue_id[process_id], QUEUES_VISITED, process_id ) ;
-            if( t ) 
+            if( t )
                 {
                     /* Task found. Exit the barrier and work on it */
                     LOCK(global->pbar_lock);
@@ -133,28 +132,26 @@ void process_tasks(process_id)
                     UNLOCK(global->pbar_lock);
                     goto retry_entry ;
                 }
-            
+
         }
-    
+
     BARRIER(global->barrier, n_processors);
 }
 
 
-int _process_task_wait_loop(process_id)
-  unsigned process_id;
+long _process_task_wait_loop()
 {
-    int  i ;
-    int finished = 0 ;
-    
+    long  i ;
+    long finished = 0 ;
+
     /* Wait for a while and then retry */
     for( i = 0 ; i < 1000 && ! finished ; i++ )
         {
-            if(    (i & 0xff) == 0
-               && (volatile)global->pbar_count >= n_processors )
-                
+            if(    ((i & 0xff) == 0) && ((volatile long)global->pbar_count >= n_processors) )
+
                 finished = 1 ;
         }
-    
+
     return( finished ) ;
 }
 
@@ -172,45 +169,29 @@ int _process_task_wait_loop(process_id)
  ****************************************************************************/
 
 
-void create_modeling_task( model, type, process_id )
-  
-  Model *model ;
-  int   type ;
-  unsigned process_id;
+void create_modeling_task(Model *model, long type, long process_id)
 {
     /* Implemented this way (routine just calls another routine)
        for historical reasons */
-    
+
     process_model( model, type, process_id ) ;
     return ;
 }
 
 
-void create_bsp_task( patch, parent, process_id )
-  
-  Patch *patch ;
-  Patch *parent ;
-  unsigned process_id;
+void create_bsp_task(Patch *patch, Patch *parent, long process_id)
 {
-    Task *t ;
-    
-    /* Implemented this way (routine just calls another routine)
-       for historical reasons */
-    
+    /* Implemented this way (routine just calls another routine) for historical reasons */
     define_patch( patch, parent, process_id ) ;
     return ;
 }
 
 
 
-void create_ff_refine_task( e1, e2, level, process_id)
-  unsigned process_id;
-  
-  Element *e1, *e2 ;
-  int level ;
+void create_ff_refine_task(Element *e1, Element *e2, long level, long process_id)
 {
     Task *t ;
-    
+
     /* Check existing parallelism */
     if( taskq_too_long(&global->task_queue[ taskqueue_id[process_id] ]) )
         {
@@ -218,28 +199,23 @@ void create_ff_refine_task( e1, e2, level, process_id)
             ff_refine_elements( e1, e2, level, process_id ) ;
             return ;
         }
-    
+
     /* Create a task */
     t = get_task(process_id) ;
     t->task_type = TASK_FF_REFINEMENT ;
     t->task.ref.e1              = e1 ;
     t->task.ref.e2              = e2 ;
     t->task.ref.level           = level ;
-    
+
     /* Put in the queue */
-    enqueue_task( taskqueue_id[process_id], t, TASK_INSERT, process_id ) ;
+    enqueue_task( taskqueue_id[process_id], t, TASK_INSERT ) ;
 }
 
 
 
 
-void create_ray_task( e, process_id )
-  
-  Element *e ;
-  unsigned process_id;
+void create_ray_task(Element *e, long process_id)
 {
-    void enqueue_ray_task() ;
-    
     /* Check existing parallelism */
     if(   ((e->n_interactions + e->n_vis_undef_inter)
            < N_inter_parallel_bf_refine)
@@ -250,50 +226,41 @@ void create_ray_task( e, process_id )
             process_rays( e, process_id ) ;
             return ;
         }
-    
+
     /* Put in the queue */
     enqueue_ray_task( taskqueue_id[process_id], e, TASK_INSERT, process_id ) ;
 }
 
 
-void enqueue_ray_task( qid, e, mode, process_id )
-  
-  int qid ;
-  Element *e ;
-  int mode ;
-  unsigned process_id;
+void enqueue_ray_task(long qid, Element *e, long mode, long process_id)
 {
     Task *t ;
-    
+
     /* Create task object */
     t = get_task(process_id) ;
     t->task_type = TASK_RAY ;
     t->task.ray.e     = e ;
-    
+
     /* Put in the queue */
-    enqueue_task( qid, t, mode, process_id ) ;
+    enqueue_task( qid, t, mode ) ;
 }
 
 
-void create_visibility_tasks( e, k, process_id )
-  
-  Element *e ;
-  void (*k)() ;
-  unsigned process_id;
+void create_visibility_tasks(Element *e, void (*k)(), long process_id)
 {
-    int n_tasks ;
-    int remainder ;			     /* Residue of MOD(total_undefs)*/
-    int i_cnt ;
+    long n_tasks ;
+    long remainder ;			     /* Residue of MOD(total_undefs)*/
+    long i_cnt ;
     Interaction *top, *tail ;
     Task *t ;
-    int total_undefs = 0 ;
-    int tasks_created = 0 ;
-    
+    long total_undefs = 0 ;
+    long tasks_created = 0 ;
+
     /* Check number of hard problems */
     for( top = e->vis_undef_inter ; top ; top = top->next )
         if( top->visibility == VISIBILITY_UNDEF )
             total_undefs++ ;
-    
+
     if( total_undefs == 0 )
         {
             /* No process needs to be created. Call the continuation
@@ -301,7 +268,7 @@ void create_visibility_tasks( e, k, process_id )
             (*k)( e, process_id ) ;
             return ;
         }
-    
+
     /* Check existing parallelism */
     if(   (total_undefs < N_visibility_per_task)
        || taskq_too_long(&global->task_queue[ taskqueue_id[process_id] ]) )
@@ -310,10 +277,10 @@ void create_visibility_tasks( e, k, process_id )
                Solve it immediately. */
             visibility_task( e, e->vis_undef_inter,
                             e->n_vis_undef_inter, k, process_id ) ;
-            
+
             return ;
         }
-    
+
     /* Create multiple tasks. Hard problems (i.e. where visibility comp is
        really necessary) are divided into 'n_tasks' groups by residue
        number division (or Bresenham's DDA) */
@@ -321,7 +288,7 @@ void create_visibility_tasks( e, k, process_id )
        modified while other tasks are being created. So, any information
        that is necessary in the for-loop must be read from the element
        and saved locally */
-    
+
     n_tasks = (total_undefs + N_visibility_per_task - 1)
         / N_visibility_per_task ;
     remainder = 0 ;
@@ -329,22 +296,22 @@ void create_visibility_tasks( e, k, process_id )
     for( top = e->vis_undef_inter, tail = top ; tail ; tail = tail->next )
         {
             i_cnt++ ;
-            
+
             if( tail->visibility != VISIBILITY_UNDEF )
                 continue ;
-            
+
             remainder += n_tasks ;
-            
+
             if( remainder >= total_undefs )
                 {
                     /* Create a task */
-                    
+
                     /* For the last task, append following (easy) interactions
                        if there is any */
                     tasks_created++ ;
                     if( tasks_created >= n_tasks )
                         for( ; tail->next ; tail = tail->next, i_cnt++ ) ;
-                    
+
                     /* Set task descriptor */
                     t = get_task(process_id) ;
                     t->task_type = TASK_VISIBILITY ;
@@ -352,10 +319,10 @@ void create_visibility_tasks( e, k, process_id )
                     t->task.vis.inter   = top ;
                     t->task.vis.n_inter = i_cnt ;
                     t->task.vis.k       = k ;
-                    
+
                     /* Enqueue */
-                    enqueue_task( taskqueue_id[process_id], t, TASK_INSERT, process_id ) ;
-                    
+                    enqueue_task( taskqueue_id[process_id], t, TASK_INSERT ) ;
+
                     /* Update pointer and the residue variable */
                     top = tail->next ;
                     remainder -= total_undefs ;
@@ -367,14 +334,8 @@ void create_visibility_tasks( e, k, process_id )
 
 
 
-void create_radavg_task( e, mode, process_id )
-  
-  Element *e ;
-  int mode ;
-  unsigned process_id;
+void create_radavg_task(Element *e, long mode, long process_id)
 {
-    void enqueue_radavg_task() ;
-    
     /* Check existing parallelism */
     if(   (e->n_interactions < N_inter_parallel_bf_refine)
        || taskq_too_long(&global->task_queue[ taskqueue_id[process_id] ]) )
@@ -384,29 +345,24 @@ void create_radavg_task( e, mode, process_id )
             radiosity_averaging( e, mode, process_id ) ;
             return ;
         }
-    
+
     /* Put in the queue */
     enqueue_radavg_task( taskqueue_id[process_id], e, mode, process_id ) ;
 }
 
 
-void enqueue_radavg_task( qid, e, mode, process_id )
-  
-  int qid ;
-  Element *e ;
-  int mode ;
-  unsigned process_id;
+void enqueue_radavg_task(long qid, Element *e, long mode, long process_id)
 {
     Task *t ;
-    
+
     /* Create task object */
     t = get_task(process_id) ;
     t->task_type = TASK_RAD_AVERAGE ;
     t->task.rad.e     = e ;
     t->task.rad.mode  = mode ;
-    
+
     /* Put in the queue */
-    enqueue_task( qid, t, TASK_INSERT, process_id ) ;
+    enqueue_task( qid, t, TASK_INSERT ) ;
 }
 
 
@@ -418,20 +374,16 @@ void enqueue_radavg_task( qid, e, mode, process_id )
  *
  ****************************************************************************/
 
-void enqueue_task( qid, task, mode, process_id )
-  
-  int  qid ;
-  Task *task ;
-  int  mode ;
+void enqueue_task(long qid, Task *task, long  mode)
 {
     Task_Queue *tq ;
-    
-    
+
+
     tq = &global->task_queue[ qid ] ;
-    
+
     /* Lock the task queue */
     LOCK(tq->q_lock);
-    
+
     if( tq->tail == 0 )
         {
             /* The first task in the queue */
@@ -455,7 +407,7 @@ void enqueue_task( qid, task, mode, process_id )
                     tq->n_tasks++ ;
                 }
         }
-    
+
     /* Unlock the task queue */
     UNLOCK(tq->q_lock);
 }
@@ -463,36 +415,33 @@ void enqueue_task( qid, task, mode, process_id )
 
 
 
-Task *dequeue_task( qid, max_visit, process_id )
+Task *dequeue_task(long qid, long max_visit, long process_id)
   /*
-   *    Attempts to dequeue first from the specified queue (qid), but if no 
+   *    Attempts to dequeue first from the specified queue (qid), but if no
    *	 task is found the routine searches max_visit other queues and returns
    *    a task. If a task is taken from another queue, the task is taken from
    *    the tail of the queue (usually, larger amount of work is involved than
    *    the task at the top of the queue and more locality can be exploited
    *  	 within the stolen task).
    */
-  int qid ;
-  int max_visit ;
-  unsigned process_id;
 {
     Task_Queue *tq ;
     Task *t = 0 ;
     Task *prev ;
-    int visit_count = 0 ;
-    int sign = -1 ;		      /* The first retry will go backward */
-    int offset ;
-    
+    long visit_count = 0 ;
+    long sign = -1 ;		      /* The first retry will go backward */
+    long offset ;
+
     /* Check number of queues to be visited */
     if( max_visit > n_taskqueues )
         max_visit = n_taskqueues ;
-    
+
     /* Get next task */
     while( visit_count < max_visit )
         {
             /* Select a task queue */
             tq = &global->task_queue[ qid ] ;
-            
+
             /* Check the length (test-test&set) */
             if( tq->n_tasks > 0 )
                 {
@@ -513,7 +462,7 @@ Task *dequeue_task( qid, max_visit, process_id )
                                     /* Get tail */
                                     for( prev = 0, t = tq->top ; t->next ;
                                         prev = t, t = t->next ) ;
-                                    
+
                                     if( prev == 0 )
                                         tq->top = 0 ;
                                     else
@@ -526,21 +475,21 @@ Task *dequeue_task( qid, max_visit, process_id )
                     UNLOCK(tq->q_lock);
                     break ;
                 }
-            
+
             /* Update visit count */
             visit_count++ ;
-            
+
             /* Compute next taskqueue ID */
             offset = (sign > 0)? visit_count : -visit_count ;
             sign = -sign ;
-            
+
             qid += offset ;
             if( qid < 0 )
                 qid += n_taskqueues ;
             else if( qid >= n_taskqueues )
                 qid -= n_taskqueues ;
         }
-    
+
     return( t ) ;
 }
 
@@ -553,25 +502,24 @@ Task *dequeue_task( qid, max_visit, process_id )
  ****************************************************************************/
 
 
-Task *get_task(process_id)
-  unsigned process_id;
+Task *get_task(long process_id)
 {
     Task *p ;
     Task_Queue *tq ;
-    int i ;
-    int q_id ;
-    int retry_count = 0 ;
-    
+    long i ;
+    long q_id ;
+    long retry_count = 0 ;
+
     /* First, check local task queue */
     if( task_struct[process_id].local_free_task == 0 )
         {
             /* If empty, allocate task objects from the shared list */
             q_id = taskqueue_id[process_id] ;
-            
+
             while( task_struct[process_id].local_free_task == 0 )
                 {
                     tq = &global->task_queue[ q_id ] ;
-                    
+
                     if( tq->n_free > 0 )
                         {
                             LOCK(tq->f_lock);
@@ -581,7 +529,7 @@ Task *get_task(process_id)
                                     for( i = 1, p = tq->free ;
                                         (i < N_ALLOCATE_LOCAL_TASK) && p->next ;
                                         i++, p = p->next ) ;
-                                    
+
                                     task_struct[process_id].local_free_task = tq->free ;
                                     task_struct[process_id].n_local_free_task = i ;
                                     tq->free = p->next ;
@@ -592,68 +540,65 @@ Task *get_task(process_id)
                                 }
                             UNLOCK(tq->f_lock);
                         }
-                    
+
                     /* Try next task queue */
                     if( ++q_id >= n_taskqueues )
                         q_id = 0 ;
-                    
+
                     /* Check retry count */
                     if( ++retry_count > MAX_TASKGET_RETRY )
                         {
-                            fprintf( stderr, "Panic(P%d):No free task\n",
+                            fprintf( stderr, "Panic(P%ld):No free task\n",
                                     process_id ) ;
-                            fprintf( stderr, "  Local %d\n", task_struct[process_id].n_local_free_task ) ;
-                            fprintf( stderr, "  Q0 free %d\n",
+                            fprintf( stderr, "  Local %ld\n", task_struct[process_id].n_local_free_task ) ;
+                            fprintf( stderr, "  Q0 free %ld\n",
                                     global->task_queue[0].n_free ) ;
-                            fprintf( stderr, "  Q0 task %d\n",
+                            fprintf( stderr, "  Q0 task %ld\n",
                                     global->task_queue[0].n_tasks ) ;
                             exit(1) ;
                         }
                 }
         }
-    
-    
+
+
     /* Delete from the queue */
     p = task_struct[process_id].local_free_task ;
     task_struct[process_id].local_free_task = p->next ;
     task_struct[process_id].n_local_free_task-- ;
-    
+
     /* Clear pointer just in case.. */
     p->next = 0 ;
-    
-    
+
+
     return( p ) ;
 }
 
 
 
-void free_task( task, process_id )
-  
-  Task *task ;
-  unsigned process_id;
+void free_task(Task *task, long process_id)
 {
     Task_Queue *tq ;
     Task *p, *top ;
-    int i ;
-    
+    long i ;
+
     /* Insert to the local queue */
     task->next = task_struct[process_id].local_free_task ;
     task_struct[process_id].local_free_task = task ;
     task_struct[process_id].n_local_free_task++ ;
-    
+
     /* If local list is too long, export some tasks */
     if( task_struct[process_id].n_local_free_task >= (N_ALLOCATE_LOCAL_TASK * 2) )
         {
             tq = &global->task_queue[ taskqueue_id[process_id] ] ;
-            
+
             for( i = 1, p = task_struct[process_id].local_free_task ;
                 i < N_ALLOCATE_LOCAL_TASK ;   i++, p = p->next ) ;
-            
+
             /* Update local list */
             top = task_struct[process_id].local_free_task ;
             task_struct[process_id].local_free_task = p->next ;
             task_struct[process_id].n_local_free_task -= i ;
-            
+
             /* Insert in the shared list */
             LOCK(tq->f_lock);
             p->next = tq->free ;
@@ -675,21 +620,20 @@ void free_task( task, process_id )
  ****************************************************************************/
 
 
-void init_taskq(process_id)
-  unsigned process_id;
+void init_taskq(long process_id)
 {
-    int i ;
-    int qid ;
-    int task_index = 0 ;
-    int task_per_queue ;
-    int n_tasks ;
-    
+    long i ;
+    long qid ;
+    long task_index = 0 ;
+    long task_per_queue ;
+    long n_tasks ;
+
     /* Reset task assignment index */
     task_struct[process_id].crnt_taskq_id = 0 ;
-    
+
     /* Initialize task queues */
     task_per_queue = (MAX_TASKS + n_taskqueues - 1) / n_taskqueues ;
-    
+
     for( qid = 0 ; qid < n_taskqueues ; qid++ )
         {
             /* Initialize free list */
@@ -697,27 +641,27 @@ void init_taskq(process_id)
                 n_tasks = MAX_TASKS - task_index ;
             else
                 n_tasks = task_per_queue ;
-            
+
             for( i = task_index ; i < task_index + n_tasks - 1 ; i++ )
                 global->task_buf[i].next = &global->task_buf[i+1] ;
             global->task_buf[ i ].next = 0 ;
-            
+
             global->task_queue[ qid ].free = &global->task_buf[ task_index ] ;
             global->task_queue[ qid ].n_free = n_tasks ;
-            
+
             /* Initialize task queue */
             global->task_queue[ qid ].top     = 0 ;
             global->task_queue[ qid ].tail    = 0 ;
             global->task_queue[ qid ].n_tasks = 0 ;
-            
+
             /* Initialize locks */
             LOCKINIT(global->task_queue[ qid ].q_lock);
             LOCKINIT(global->task_queue[ qid ].f_lock);
-            
+
             /* Update index for next queue */
             task_index += n_tasks ;
         }
-    
+
     /* Initialize local free lists */
     task_struct[process_id].n_local_free_task      = 0 ;
     task_struct[process_id].local_free_task        = 0 ;
@@ -733,24 +677,23 @@ void init_taskq(process_id)
  *
  ****************************************************************************/
 
-int check_task_counter(process_id)
-  unsigned process_id;
+long check_task_counter()
 {
-    int flag = 0 ;
-    
-    
+    long flag = 0 ;
+
+
     LOCK(global->task_counter_lock);
-    
+
     if( global->task_counter == 0 )
         /* First processor */
         flag = 1 ;
-    
+
     global->task_counter++ ;
     if( global->task_counter >= n_processors )
         global->task_counter = 0 ;
-    
+
     UNLOCK(global->task_counter_lock);
-    
+
     return( flag ) ;
 }
 
@@ -764,16 +707,15 @@ int check_task_counter(process_id)
  *
  ****************************************************************************/
 
-int assign_taskq(process_id)
-  unsigned process_id;
+long assign_taskq(long process_id)
 {
-    int qid ;
-    
+    long qid ;
+
     qid = task_struct[process_id].crnt_taskq_id++ ;
-    
+
     if( task_struct[process_id].crnt_taskq_id >= n_taskqueues )
         task_struct[process_id].crnt_taskq_id = 0 ;
-    
+
     return( qid ) ;
 }
 
@@ -787,17 +729,14 @@ int assign_taskq(process_id)
  *
  ****************************************************************************/
 
-void print_task( task, process_id )
-  
-  Task *task ;
-  unsigned process_id;
+void print_task(Task *task)
 {
     if( task == 0 )
         {
             printf( "Task (NULL)\n" ) ;
             return ;
         }
-    
+
     switch( task->task_type )
         {
         case TASK_MODELING:
@@ -810,33 +749,30 @@ void print_task( task, process_id )
             printf( "Task (FF Refinement)\n" ) ;
             break ;
         case TASK_RAY:
-            printf( "Task (Ray)  (patch ID %d)\n",
+            printf( "Task (Ray)  (patch ID %ld)\n",
                    task->task.ray.e->patch->seq_no ) ;
             break ;
         case TASK_VISIBILITY:
-            printf( "Task (Visibility)  (patch ID %d)\n",
+            printf( "Task (Visibility)  (patch ID %ld)\n",
                    task->task.vis.e->patch->seq_no ) ;
             break ;
         case TASK_RAD_AVERAGE:
             printf( "Task (RadAvg)\n" ) ;
             break ;
         default:
-            fprintf( stderr, "Task(Illegal task type %d)\n", task->task_type );
+            fprintf( stderr, "Task(Illegal task type %ld)\n", task->task_type );
         }
 }
 
 
-void print_taskq( tq, process_id )
-  
-  Task_Queue *tq ;
-  unsigned process_id;
+void print_taskq(Task_Queue *tq)
 {
     Task *t ;
-    
-    printf( "TaskQ: %d tasks in the queue\n", taskq_length(tq) ) ;
+
+    printf( "TaskQ: %ld tasks in the queue\n", taskq_length(tq) ) ;
     for( t = taskq_top(tq) ; t ; t = t->next )
         {
             printf( "  " ) ;
-            print_task( t, process_id ) ;
+            print_task( t ) ;
         }
 }

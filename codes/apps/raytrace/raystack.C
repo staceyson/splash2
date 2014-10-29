@@ -43,14 +43,14 @@
 
 struct r_struct {
 INT 	pad1[PAGE_SIZE];		/* This pad is inserted to avoid
-					   false-sharing due to artifacts 
+					   false-sharing due to artifacts
 					   of not having a private space
 					   in the sproc model */
 RAY	*Stack; 			/* Ptr to ray tree stack.	     */
 INT	StackTop;			/* Top of ray tree stack.	     */
 INT	StackSize;			/* Maximum size of ray tree stack.   */
 INT 	pad2[PAGE_SIZE];		/* This pad is inserted to avoid
-					   false-sharing due to artifacts 
+					   false-sharing due to artifacts
 					   of not having a private space
 					   in the sproc model */
 
@@ -70,9 +70,7 @@ INT 	pad2[PAGE_SIZE];		/* This pad is inserted to avoid
  *	Nothing.
  */
 
-VOID	CopyRayMsg(rdst, rsrc)
-RAY	*rdst;
-RAY	*rsrc;
+VOID	CopyRayMsg(RAY *rdst, RAY *rsrc)
 	{
 	rdst->id = rsrc->id;
 	rdst->x  = rsrc->x;
@@ -106,12 +104,8 @@ RAY	*rsrc;
  *	Nothing.
  */
 
-VOID	InitRayTreeStack(TreeDepth, pid)
-INT	TreeDepth;
-INT	pid;
+VOID	InitRayTreeStack(INT TreeDepth, INT pid)
 	{
-	unsigned int powint();
-
 	raystruct[pid].StackSize   = powint(2, TreeDepth) - 1;
 	raystruct[pid].StackSize  += NumSubRays;
 	raystruct[pid].Stack	    = LocalMalloc(raystruct[pid].StackSize*sizeof(RAY), "raystack.c");
@@ -119,11 +113,10 @@ INT	pid;
 	}
 
 
-unsigned int powint(i,j)
-  int i,j;
+unsigned long powint(long i, long j)
   {
-  int k;
-  int temp = 1;
+  long k;
+  long temp = 1;
 
   for (k = 0; k < j; k++)
       temp = temp*i;
@@ -144,9 +137,7 @@ unsigned int powint(i,j)
  *	Nothing.
  */
 
-VOID	PushRayTreeStack(rmsg, pid)
-RAY	*rmsg;
-INT	pid;
+VOID	PushRayTreeStack(RAY *rmsg, INT pid)
 	{
 	raystruct[pid].StackTop++;
 
@@ -174,9 +165,7 @@ INT	pid;
  *	Either empty or popped status code.
  */
 
-INT	PopRayTreeStack(rmsg, pid)
-RAY	*rmsg;
-INT	pid;
+INT	PopRayTreeStack(RAY *rmsg, INT pid)
 	{
 	if (raystruct[pid].StackTop < 0)
 		return (RTS_EMPTY);

@@ -43,25 +43,6 @@
 
 
 /*
- *	Define triangle data structure.
- */
-
-typedef struct	tri
-	{
-	VEC3	norm;			/* Face normal. 		     */
-	REAL	d;			/* Plane equation D.		     */
-	VEC3	*vptr;			/* Global vertex list pointer.	     */
-	VEC3	*nptr;			/* Global normal list pointer.	     */
-	INT	vindex[3];		/* Index of vertices.		     */
-	INT	indx;			/* Normal component max flag.	     */
-	BOOL	norminterp;		/* Do normal interpolation?	     */
-	BOOL	vorder; 		/* Vertex order orientation.	     */
-	}
-	TRI;
-
-
-
-/*
  * NAME
  *	TriName - return the object name
  *
@@ -91,8 +72,7 @@ CHAR	*TriName()
  *	Nothing.
  */
 
-VOID	TriPrint(po)
-OBJECT	*po;
+VOID	TriPrint(OBJECT *po)
 	{
 	INT	i, j;
 	INT	*vindex;		/* Ptr to vertex index. 	     */
@@ -138,9 +118,7 @@ OBJECT	*po;
  *	Nothing.
  */
 
-VOID	TriElementBoundBox(pe, pt)
-ELEMENT *pe;
-TRI	*pt;
+VOID	TriElementBoundBox(ELEMENT *pe, TRI *pt)
 	{
 	INT	i;			/* Index.			     */
 	INT	*vindex;		/* Vertex index pointer.	     */
@@ -196,8 +174,7 @@ TRI	*pt;
  *	Nothing.
  */
 
-VOID	TriBoundBox(po)
-OBJECT	*po;
+VOID	TriBoundBox(OBJECT *po)
 	{
 	INT	i;
 	TRI	*pt;			/* Ptr to triangle data.	     */
@@ -258,10 +235,7 @@ OBJECT	*po;
  *	Nothing.
  */
 
-VOID	TriNormal(hit, Pi, Ni)
-IRECORD *hit;
-POINT	Pi;
-POINT	Ni;
+VOID	TriNormal(IRECORD *hit, POINT Pi, POINT Ni)
 	{
 	ELEMENT *pe;
 	TRI	*pt;			/* Ptr to triangle data.	     */
@@ -335,9 +309,7 @@ POINT	Ni;
  *	Nothing.
  */
 
-VOID	TriDataNormalize(po, normMat)
-OBJECT	*po;
-MATRIX	 normMat;
+VOID	TriDataNormalize(OBJECT *po, MATRIX normMat)
 	{
 	INT	i;
 	POINT	coord;
@@ -418,12 +390,8 @@ MATRIX	 normMat;
  *	The number of intersection points.
  */
 
-INT	TriPeIntersect(pr, pe, hit)
-RAY	*pr;
-ELEMENT *pe;
-IRECORD *hit;
+INT	TriPeIntersect(RAY *pr, ELEMENT *pe, IRECORD *hit)
 	{
-	INT	i;
 	REAL	Rd_dot_Pn;		/* Polygon normal dot ray direction. */
 	REAL	Ro_dot_Pn;		/* Polygon normal dot ray origin.    */
 	REAL	q1, q2;
@@ -555,10 +523,7 @@ IRECORD *hit;
  *	The number of intersections found.
  */
 
-INT	TriIntersect(pr, po, hit)
-RAY	*pr;
-OBJECT	*po;
-IRECORD *hit;
+INT	TriIntersect(RAY *pr, OBJECT *po, IRECORD *hit)
 	{
 	INT	i;
 	INT	nhits;			/* # hits in polyhedra. 	     */
@@ -608,12 +573,9 @@ IRECORD *hit;
  *	Nothing.
  */
 
-VOID	TriTransform(po, xtrans, xinvT)
-OBJECT	*po;
-MATRIX	xtrans;
-MATRIX	xinvT;
+VOID	TriTransform(OBJECT *po, MATRIX xtrans, MATRIX xinvT)
 	{
-	INT	i, j;			/* Indices.			     */
+	INT	i;			/* Indices.			     */
 	INT	numelems;		/* # of elements.		     */
 	INT	*vindex;		/* Vertex index pointer.	     */
 	VEC3	*vptr, *vp;		/* Vertex list pointers.	     */
@@ -753,11 +715,9 @@ MATRIX	xinvT;
  *	Nothing.
  */
 
-VOID	TriRead(po, pf)
-OBJECT	*po;
-FILE	*pf;
+VOID	TriRead(OBJECT *po, FILE *pf)
 	{
-	INT	i, j;			/* Indices.			     */
+	INT	i;			/* Indices.			     */
 	INT	instat; 		/* Read status. 		     */
 	INT	totalverts;		/* Total # of vertices in tri mesh.  */
 	CHAR	normstr[5];		/* Face/vertex normal flag string.   */
